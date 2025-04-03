@@ -5,15 +5,12 @@ from .models import News
 from .serializers import NewsSerializer
 from django.shortcuts import get_object_or_404
 
-# GET: Fetch all news
-class NewsListView(APIView):
+class NewsView(APIView):
     def get(self, request):
         news = News.objects.all()
         serializer = NewsSerializer(news, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-# POST: Create news
-class NewsCreateView(APIView):
     def post(self, request):
         serializer = NewsSerializer(data=request.data)
         if serializer.is_valid():
@@ -24,11 +21,10 @@ class NewsCreateView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# PUT: Update news by ID
 class NewsUpdateView(APIView):
     def put(self, request, id):
         news = get_object_or_404(News, id=id)
-        serializer = NewsSerializer(news, data=request.data, partial=True)  # partial=True allows partial updates
+        serializer = NewsSerializer(news, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.save()
             return Response({
@@ -37,7 +33,6 @@ class NewsUpdateView(APIView):
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-# DELETE: Delete news by ID
 class NewsDeleteView(APIView):
     def delete(self, request, id):
         news = get_object_or_404(News, id=id)
