@@ -21,7 +21,7 @@ class NewsView(APIView):
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class NewsUpdateView(APIView):
+class NewsDetailView(APIView):
     def put(self, request, id):
         news = get_object_or_404(News, id=id)
         serializer = NewsSerializer(news, data=request.data, partial=True)
@@ -33,7 +33,6 @@ class NewsUpdateView(APIView):
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-class NewsDeleteView(APIView):
     def delete(self, request, id):
         news = get_object_or_404(News, id=id)
         news.delete()
