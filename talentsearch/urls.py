@@ -22,4 +22,5 @@ urlpatterns = [
     path('messages/',include('messaging.urls')),
     path('api/news/',include('news.urls')),
     path('api/adverts/', include('adverts.urls')),
+    path('api/auth/', include('authapp.urls')),
 ]
