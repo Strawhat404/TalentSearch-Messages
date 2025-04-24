@@ -27,7 +27,23 @@ class User(AbstractUser):
     REQUIRED_FIELDS = []  # Remove username from required fields
 
     objects = UserManager()  # Use the custom user manager
-    
+    pass
+
+    groups = models.ManyToManyField(
+        'auth.Group',
+        related_name='custom_user_set',  # Change this to a unique name
+        blank=True,
+        help_text='The groups this user belongs to.',
+        related_query_name='user'
+    )
+    user_permissions = models.ManyToManyField(
+        'auth.Permission',
+        related_name='custom_user_permissions_set',  # Change this to a unique name
+        blank=True,
+        help_text='Specific permissions for this user.',
+        related_query_name='user'
+    )
+
 class Notification(models.Model):
     NOTIFICATION_TYPES = (
         ('info', 'Information'),
