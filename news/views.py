@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from rest_framework.permissions import IsAuthenticated,IsAdminUser
 from .models import News
 from .serializers import NewsSerializer
 from django.shortcuts import get_object_or_404
@@ -10,7 +11,7 @@ class NewsView(APIView):
         news = News.objects.all()
         serializer = NewsSerializer(news, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
+    permission_classes = [IsAuthenticated,IsAdminUser]
     def post(self, request):
         serializer = NewsSerializer(data=request.data)
         if serializer.is_valid():
@@ -22,6 +23,7 @@ class NewsView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class NewsDetailView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
     def put(self, request, id):
         news = get_object_or_404(News, id=id)
         serializer = NewsSerializer(news, data=request.data, partial=True)
