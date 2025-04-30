@@ -11,4 +11,4 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender} to {self.receiver} at {self.created_at}"
-    
+#This section will be changed to a threaded manner based on the update from the front end team
