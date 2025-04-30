@@ -1,17 +1,22 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated,IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from .models import News
 from .serializers import NewsSerializer
 from django.shortcuts import get_object_or_404
+from django.views.decorators.cache import cache_page
+from django.utils.decorators import method_decorator
 
 class NewsView(APIView):
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    @method_decorator(cache_page(60 * 15))  # Cache for 15 minutes
     def get(self, request):
         news = News.objects.all()
         serializer = NewsSerializer(news, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-    permission_classes = [IsAuthenticated,IsAdminUser]
+
     def post(self, request):
         serializer = NewsSerializer(data=request.data)
         if serializer.is_valid():
@@ -24,6 +29,7 @@ class NewsView(APIView):
 
 class NewsDetailView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
+
     def put(self, request, id):
         news = get_object_or_404(News, id=id)
         serializer = NewsSerializer(news, data=request.data, partial=True)
