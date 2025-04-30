@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-aa!v(nx)x+fb^+f0*jqh0tpgc+_lbjs-j4l8k8@jle1r6$sc)8
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '*.onrender.com', 'talentsearch-messages.onrender.com']
 
 
 # Application definition
