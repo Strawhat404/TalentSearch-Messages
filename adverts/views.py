@@ -2,10 +2,12 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from .models import Advert
 from .serializers import AdvertSerializer
+from talentsearch.throttles import CreateRateThrottle
 
 class AdvertListCreateView(generics.ListCreateAPIView):
     queryset = Advert.objects.all()
     serializer_class = AdvertSerializer
+    throttle_classes = [CreateRateThrottle]
 
     def create(self, request, *args, **kwargs):
         response = super().create(request, *args, **kwargs)
@@ -19,6 +21,7 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Advert.objects.all()
     serializer_class = AdvertSerializer
     lookup_field = "id"
+    throttle_classes = [CreateRateThrottle]
 
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
