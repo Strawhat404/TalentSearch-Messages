@@ -1,6 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
-from django.conf import settings  # ✅ correct way
+from django.conf import settings  
 
 class Message(models.Model):
     sender = models.ForeignKey(settings.AUTH_USER_MODEL, related_name='sent_messages', on_delete=models.CASCADE)
