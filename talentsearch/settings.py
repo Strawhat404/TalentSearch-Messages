@@ -60,7 +60,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'talentsearch.middleware.AdminRateLimitMiddleware',
+    # 'talentsearch.middleware.AdminRateLimitMiddleware',
 ]
 
 ROOT_URLCONF = 'talentsearch.urls'
