@@ -4,6 +4,4 @@ from .models import News
 class NewsSerializer(serializers.ModelSerializer):
     class Meta:
         model = News
-        fields = ['id','title','date','category','image','created_at','content']
-        read_only_fields = ['id','created_at','content']
-        
+        fields = ['id', 'title', 'content', 'created_by', 'created_at', 'updated_at', 'status', 'image_gallery', 'tags']
