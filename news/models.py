@@ -1,7 +1,6 @@
 from django.db import models
-from django.contrib.auth.models import User
 from taggit.managers import TaggableManager
-
+from django.conf import settings
 class News(models.Model):
     STATUS_CHOICES = (
         ('draft', 'Draft'),
@@ -10,7 +9,7 @@ class News(models.Model):
     )
     title = models.CharField(max_length=255, help_text="Enter a concise news title (max 255 characters).")
     content = models.TextField(help_text="Provide the full news content.")
-    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, help_text="User who created the news.")
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, help_text="User who created the news.")
     created_at = models.DateTimeField(auto_now_add=True, help_text="Auto-set creation date.")
     updated_at = models.DateTimeField(auto_now=True, help_text="Auto-set update date.")
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='draft', help_text="Current status of the news.")

@@ -43,7 +43,8 @@ class Advert(models.Model):
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
+        null=True,
+        on_delete=models.SET_NULL,
         related_name='adverts',
         help_text="User who created the advert"
     )
