@@ -1,7 +1,7 @@
 from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from django.contrib.auth import authenticate, login
+from django.contrib.auth import authenticate, login,get_user_model
 from .serializers import UserSerializer, LoginSerializer, AdminLoginSerializer, NotificationSerializer
 from rest_framework.authtoken.models import Token
 from django.core.mail import send_mail
@@ -9,20 +9,27 @@ from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_str, force_bytes
 from .utils import password_reset_token_generator
-from django.contrib.auth import get_user_model
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated,IsAdminUser,AllowAny
 from .models import Notification
 from talentsearch.throttles import AuthRateThrottle
+from django.db import transaction
 
 User = get_user_model()
 
 class RegisterView(APIView):
+    permission_classes = [AllowAny]
     throttle_classes = [AuthRateThrottle]
     def post(self, request):
         serializer = UserSerializer(data=request.data)
         if serializer.is_valid():
-            user = serializer.save()
-            token, created = Token.objects.get_or_create(user=user)
+            with transaction.atomic():
+                user = serializer.save()
+                print(f"User saved: ID={user.id}, Email={user.email}")  # Debug
+                user_exists = User.objects.filter(id=user.id).exists()
+                print(f"User exists in DB: {user_exists}")  # Debug
+                token = Token.objects.filter(user=user).first()
+                if not token:
+                    token = Token.objects.create(user=user)
             return Response({
                 'id': user.id,
                 'email': user.email,
@@ -30,7 +37,6 @@ class RegisterView(APIView):
                 'token': token.key
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 class LoginView(APIView):
     throttle_classes = [AuthRateThrottle]
     def post(self, request):
