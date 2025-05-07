@@ -2,7 +2,7 @@ from rest_framework import status, generics
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.contrib.auth import authenticate, login
-from .serializers import UserSerializer, LoginSerializer, AdminLoginSerializer, NotificationSerializer
+from .serializers import UserSerializer, LoginSerializer, AdminLoginSerializer, NotificationSerializer, TokenSerializer
 from rest_framework.authtoken.models import Token
 from django.core.mail import send_mail
 from django.urls import reverse
@@ -13,6 +13,8 @@ from django.contrib.auth import get_user_model
 from rest_framework.permissions import IsAuthenticated
 from .models import Notification
 from talentsearch.throttles import AuthRateThrottle
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 User = get_user_model()
 
@@ -33,6 +35,30 @@ class RegisterView(APIView):
 
 class LoginView(APIView):
     throttle_classes = [AuthRateThrottle]
+    @extend_schema(
+        tags=['auth'],
+        summary='User login',
+        description='Authenticate user and return token',
+        request=LoginSerializer,
+        responses={
+            200: TokenSerializer,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={
+                    'token': 'your-token-here',
+                    'user': {
+                        'id': 1,
+                        'email': 'user@example.com',
+                        'name': 'John Doe'
+                    }
+                },
+                status_codes=['200']
+            ),
+        ]
+    )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -40,12 +66,10 @@ class LoginView(APIView):
             if user:
                 token, created = Token.objects.get_or_create(user=user)
                 login(request, user)
-                return Response({
-                    'id': user.id,
-                    'email': user.email,
-                    'name': user.name,
-                    'token': token.key
-                }, status=status.HTTP_200_OK)
+                return Response(TokenSerializer({
+                    'token': token.key,
+                    'user': user
+                }).data, status=status.HTTP_200_OK)
             return Response({'error': 'Invalid Credentials'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

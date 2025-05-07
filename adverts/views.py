@@ -3,6 +3,38 @@ from rest_framework.response import Response
 from .models import Advert
 from .serializers import AdvertSerializer
 from talentsearch.throttles import CreateRateThrottle
+from drf_spectacular.utils import extend_schema, OpenApiTypes
+from rest_framework.views import APIView
+
+class AdvertView(APIView):
+    @extend_schema(
+        tags=['adverts'],
+        summary='List or create advertisements',
+        description='Get all advertisements or create a new one',
+        request=AdvertSerializer,
+        responses={
+            200: AdvertSerializer(many=True),
+            201: AdvertSerializer,
+            400: OpenApiTypes.OBJECT,
+        }
+    )
+    def get(self, request):
+        # Your existing view code
+        pass
+
+    @extend_schema(
+        tags=['adverts'],
+        summary='Create advertisement',
+        description='Create a new advertisement',
+        request=AdvertSerializer,
+        responses={
+            201: AdvertSerializer,
+            400: OpenApiTypes.OBJECT,
+        }
+    )
+    def post(self, request):
+        # Your existing view code
+        pass
 
 class AdvertListCreateView(generics.ListCreateAPIView):
     queryset = Advert.objects.all()

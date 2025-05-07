@@ -1,0 +1,11 @@
+-r base.txt
+
+# Development Tools
+django-debug-toolbar==4.3.0
+ipython==8.22.2
+black==24.2.0
+flake8==7.0.0
+isort==5.13.2
+pytest==8.0.2
+pytest-django==4.8.0
+coverage==7.4.3
