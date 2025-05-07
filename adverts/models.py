@@ -45,6 +45,7 @@ class Advert(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='adverts',
+        null=True,
         help_text="User who created the advert"
     )
     updated_at = models.DateTimeField(

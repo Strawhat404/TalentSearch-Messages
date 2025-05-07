@@ -1,5 +1,5 @@
 # talentsearch/middleware.py
-from ratelimit.decorators import ratelimit
+from django_ratelimit.decorators import ratelimit
 from django.http import HttpResponseForbidden
 
 class AdminRateLimitMiddleware:

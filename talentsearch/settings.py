@@ -99,20 +99,20 @@ AUTH_USER_MODEL = 'authapp.User'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
-    ], 'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',  # 100 requests per hour for anonymous users
-        'user': '1000/hour',  # 1000 requests per hour for authenticated users
-        'auth': '10/minute',  # 10 requests per minute for auth endpoints
-        'create': '5/minute',  # 5 POST requests per minute
+        'anon': '100/hour',
+        'user': '1000/hour',
+        'auth': '10/minute',
+        'create': '5/minute',
     },
 }
 
@@ -155,16 +155,20 @@ USE_TZ = True
 
 CACHES = {
     'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
+# Only use Redis if the URL is provided
+if os.environ.get('REDIS_URL'):
+    CACHES['default'] = {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://127.0.0.1:6379/1',  # Local Redis for development
+        'LOCATION': os.environ.get('REDIS_URL'),
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         }
     }
-}
-# For Render, override with environment variable
-if os.environ.get('REDIS_URL'):
-    CACHES['default']['LOCATION'] = os.environ.get('REDIS_URL')
+
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
