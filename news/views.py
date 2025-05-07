@@ -6,15 +6,39 @@ from .models import News
 from .serializers import NewsSerializer
 from django.shortcuts import get_object_or_404
 from talentsearch.throttles import CreateRateThrottle
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
+from drf_spectacular.types import OpenApiTypes
 
 class NewsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
     throttle_classes = [CreateRateThrottle]
+
+    @extend_schema(
+        tags=['news'],
+        summary='List or create news',
+        description='Get all news articles or create a new one',
+        request=NewsSerializer,
+        responses={
+            200: NewsSerializer(many=True),
+            201: NewsSerializer,
+            400: OpenApiTypes.OBJECT,
+        }
+    )
     def get(self, request):
         news = News.objects.all()
         serializer = NewsSerializer(news, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
+    @extend_schema(
+        tags=['news'],
+        summary='Create news',
+        description='Create a new news article',
+        request=NewsSerializer,
+        responses={
+            201: NewsSerializer,
+            400: OpenApiTypes.OBJECT,
+        }
+    )
     def post(self, request):
         serializer = NewsSerializer(data=request.data)
         if serializer.is_valid():

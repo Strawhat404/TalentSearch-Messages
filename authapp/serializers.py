@@ -22,6 +22,10 @@ class AdminLoginSerializer(serializers.Serializer):
     email = serializers.EmailField()
     password = serializers.CharField()
 
+class TokenSerializer(serializers.Serializer):
+    token = serializers.CharField()
+    user = UserSerializer(read_only=True)
+
 class NotificationSerializer(serializers.ModelSerializer):
     user_id = serializers.PrimaryKeyRelatedField(source='user', read_only=True)
     class Meta:
