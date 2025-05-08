@@ -39,13 +39,16 @@ INSTALLED_APPS = [
     'rest_framework.authtoken',
     'drf_yasg',
     'drf_spectacular',
+    'drf_spectacular_sidecar',  # Swagger UI static files
     'taggit',
 
     # Custom apps
+    'userprofile',
     'authapp',
     'messaging',
     'news',
     'adverts',
+    'jobs',
 ]
 
 MIDDLEWARE = [
@@ -166,6 +169,8 @@ SPECTACULAR_SETTINGS = {
         {'name': 'messages', 'description': 'Messaging system operations'},
         {'name': 'news', 'description': 'News management operations'},
         {'name': 'adverts', 'description': 'Advertisement management operations'},
+        {'name': 'jobs', 'description': 'Job posting and management operations'},
+        {'name': 'profiles', 'description': 'User profile management operations'},
     ],
     'SECURITY': [{'Token': []}],
     'SECURITY_DEFINITIONS': {
@@ -175,6 +180,19 @@ SPECTACULAR_SETTINGS = {
             'in': 'header',
             'description': 'Token-based authentication. Format: Token <your_token>'
         }
+    },
+    'SCHEMA_PATH_PREFIX': '/api/',
+    'SCHEMA_PATH_PREFIX_TRIM': True,
+    'SWAGGER_UI_DIST': 'SIDECAR',
+    'SWAGGER_UI_FAVICON_HREF': 'SIDECAR',
+    'REDOC_DIST': 'SIDECAR',
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+        'filter': True,
+        'tagsSorter': 'alpha',
+        'operationsSorter': 'alpha',
     },
 }
 
