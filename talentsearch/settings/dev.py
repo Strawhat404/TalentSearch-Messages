@@ -1,23 +1,36 @@
 """
 Development settings for TalentSearch project.
 """
+
 from .base import *
+import dj_database_url
+from decouple import config
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-aa!v(nx)x+fb^+f0*jqh0tpgc+_lbjs-j4l8k8@jle1r6$sc)8'
+DEBUG = config('DEBUG', cast=bool, default=True)
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+SECRET_KEY = config('SECRET_KEY', default='insecure-dev-key')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
 
-# Database
+# Use PostgreSQL or any DB via DATABASE_URL (no fallback to sqlite3)
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': dj_database_url.config(
+        default=config('DATABASE_URL'),
+        conn_max_age=600
+    )
 }
 
-# Email settings for development
+# Optional Redis support for dev
+if config('REDIS_URL', default=None):
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': config('REDIS_URL'),
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+            }
+        }
+    }
+
+# Console backend for emails in development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
