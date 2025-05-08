@@ -18,7 +18,7 @@ api_docs_urlpatterns = [
     ), name='swagger-ui'),
     path('redoc/', SpectacularRedocView.as_view(
         url_name='schema',
-   permission_classes=[permissions.AllowAny],
+        permission_classes=[permissions.AllowAny],
     ), name='redoc'),
 ]
 
@@ -31,6 +31,8 @@ urlpatterns = [
     path('api/messages/', include('messaging.urls')),
     path('api/news/', include('news.urls')),
     path('api/adverts/', include('adverts.urls')),
+    path('api/profiles/', include('userprofile.urls')),
+    path('api/jobs/', include('jobs.urls')),
    
     # API Documentation
     path('api/docs/', include(api_docs_urlpatterns)),
