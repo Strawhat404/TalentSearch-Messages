@@ -1,11 +1,15 @@
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
-import six  # Or remove dependency entirely (see below)
+import six
 
-class TokenGenerator(PasswordResetTokenGenerator):
+class PasswordResetTokenGenerator(PasswordResetTokenGenerator):
+    """
+    Custom password reset token generator.
+    """
     def _make_hash_value(self, user, timestamp):
-        return (
-            six.text_type(user.pk) + six.text_type(timestamp) +
-            six.text_type(user.is_active)
-        )
+        """
+        This method is used to generate the hash value.
+        It includes the user's ID and last login timestamp.
+        """
+        return str(user.pk) + str(timestamp) + str(user.last_login)
 
-password_reset_token_generator = TokenGenerator()
+password_reset_token_generator = PasswordResetTokenGenerator()
