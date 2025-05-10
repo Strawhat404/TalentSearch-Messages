@@ -3,7 +3,7 @@ services:
     name: talentsearch-api
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --log-level debug"
+    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --log-level debug --access-logfile - --error-logfile -"
     envVars:
       # Django Core Settings
       - key: PYTHON_VERSION
@@ -15,7 +15,7 @@ services:
       - key: DEBUG
         value: "True"
       - key: ALLOWED_HOSTS
-        value: "talentsearch-messages-3.onrender.com,localhost,127.0.0.1"
+        value: "talentsearch-messages-3.onrender.com,localhost,127.0.0.1,0.0.0.0"
       
       # Database Configuration
       - key: DATABASE_URL
@@ -67,6 +67,8 @@ services:
       # Logging
       - key: DJANGO_LOG_LEVEL
         value: "DEBUG"
+      - key: PYTHONUNBUFFERED
+        value: "1"
 
   - type: redis
     name: talentsearch-redis

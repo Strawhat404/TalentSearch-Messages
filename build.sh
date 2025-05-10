@@ -17,6 +17,18 @@ python --version
 echo "Installed packages:"
 pip list
 
+# Show Django version
+echo "Django version:"
+python -c "import django; print(django.get_version())"
+
+# Show current directory
+echo "Current directory:"
+pwd
+
+# List files in current directory
+echo "Files in current directory:"
+ls -la
+
 # Collect static files
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
@@ -36,5 +48,9 @@ python manage.py setup_roles
 # Show environment variables (excluding sensitive ones)
 echo "Environment variables:"
 env | grep -v "SECRET\|PASSWORD\|KEY" | sort
+
+# Test Django setup
+echo "Testing Django setup..."
+python manage.py check
 
 echo "Build completed successfully!"
