@@ -3,14 +3,14 @@ services:
     name: talentsearch-api
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn talentsearch.wsgi:application"
+    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT"
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.0
       - key: DJANGO_SETTINGS_MODULE
         value: talentsearch.settings.prod
       - key: SECRET_KEY
-        generateValue: true
+        value: "django-insecure-your-secret-key-here-please-change-in-production"
       - key: WEB_CONCURRENCY
         value: 4
       - key: ALLOWED_HOSTS
