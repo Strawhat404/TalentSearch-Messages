@@ -2,8 +2,6 @@
 Base settings for TalentSearch project.
 """
 
-
-
 import os
 from pathlib import Path
 import environ
@@ -41,6 +39,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'drf_spectacular_sidecar',  # Swagger UI static files
     'taggit',
+    'corsheaders',
 
     # Custom apps
     'userprofile',
@@ -50,6 +49,7 @@ INSTALLED_APPS = [
     'adverts',
     'jobs',
 ]
+CORS_ALLOW_ALL_ORIGINS = True
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -61,6 +61,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
 ]
 
 ROOT_URLCONF = 'talentsearch.urls'
