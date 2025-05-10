@@ -19,6 +19,7 @@ drf-spectacular-sidecar==2025.5.1
 drf-yasg==1.21.10
 executing==2.2.0
 flake8==7.0.0
+gunicorn==23.0.0
 inflection==0.5.1
 iniconfig==2.1.0
 ipython==8.22.2
