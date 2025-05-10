@@ -3,7 +3,7 @@ services:
     name: talentsearch-api
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120"
+    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120 --log-level debug"
     envVars:
       # Django Core Settings
       - key: PYTHON_VERSION
@@ -13,9 +13,9 @@ services:
       - key: SECRET_KEY
         value: "ot7sk2+*l)vm4r7vyto97r&3ggsetgyt3bph+@)_-p%mi!#(qn"
       - key: DEBUG
-        value: "False"
+        value: "True"
       - key: ALLOWED_HOSTS
-        value: "talentsearch-messages-3.onrender.com"
+        value: "talentsearch-messages-3.onrender.com,localhost,127.0.0.1"
       
       # Database Configuration
       - key: DATABASE_URL
@@ -44,17 +44,17 @@ services:
       
       # Security Settings
       - key: SECURE_SSL_REDIRECT
-        value: "True"
+        value: "False"
       - key: SESSION_COOKIE_SECURE
-        value: "True"
+        value: "False"
       - key: CSRF_COOKIE_SECURE
-        value: "True"
+        value: "False"
       - key: SECURE_HSTS_SECONDS
-        value: "31536000"
+        value: "0"
       - key: SECURE_HSTS_INCLUDE_SUBDOMAINS
-        value: "True"
+        value: "False"
       - key: SECURE_HSTS_PRELOAD
-        value: "True"
+        value: "False"
       
       # Performance Settings
       - key: WEB_CONCURRENCY
@@ -63,6 +63,10 @@ services:
         value: 1000
       - key: MAX_REQUESTS_JITTER
         value: 50
+
+      # Logging
+      - key: DJANGO_LOG_LEVEL
+        value: "DEBUG"
 
   - type: redis
     name: talentsearch-redis
