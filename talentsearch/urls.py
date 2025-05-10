@@ -31,7 +31,10 @@ urlpatterns = [
     path('api/messages/', include('messaging.urls')),
     path('api/news/', include('news.urls')),
     path('api/adverts/', include('adverts.urls')),
-   
+    path('api/auth/profile/', include('userprofile.urls')),
+    path('api/user_gallery/', include('usergallery.urls')),
+
+    path('api/jobs/', include('jobs.urls')),
     # API Documentation
     path('api/docs/', include(api_docs_urlpatterns)),
 ]
