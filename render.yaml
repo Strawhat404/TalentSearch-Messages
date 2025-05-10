@@ -19,11 +19,6 @@ services:
         fromDatabase:
           name: talentsearch-db
           property: connectionString
-      - key: REDIS_URL
-        fromService:
-          type: redis
-          name: talentsearch-redis
-          property: connectionString
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
@@ -34,13 +29,6 @@ services:
         value: abelyitages10@gmail.com
       - key: EMAIL_HOST_PASSWORD
         value: ftti eokt edjb newg
-
-  - type: redis
-    name: talentsearch-redis
-    plan: free
-    ipAllowList:
-      - source: 0.0.0.0/0
-        description: Allow all (for testing)
 
 databases:
   - name: talentsearch-db
