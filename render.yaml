@@ -24,14 +24,12 @@ services:
           type: redis
           name: talentsearch-redis
           property: connectionString
+  - type: redis
+    name: talentsearch-redis
+    plan: free
 
 databases:
   - name: talentsearch-db
     databaseName: talentsearch
     user: talentsearch
-    plan: free
-
-services:
-  - type: redis
-    name: talentsearch-redis
     plan: free 
