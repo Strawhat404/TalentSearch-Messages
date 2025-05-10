@@ -14,7 +14,7 @@ services:
       - key: WEB_CONCURRENCY
         value: 4
       - key: ALLOWED_HOSTS
-        value: "talentsearch-messages-2.onrender.com"
+        value: "talentsearch-messages-3.onrender.com"
       - key: DEBUG
         value: "False"
       - key: DATABASE_URL
