@@ -3,29 +3,34 @@ services:
     name: talentsearch-api
     env: python
     buildCommand: "./build.sh"
-    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT"
+    startCommand: "gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT --workers 4 --timeout 120"
     envVars:
+      # Django Core Settings
       - key: PYTHON_VERSION
-        value: 3.13.0
+        value: 3.11.0
       - key: DJANGO_SETTINGS_MODULE
         value: talentsearch.settings.prod
       - key: SECRET_KEY
         value: "ot7sk2+*l)vm4r7vyto97r&3ggsetgyt3bph+@)_-p%mi!#(qn"
-      - key: WEB_CONCURRENCY
-        value: 4
-      - key: ALLOWED_HOSTS
-        value: "talentsearch-messages-3.onrender.com"
       - key: DEBUG
         value: "False"
+      - key: ALLOWED_HOSTS
+        value: "talentsearch-messages-3.onrender.com"
+      
+      # Database Configuration
       - key: DATABASE_URL
         fromDatabase:
           name: talentsearch-db
           property: connectionString
+      
+      # Redis Configuration
       - key: REDIS_URL
         fromService:
           type: redis
           name: talentsearch-redis
           property: connectionString
+      
+      # Email Configuration
       - key: EMAIL_HOST
         value: smtp.gmail.com
       - key: EMAIL_PORT
@@ -36,6 +41,28 @@ services:
         value: abelyitages10@gmail.com
       - key: EMAIL_HOST_PASSWORD
         value: ftti eokt edjb newg
+      
+      # Security Settings
+      - key: SECURE_SSL_REDIRECT
+        value: "True"
+      - key: SESSION_COOKIE_SECURE
+        value: "True"
+      - key: CSRF_COOKIE_SECURE
+        value: "True"
+      - key: SECURE_HSTS_SECONDS
+        value: "31536000"
+      - key: SECURE_HSTS_INCLUDE_SUBDOMAINS
+        value: "True"
+      - key: SECURE_HSTS_PRELOAD
+        value: "True"
+      
+      # Performance Settings
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: MAX_REQUESTS
+        value: 1000
+      - key: MAX_REQUESTS_JITTER
+        value: 50
 
   - type: redis
     name: talentsearch-redis
