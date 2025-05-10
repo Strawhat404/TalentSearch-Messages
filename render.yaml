@@ -23,12 +23,13 @@ services:
           name: talentsearch-db
           property: connectionString
       
-      # Redis Configuration
+      # Redis Configuration (Optional)
       - key: REDIS_URL
         fromService:
           type: redis
           name: talentsearch-redis
           property: connectionString
+          optional: true
       
       # Email Configuration
       - key: EMAIL_HOST
