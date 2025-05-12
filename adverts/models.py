@@ -1,6 +1,10 @@
 from django.db import models
 import uuid
 from django.conf import settings
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class Advert(models.Model):
     STATUS_CHOICES = (
@@ -77,3 +81,14 @@ class Advert(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if self.pk and Advert.objects.filter(pk=self.pk).exists():
+            old_instance = Advert.objects.get(pk=self.pk)
+            if old_instance.image and old_instance.image != self.image:
+                try:
+                    if os.path.isfile(old_instance.image.path):
+                        os.remove(old_instance.image.path)
+                except Exception as e:
+                    logger.error(f"Error deleting old image: {e}")
+        super().save(*args, **kwargs)
