@@ -5,6 +5,7 @@ from drf_spectacular.types import OpenApiTypes
 from django.utils import timezone
 
 class NewsImageSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(allow_null=True, required=False)
     class Meta:
         model = NewsImage
         fields = ['id', 'image', 'caption']
@@ -12,11 +13,7 @@ class NewsImageSerializer(serializers.ModelSerializer):
 class NewsSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
     image_gallery = NewsImageSerializer(many=True, read_only=True)
-    tags = serializers.ListField(
-        child=serializers.CharField(),
-        required=False,
-        help_text="List of tags for the news article"
-    )
+    tags = serializers.SerializerMethodField()
 
     title = serializers.CharField(
         max_length=255,
@@ -39,6 +36,9 @@ class NewsSerializer(serializers.ModelSerializer):
         default='draft',
         help_text="Current status of the news article"
     )
+
+    def get_tags(self, obj):
+        return [tag.name for tag in obj.tags.all()]
 
     @extend_schema_field(OpenApiTypes.OBJECT)
     def get_created_by(self, obj):

@@ -9,6 +9,7 @@ class AdvertSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
     
     image = serializers.ImageField(
+        allow_null=True,
         required=False,
         help_text="Image file for the advert (JPG, PNG, GIF)",
         error_messages={

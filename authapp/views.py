@@ -79,6 +79,7 @@ class LoginView(APIView):
 
 class AdminLoginView(APIView):
     throttle_classes = [AuthRateThrottle]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         """
@@ -137,6 +138,7 @@ class ForgotPasswordView(APIView):
 
 class ResetPasswordView(APIView):
     throttle_classes = [AuthRateThrottle]
+    permission_classes = [AllowAny]
 
     def post(self, request):
         """
