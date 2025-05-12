@@ -24,7 +24,8 @@ User = get_user_model()
 
 class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
-
+    permission_classes = [AllowAny]
+    
     def post(self, request):
         """
         Registers a new user and returns their details and authentication token.
@@ -103,7 +104,6 @@ class AdminLoginView(APIView):
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
 
 class ForgotPasswordView(APIView):
     throttle_classes = [AuthRateThrottle]
