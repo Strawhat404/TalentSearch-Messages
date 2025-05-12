@@ -121,6 +121,21 @@ class CustomUserAdmin(UserAdmin):
     list_display = ('email', 'first_name', 'last_name', 'is_staff', 'get_profile_name')
     list_select_related = ('profile',)
     ordering = ('email',)
+
+    # Add these fieldsets to match your custom user model (no username)
+    fieldsets = (
+        (None, {'fields': ('email', 'password')}),
+        ('Personal info', {'fields': ('first_name', 'last_name')}),
+        ('Permissions', {'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')}),
+        ('Important dates', {'fields': ('last_login', 'date_joined')}),
+    )
+    add_fieldsets = (
+        (None, {
+            'classes': ('wide',),
+            'fields': ('email', 'first_name', 'last_name', 'password1', 'password2', 'is_staff', 'is_active'),
+        }),
+    )
+
     def get_profile_name(self, obj):
         return obj.profile.name if hasattr(obj, 'profile') else '-'
 
@@ -139,22 +154,18 @@ class CustomUserAdmin(UserAdmin):
                 if not form.has_changed():
                     continue
                 obj = form.instance
-                # Fetch the original object if it exists
                 try:
                     old_obj = Profile.objects.get(pk=obj.pk) if obj.pk else None
                 except Profile.DoesNotExist:
                     old_obj = None
 
-                # Store old file paths
                 old_file_paths = {}
                 if old_obj:
                     for field in file_fields:
                         old_file_paths[field] = getattr(old_obj, field).path if getattr(old_obj, field) else None
 
-                # Save the form (this uploads new files)
                 form.save()
 
-                # Delete old files if replaced or cleared
                 for field in file_fields:
                     new_file = getattr(obj, field)
                     old_file_path = old_file_paths.get(field)
@@ -165,8 +176,8 @@ class CustomUserAdmin(UserAdmin):
                                 self.message_user(request, f"Deleted old file: {old_file_path}")
                             except OSError as e:
                                 self.message_user(request, f"Error deleting old file {old_file_path}: {e}")
-        else:
-            super().save_formset(request, form, formset, change)
+        # Always call super to keep Django admin happy!
+        super().save_formset(request, form, formset, change)
 
 # Register Profile model
 @admin.register(Profile)
@@ -174,7 +185,7 @@ class ProfileAdmin(admin.ModelAdmin):
     form = ProfileAdminForm
     list_display = ('name', 'user', 'profession', 'email', 'created_at', 'verified', 'flagged')
     list_filter = ('profession', 'has_driving_license', 'verified', 'flagged', 'availability_status')
-    search_fields = ('name', 'user__username', 'user__email', 'profession', 'location')
+    search_fields = ('name', 'user__email', 'profession', 'location')
     list_select_related = ('user',)
 
     fieldsets = (
@@ -249,7 +260,7 @@ class ProfileAdmin(admin.ModelAdmin):
                 for field in file_fields:
                     new_file = getattr(obj, field)
                     old_file_path = old_file_paths[field]
-                    # If there’s a new file and it’s different from the old file, delete the old file
+                    # If there's a new file and it's different from the old file, delete the old file
                     # Also delete if the field is cleared (new_file is None)
                     if old_file_path and (not new_file or (new_file and new_file.path != old_file_path)):
                         if os.path.isfile(old_file_path):
@@ -259,7 +270,7 @@ class ProfileAdmin(admin.ModelAdmin):
                             except OSError as e:
                                 self.message_user(request, f"Error deleting old file {old_file_path}: {e}")
             except Profile.DoesNotExist:
-                # Shouldn’t happen, but handle just in case
+                # Shouldn't happen, but handle just in case
                 super().save_model(request, obj, form, change)
         else:
             # For new objects, just save normally
