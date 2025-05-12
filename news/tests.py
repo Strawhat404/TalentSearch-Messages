@@ -15,7 +15,11 @@ User = get_user_model()
 
 class NewsModelTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.user = User.objects.create_user(
+            email='testuser@example.com',
+            password='testpass',
+            name='Test User'
+        )
         self.image = NewsImage.objects.create(
             image=self._create_image(),
             caption='Test Image'
@@ -63,7 +67,11 @@ class NewsModelTest(TestCase):
 
 class NewsSerializerTest(TestCase):
     def setUp(self):
-        self.user = User.objects.create_user(username='testuser', password='testpass')
+        self.user = User.objects.create_user(
+            email='testuser@example.com',
+            password='testpass',
+            name='Test User'
+        )
         self.image = NewsImage.objects.create(
             image=self._create_image(),
             caption='Test Image'
@@ -111,8 +119,16 @@ class NewsSerializerTest(TestCase):
 class NewsRouteTest(TestCase):
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpass')
-        self.admin = User.objects.create_superuser(username='admin', password='adminpass')
+        self.user = User.objects.create_user(
+            email='testuser@example.com',
+            password='testpass',
+            name='Test User'
+        )
+        self.admin = User.objects.create_superuser(
+            email='admin@example.com',
+            password='adminpass',
+            name='Admin User'
+        )
         self.image = NewsImage.objects.create(
             image=self._create_image(),
             caption='Test Image'
@@ -134,9 +150,9 @@ class NewsRouteTest(TestCase):
         tmp_file.seek(0)
         return File(tmp_file, name='test_image.jpg')
 
-    def _get_token(self, username, password):
+    def _get_token(self, email, password):
         """Helper to get Token authentication."""
-        user = User.objects.get(username=username)
+        user = User.objects.get(email=email)
         token, created = Token.objects.get_or_create(user=user)
         return token.key
 
@@ -147,14 +163,14 @@ class NewsRouteTest(TestCase):
 
     def test_get_news_list_authenticated_non_admin(self):
         """Test GET /api/news/ with non-admin authentication."""
-        token = self._get_token('testuser', 'testpass')
+        token = self._get_token('testuser@example.com', 'testpass')
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         response = self.client.get('/api/news/')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
 
     def test_get_news_list_authenticated_admin(self):
         """Test GET /api/news/ with admin authentication."""
-        token = self._get_token('admin', 'adminpass')
+        token = self._get_token('admin@example.com', 'adminpass')
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         response = self.client.get('/api/news/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -163,7 +179,7 @@ class NewsRouteTest(TestCase):
 
     def test_post_news_admin(self):
         """Test POST /api/news/ with admin authentication."""
-        token = self._get_token('admin', 'adminpass')
+        token = self._get_token('admin@example.com', 'adminpass')
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = {
             'title': 'New News',
@@ -178,7 +194,7 @@ class NewsRouteTest(TestCase):
 
     def test_post_news_non_admin(self):
         """Test POST /api/news/ with non-admin authentication."""
-        token = self._get_token('testuser', 'testpass')
+        token = self._get_token('testuser@example.com', 'testpass')
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = {
             'title': 'New News',
@@ -190,7 +206,7 @@ class NewsRouteTest(TestCase):
 
     def test_put_news_admin(self):
         """Test PUT /api/news/<id>/ with admin authentication."""
-        token = self._get_token('admin', 'adminpass')
+        token = self._get_token('admin@example.com', 'adminpass')
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         data = {
             'title': 'Updated News',
@@ -203,7 +219,7 @@ class NewsRouteTest(TestCase):
 
     def test_delete_news_admin(self):
         """Test DELETE /api/news/<id>/ with admin authentication."""
-        token = self._get_token('admin', 'adminpass')
+        token = self._get_token('admin@example.com', 'adminpass')
         self.client.credentials(HTTP_AUTHORIZATION=f'Token {token}')
         response = self.client.delete(f'/api/news/{self.news.id}/')
         self.assertEqual(response.status_code, status.HTTP_200_OK)

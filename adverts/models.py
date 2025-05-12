@@ -16,21 +16,21 @@ class Advert(models.Model):
         editable=False,
         help_text="Unique identifier for the advert"
     )
-    image = models.URLField(
-        max_length=200,
+    image = models.ImageField(
+        upload_to='adverts/images/',
         blank=True,
         null=True,
-        help_text="URL to the advert's image"
+        help_text="Image for the advert"
     )
     title = models.CharField(
         max_length=200,
         help_text="Title of the advert"
     )
-    video = models.URLField(
-        max_length=200,
+    video = models.FileField(
+        upload_to='adverts/videos/',
         blank=True,
         null=True,
-        help_text="URL to the advert's video"
+        help_text="Video for the advert"
     )
     created_at = models.DateTimeField(
         auto_now_add=True,

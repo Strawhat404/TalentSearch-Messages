@@ -3,12 +3,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Message
 from .serializers import MessageSerializer
-from talentsearch.throttles import CreateRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 
 class MessageView(APIView):
-    throttle_classes = [CreateRateThrottle]
+    throttle_classes = []
 
     @extend_schema(
         tags=['messages'],
