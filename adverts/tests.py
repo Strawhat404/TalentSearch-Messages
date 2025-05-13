@@ -9,6 +9,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from io import BytesIO
 from PIL import Image
 import uuid
+from .serializers import AdvertSerializer
 
 User = get_user_model()
 
@@ -102,3 +103,12 @@ class AdvertAPITest(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['message'], 'Advert deleted successfully.')
         self.assertFalse(Advert.objects.filter(id=self.advert.id).exists())
+
+class AdvertImageUpdateTest(TestCase):
+    def setUp(self):
+        # Setup code here
+        pass
+
+    def test_update_advert_image(self):
+        # Test code here
+        pass
