@@ -4,6 +4,10 @@ from django.core.validators import FileExtensionValidator, MinValueValidator, Ma
 from django.utils import timezone
 from drf_spectacular.utils import extend_schema_field
 from drf_spectacular.types import OpenApiTypes
+import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class AdvertSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField(read_only=True)
@@ -18,6 +22,7 @@ class AdvertSerializer(serializers.ModelSerializer):
     )
     
     video = serializers.FileField(
+        allow_null=True,
         required=False,
         validators=[
             FileExtensionValidator(
@@ -95,6 +100,36 @@ class AdvertSerializer(serializers.ModelSerializer):
             })
 
         return data
+
+    def update(self, instance, validated_data):
+        # Handle video field update
+        if 'video' in validated_data:
+            if validated_data['video'] is None:
+                # If video is being set to null, delete the old file
+                if instance.video:
+                    try:
+                        if os.path.isfile(instance.video.path):
+                            os.remove(instance.video.path)
+                    except Exception as e:
+                        logger.error(f"Error deleting old video: {e}")
+                instance.video = None
+            else:
+                # If a new video is being uploaded, delete the old one
+                if instance.video:
+                    try:
+                        if os.path.isfile(instance.video.path):
+                            os.remove(instance.video.path)
+                    except Exception as e:
+                        logger.error(f"Error deleting old video: {e}")
+                instance.video = validated_data['video']
+
+        # Update other fields
+        for attr, value in validated_data.items():
+            if attr != 'video':  # Skip video as we handled it above
+                setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
 
     class Meta:
         model = Advert

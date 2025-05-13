@@ -3,8 +3,29 @@ import uuid
 from django.conf import settings
 import os
 import logging
+from django.db.models.signals import pre_delete
+from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
+
+@receiver(pre_delete, sender='adverts.Advert')
+def delete_advert_files(sender, instance, **kwargs):
+    """
+    Signal to delete associated files when an advert is deleted
+    """
+    if instance.image:
+        try:
+            if os.path.isfile(instance.image.path):
+                os.remove(instance.image.path)
+        except Exception as e:
+            logger.error(f"Error deleting image file: {e}")
+    
+    if instance.video:
+        try:
+            if os.path.isfile(instance.video.path):
+                os.remove(instance.video.path)
+        except Exception as e:
+            logger.error(f"Error deleting video file: {e}")
 
 class Advert(models.Model):
     STATUS_CHOICES = (
@@ -85,10 +106,36 @@ class Advert(models.Model):
     def save(self, *args, **kwargs):
         if self.pk and Advert.objects.filter(pk=self.pk).exists():
             old_instance = Advert.objects.get(pk=self.pk)
+            # Handle image cleanup
             if old_instance.image and old_instance.image != self.image:
                 try:
                     if os.path.isfile(old_instance.image.path):
                         os.remove(old_instance.image.path)
                 except Exception as e:
                     logger.error(f"Error deleting old image: {e}")
+            # Handle video cleanup
+            if old_instance.video and old_instance.video != self.video:
+                try:
+                    if os.path.isfile(old_instance.video.path):
+                        os.remove(old_instance.video.path)
+                except Exception as e:
+                    logger.error(f"Error deleting old video: {e}")
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Delete associated files before deleting the model
+        if self.image:
+            try:
+                if os.path.isfile(self.image.path):
+                    os.remove(self.image.path)
+            except Exception as e:
+                logger.error(f"Error deleting image file: {e}")
+        
+        if self.video:
+            try:
+                if os.path.isfile(self.video.path):
+                    os.remove(self.video.path)
+            except Exception as e:
+                logger.error(f"Error deleting video file: {e}")
+        
+        super().delete(*args, **kwargs)
