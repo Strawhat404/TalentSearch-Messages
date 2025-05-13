@@ -106,9 +106,7 @@ class AdvertAPITest(TestCase):
 
 class AdvertImageUpdateTest(TestCase):
     def setUp(self):
-        # Setup code here
         pass
 
     def test_update_advert_image(self):
-        # Test code here
         pass

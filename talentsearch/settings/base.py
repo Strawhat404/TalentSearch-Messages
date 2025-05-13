@@ -43,6 +43,7 @@ INSTALLED_APPS = [
 
     # Custom apps
     'authapp',
+    'feed_posts',
     'messaging',
     'news',
     'adverts',
