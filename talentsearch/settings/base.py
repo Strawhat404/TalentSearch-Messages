@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'userprofile',
     'usergallery',
     'jobs',
+    'feed_likes',
 ]
 
 MIDDLEWARE = [
