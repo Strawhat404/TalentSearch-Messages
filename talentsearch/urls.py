@@ -35,6 +35,7 @@ urlpatterns = [
     path('api/user_gallery/', include('usergallery.urls')),
     path('api/feed_posts/', include('feed_posts.urls', namespace='feed_posts')),
     path('api/jobs/', include('jobs.urls')),
+    path('api/feed_likes/', include('feed_likes.urls', namespace='feed_likes')),
     # API Documentation
     path('api/docs/', include(api_docs_urlpatterns)),
 ]

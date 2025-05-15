@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
-        fields = ['id', 'name', 'photo_url', 'profession', 'verified', 'experience_level']
+        fields = ['id', 'name', 'photo', 'profession', 'verified', 'experience_level']
 
 class FeedPostSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(source='user.id', read_only=True)
