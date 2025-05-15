@@ -51,6 +51,8 @@ INSTALLED_APPS = [
     'usergallery',
     'jobs',
     'feed_likes',
+    'feed_comments',
+    'comment_likes',
 ]
 
 MIDDLEWARE = [
