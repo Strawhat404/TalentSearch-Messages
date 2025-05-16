@@ -15,21 +15,25 @@ chmod -R 755 /opt/render/project/src/media
 python -c "import django; print(f'Django version: {django.get_version()}')"
 python manage.py check --deploy
 
-# Collect static files with verbose output
-DJANGO_SETTINGS_MODULE=talentsearch.settings.prod python manage.py collectstatic --no-input --clear -v 2
+# Debug: Show database connection info (without sensitive data)
+echo "Checking database connection..."
+python manage.py shell -c "
+from django.conf import settings
+from django.db import connection
+db_engine = settings.DATABASES['default']['ENGINE']
+print(f'Database engine: {db_engine}')
+print(f'Database name: {settings.DATABASES[\"default\"][\"NAME\"]}')
+print(f'Database user: {settings.DATABASES[\"default\"][\"USER\"]}')
+print(f'Database host: {settings.DATABASES[\"default\"][\"HOST\"]}')
+"
 
 # Show migration status before running migrations
 echo "Migration status before running migrations:"
 python manage.py showmigrations --list
 
-# Reset database to fix migration issues
-echo "Dropping all tables..."
-python manage.py dbshell << EOF
-DROP SCHEMA public CASCADE;
-CREATE SCHEMA public;
-GRANT ALL ON SCHEMA public TO postgres;
-GRANT ALL ON SCHEMA public TO public;
-EOF
+# Debug: Check if we can connect to the database
+echo "Testing database connection..."
+python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Database connection successful')"
 
 # Run migrations with specific order and verbose output
 echo "Running migrations..."
@@ -47,6 +51,24 @@ python manage.py migrate --verbosity 2
 # Show migration status after running migrations
 echo "Migration status after running migrations:"
 python manage.py showmigrations --list
+
+# Debug: Check database tables and their structure
+echo "Checking database tables and structure:"
+if [[ $DATABASE_URL == postgresql://* ]]; then
+    python manage.py dbshell << EOF
+    \dt
+    \d authapp_user
+    \d django_migrations
+    SELECT app, name, applied FROM django_migrations ORDER BY id DESC LIMIT 10;
+EOF
+else
+    python manage.py dbshell << EOF
+    .tables
+    .schema authapp_user
+    .schema django_migrations
+    SELECT app, name, applied FROM django_migrations ORDER BY id DESC LIMIT 10;
+EOF
+fi
 
 # Debug: Check if superuser exists
 echo "Checking for existing superusers:"
@@ -68,9 +90,18 @@ ls -la /opt/render/project/src/staticfiles/admin/
 echo "Total size of static files:"
 du -sh /opt/render/project/src/staticfiles/
 
-# Debug: Show database tables
-echo "Checking database tables:"
-python manage.py dbshell << EOF
-\dt
-SELECT * FROM django_migrations ORDER BY id DESC LIMIT 10;
+# Final database check
+echo "Final database check:"
+if [[ $DATABASE_URL == postgresql://* ]]; then
+    python manage.py dbshell << EOF
+    \dt
+    SELECT COUNT(*) FROM authapp_user;
+    SELECT COUNT(*) FROM django_migrations;
 EOF
+else
+    python manage.py dbshell << EOF
+    .tables
+    SELECT COUNT(*) FROM authapp_user;
+    SELECT COUNT(*) FROM django_migrations;
+EOF
+fi
