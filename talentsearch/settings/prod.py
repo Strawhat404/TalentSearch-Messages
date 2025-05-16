@@ -28,6 +28,59 @@ WHITENOISE_ALLOW_ALL_ORIGINS = True
 WHITENOISE_ROOT = STATIC_ROOT
 WHITENOISE_INDEX_FILE = True
 
+# Cache configuration with fallback
+REDIS_URL = config('REDIS_URL', default=None)
+if REDIS_URL:
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+                'RETRY_ON_TIMEOUT': True,
+                'MAX_CONNECTIONS': 1000,
+                'CONNECTION_POOL_KWARGS': {'max_connections': 100},
+                'IGNORE_EXCEPTIONS': True,  # Don't raise exceptions on Redis errors
+            }
+        }
+    }
+else:
+    # Fallback to local memory cache if Redis is not available
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+            'LOCATION': 'unique-snowflake',
+        }
+    }
+
+# REST Framework settings
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework.authentication.TokenAuthentication',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/hour',
+        'user': '1000/hour',
+        'auth': '10/minute',
+        'create': '5/minute',
+    },
+    # Disable throttling if Redis is not available
+    'DEFAULT_THROTTLE_CLASSES': [] if not REDIS_URL else [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+}
+
 # Logging configuration
 LOGGING = {
     'version': 1,
@@ -57,6 +110,11 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
+        'django_redis': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
     },
 }
 
@@ -67,18 +125,6 @@ DATABASES = {
         conn_health_checks=True,
     )
 }
-
-# Caching with Redis
-if config('REDIS_URL', default=None):
-    CACHES = {
-        'default': {
-            'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': config('REDIS_URL'),
-            'OPTIONS': {
-                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            }
-        }
-    }
 
 # Email config for production
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
