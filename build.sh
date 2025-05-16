@@ -22,14 +22,14 @@ DJANGO_SETTINGS_MODULE=talentsearch.settings.prod python manage.py collectstatic
 echo "Migration status before running migrations:"
 python manage.py showmigrations --list
 
-# Reset database if needed (uncomment if you want to start fresh)
-# echo "Dropping all tables..."
-# python manage.py dbshell << EOF
-# DROP SCHEMA public CASCADE;
-# CREATE SCHEMA public;
-# GRANT ALL ON SCHEMA public TO postgres;
-# GRANT ALL ON SCHEMA public TO public;
-# EOF
+# Reset database to fix migration issues
+echo "Dropping all tables..."
+python manage.py dbshell << EOF
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+GRANT ALL ON SCHEMA public TO postgres;
+GRANT ALL ON SCHEMA public TO public;
+EOF
 
 # Run migrations with specific order and verbose output
 echo "Running migrations..."
