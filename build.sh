@@ -35,18 +35,39 @@ python manage.py showmigrations --list
 echo "Testing database connection..."
 python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Database connection successful')"
 
-# Run migrations with specific order and verbose output
-echo "Running migrations..."
-echo "1. Running authapp migrations first..."
-python manage.py migrate authapp --verbosity 2
-echo "2. Running contenttypes migrations..."
-python manage.py migrate contenttypes --verbosity 2
-echo "3. Running auth migrations..."
-python manage.py migrate auth --verbosity 2
-echo "4. Running admin migrations..."
-python manage.py migrate admin --verbosity 2
-echo "5. Running all other migrations..."
-python manage.py migrate --verbosity 2
+# Make sure you're in the correct directory
+cd /opt/render/project/src
+
+# Activate the virtual environment
+source .venv/bin/activate
+
+# Force database connection and migrations
+echo "Forcing database migrations..."
+python manage.py migrate --noinput
+python manage.py migrate authapp --noinput
+python manage.py migrate contenttypes --noinput
+python manage.py migrate auth --noinput
+python manage.py migrate admin --noinput
+python manage.py migrate sessions --noinput
+
+# Create superuser if none exists
+echo "Creating superuser if needed..."
+DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"admin@gmail.com"}
+DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"abel1234"}
+python manage.py createsuperuser --noinput --email "$DJANGO_SUPERUSER_EMAIL" || true
+
+# Collect static files
+python manage.py collectstatic --noinput
+
+# Verify database tables
+echo "Verifying database tables..."
+python manage.py shell -c "
+from django.db import connection
+with connection.cursor() as cursor:
+    cursor.execute('SELECT tablename FROM pg_tables WHERE schemaname = \'public\';')
+    tables = cursor.fetchall()
+    print('Existing tables:', [table[0] for table in tables])
+"
 
 # Show migration status after running migrations
 echo "Migration status after running migrations:"
@@ -73,13 +94,6 @@ fi
 # Debug: Check if superuser exists
 echo "Checking for existing superusers:"
 python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); print('Superusers:', User.objects.filter(is_superuser=True).count())"
-
-# Create superuser if needed
-echo "Creating superuser if needed..."
-DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME:-"abel"}
-DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"admin@gmail.com"}
-DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"abel1234"}
-python manage.py createsuperuser --noinput --username "$DJANGO_SUPERUSER_USERNAME" --email "$DJANGO_SUPERUSER_EMAIL" || true
 
 # Setup roles
 python manage.py setup_roles
