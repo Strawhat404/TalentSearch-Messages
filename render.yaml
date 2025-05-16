@@ -1,0 +1,50 @@
+services:
+  - type: web
+    name: talentsearch
+    env: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn talentsearch.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DATABASE_URL
+        fromDatabase:
+          name: talentsearch-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: talentsearch-redis
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: .onrender.com
+      - key: DEBUG
+        value: false
+      - key: DJANGO_SETTINGS_MODULE
+        value: talentsearch.settings.prod
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USE_TLS
+        value: true
+      - key: EMAIL_HOST_USER
+        sync: false  # You'll need to set this in Render dashboard
+      - key: EMAIL_HOST_PASSWORD
+        sync: false  # You'll need to set this in Render dashboard
+      - key: DEFAULT_FROM_EMAIL
+        sync: false  # You'll need to set this in Render dashboard
+
+databases:
+  - name: talentsearch-db
+    databaseName: talentsearch
+    user: talentsearch
+
+services:
+  - type: redis
+    name: talentsearch-redis
+    ipAllowList: [] 
