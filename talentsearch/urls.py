@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
+from django.views.generic import RedirectView
 from rest_framework import permissions
 from drf_spectacular.views import (
     SpectacularAPIView,
@@ -24,6 +25,9 @@ api_docs_urlpatterns = [
 
 # Main URL patterns
 urlpatterns = [
+    # Root URL redirects to API docs
+    path('', RedirectView.as_view(url='/api/docs/swagger/', permanent=True)),
+    
     path('admin/', admin.site.urls),
     
     # API endpoints
