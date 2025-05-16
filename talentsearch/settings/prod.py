@@ -6,6 +6,7 @@ from .base import *
 import dj_database_url
 from decouple import config, Csv
 import os
+import logging
 
 DEBUG = False
 
@@ -15,7 +16,7 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-pleas
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['.onrender.com'])
 
 # Static files configuration
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_ROOT = '/opt/render/project/src/staticfiles'
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 
@@ -25,6 +26,39 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
 WHITENOISE_ROOT = STATIC_ROOT
+WHITENOISE_INDEX_FILE = True
+
+# Logging configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+        'django.security': {
+            'handlers': ['console'],
+            'level': 'ERROR',
+            'propagate': False,
+        },
+    },
+}
 
 DATABASES = {
     'default': dj_database_url.config(
