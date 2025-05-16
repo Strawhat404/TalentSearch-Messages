@@ -14,6 +14,18 @@ SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-pleas
 
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['.onrender.com'])
 
+# Static files configuration
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = '/static/'
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+
+# WhiteNoise configuration
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+WHITENOISE_USE_FINDERS = True
+WHITENOISE_MANIFEST_STRICT = False
+WHITENOISE_ALLOW_ALL_ORIGINS = True
+WHITENOISE_ROOT = STATIC_ROOT
+
 DATABASES = {
     'default': dj_database_url.config(
         default=config('DATABASE_URL'),
