@@ -4,13 +4,15 @@ Production settings for TalentSearch project.
 
 from .base import *
 import dj_database_url
-from decouple import config
+from decouple import config, Csv
+import os
 
 DEBUG = False
 
-SECRET_KEY = config('SECRET_KEY')
+# Get SECRET_KEY from environment or generate a new one
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['.onrender.com'])
 
 DATABASES = {
     'default': dj_database_url.config(
