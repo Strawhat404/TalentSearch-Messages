@@ -52,7 +52,7 @@ python manage.py migrate sessions --noinput
 
 # Create superuser if none exists
 echo "Creating superuser if needed..."
-DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"admin@gmail.com"}
+DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"abel@gmail.com"}
 DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"abel1234"}
 python manage.py createsuperuser --noinput --email "$DJANGO_SUPERUSER_EMAIL" || true
 
@@ -109,7 +109,7 @@ echo "Final database check:"
 if [[ $DATABASE_URL == postgresql://* ]]; then
     python manage.py dbshell << EOF
     \dt
-    SELECT COUNT(*) FROM authapp_user;
+    SELECT COUNT(*) FROM authapp.user;
     SELECT COUNT(*) FROM django_migrations;
 EOF
 else
@@ -119,3 +119,5 @@ else
     SELECT COUNT(*) FROM django_migrations;
 EOF
 fi
+
+python manage.py migrate --noinput && gunicorn talentsearch.wsgi:application
