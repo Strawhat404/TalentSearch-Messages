@@ -21,6 +21,18 @@ DATABASES = {
 }
 
 # Optional Redis support for dev
+# if config('REDIS_URL', default=None):
+#     CACHES = {
+#         'default': {
+#             'BACKEND': 'django_redis.cache.RedisCache',
+#             'LOCATION': config('REDIS_URL'),
+#             'OPTIONS': {
+#                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#             }
+#         }
+#     }
+
+# Optional Redis support for dev
 if config('REDIS_URL', default=None):
     CACHES = {
         'default': {
@@ -31,6 +43,14 @@ if config('REDIS_URL', default=None):
             }
         }
     }
+else:
+    # Fallback to simple in-memory cache
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
+
 
 # Console backend for emails in development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'

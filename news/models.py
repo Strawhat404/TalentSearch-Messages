@@ -1,6 +1,12 @@
 from django.db import models
 from django.conf import settings
 from taggit.managers import TaggableManager
+import os
+import logging
+from django.db.models.signals import post_delete
+from django.dispatch import receiver
+
+logger = logging.getLogger(__name__)
 
 class News(models.Model):
     STATUS_CHOICES = (
@@ -26,3 +32,19 @@ class NewsImage(models.Model):
 
     def __str__(self):
         return self.caption or str(self.image)
+
+    def save(self, *args, **kwargs):
+        if self.pk and NewsImage.objects.filter(pk=self.pk).exists():
+            old_instance = NewsImage.objects.get(pk=self.pk)
+            if old_instance.image and old_instance.image != self.image:
+                try:
+                    if os.path.isfile(old_instance.image.path):
+                        os.remove(old_instance.image.path)
+                except Exception as e:
+                    logger.error(f"Error deleting old news image: {e}")
+        super().save(*args, **kwargs)
+
+@receiver(post_delete, sender=NewsImage)
+def delete_news_image_file(sender, instance, **kwargs):
+    if instance.image and os.path.isfile(instance.image.path):
+        os.remove(instance.image.path)

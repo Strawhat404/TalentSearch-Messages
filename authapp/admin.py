@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import User, Notification
+from rest_framework.permissions import AllowAny
 
 @admin.register(User)
 class CustomUserAdmin(UserAdmin):

@@ -17,13 +17,14 @@ env = environ.Env(
 # Set base directory
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Read from .env file
-environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+# Read from .env file if it exists
+if os.path.exists(os.path.join(BASE_DIR, ".env")):
+    environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Security
-SECRET_KEY = env("SECRET_KEY")
-DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+SECRET_KEY = env("SECRET_KEY", default="django-insecure-key-for-development-only")
+DEBUG = env("DEBUG", default=False)
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=[])
 
 # Application definition
 INSTALLED_APPS = [
@@ -43,9 +44,16 @@ INSTALLED_APPS = [
 
     # Custom apps
     'authapp',
+    'feed_posts',
     'messaging',
     'news',
     'adverts',
+    'userprofile',
+    'usergallery',
+    'jobs',
+    'feed_likes',
+    'feed_comments',
+    'comment_likes',
 ]
 
 MIDDLEWARE = [
