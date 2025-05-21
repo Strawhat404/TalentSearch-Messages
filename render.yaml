@@ -20,7 +20,7 @@ services:
           name: talentsearch-redis
           property: connectionString
       - key: ALLOWED_HOSTS
-        value: talentsearch-messages-uokp.onrender.com,localhost,127.0.0.1,.onrender.com
+        value: "talentsearch-messages-uokp.onrender.com,.onrender.com,localhost,127.0.0.1,*"
       - key: DEBUG
         value: false
       - key: DJANGO_SETTINGS_MODULE

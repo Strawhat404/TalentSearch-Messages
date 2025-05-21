@@ -8,7 +8,9 @@ from decouple import config, Csv
 import os
 import logging
 
-DEBUG = False
+# Temporary debug settings
+DEBUG = True  # Temporarily set to True to see detailed error messages
+ALLOWED_HOSTS = ['*']  # Temporarily allow all hosts
 
 # Get SECRET_KEY from environment or generate a new one
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
