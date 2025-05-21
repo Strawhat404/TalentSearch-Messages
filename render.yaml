@@ -3,7 +3,7 @@ services:
     name: talentsearch
     env: python
     buildCommand: ./build.sh
-    startCommand: gunicorn talentsearch.wsgi:application
+    startCommand: daphne -b 0.0.0.0 -p 10000 talentsearch.asgi:application
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
