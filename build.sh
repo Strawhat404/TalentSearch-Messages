@@ -41,103 +41,52 @@ cd /opt/render/project/src
 # Activate the virtual environment
 source .venv/bin/activate
 
-# Force database connection and migrations
-echo "Forcing database migrations..."
-# First, migrate the auth and contenttypes apps as they are dependencies
-python manage.py migrate auth --noinput
-python manage.py migrate contenttypes --noinput
-# Then migrate the custom user app
-python manage.py migrate authapp --noinput
-# Finally, migrate all other apps
-python manage.py migrate --noinput
+# Force database connection and migrations with error handling
+echo "Running migrations with error handling..."
+if ! python manage.py migrate auth --noinput; then
+    echo "Error: Auth migrations failed"
+    exit 1
+fi
 
-# Verify migrations
-echo "Verifying migrations..."
+if ! python manage.py migrate contenttypes --noinput; then
+    echo "Error: Contenttypes migrations failed"
+    exit 1
+fi
+
+if ! python manage.py migrate authapp --noinput; then
+    echo "Error: Authapp migrations failed"
+    exit 1
+fi
+
+if ! python manage.py migrate --noinput; then
+    echo "Error: General migrations failed"
+    exit 1
+fi
+
+# Verify migrations after running them
+echo "Migration status after running migrations:"
 python manage.py showmigrations --list
 
 # Create superuser if none exists
 echo "Creating superuser if needed..."
 DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"abel@gmail.com"}
-DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"abel1234"}
-python manage.py createsuperuser --noinput --email "$DJANGO_SUPERUSER_EMAIL" || true
+DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"admin123"}
+DJANGO_SUPERUSER_NAME=${DJANGO_SUPERUSER_NAME:-"Admin User"}
 
-# Collect static files
-python manage.py collectstatic --noinput
-
-# Verify database tables
-echo "Verifying database tables..."
 python manage.py shell -c "
-from django.db import connection
-with connection.cursor() as cursor:
-    cursor.execute('SELECT tablename FROM pg_tables WHERE schemaname = \'public\';')
-    tables = cursor.fetchall()
-    print('Existing tables:', [table[0] for table in tables])
+from django.contrib.auth import get_user_model
+User = get_user_model()
+if not User.objects.filter(email='$DJANGO_SUPERUSER_EMAIL').exists():
+    User.objects.create_superuser(
+        email='$DJANGO_SUPERUSER_EMAIL',
+        password='$DJANGO_SUPERUSER_PASSWORD',
+        name='$DJANGO_SUPERUSER_NAME'
+    )
+    print('Superuser created successfully')
+else:
+    print('Superuser already exists')
 "
 
-# Show migration status after running migrations
-echo "Migration status after running migrations:"
-python manage.py showmigrations --list
-
-# Debug: Check database tables and their structure
-echo "Checking database tables and structure:"
-if [[ $DATABASE_URL == postgresql://* ]]; then
-    python manage.py dbshell << EOF
-    \dt
-    \d authapp_user
-    \d django_migrations
-    SELECT app, name, applied FROM django_migrations ORDER BY id DESC LIMIT 10;
-EOF
-else
-    python manage.py dbshell << EOF
-    .tables
-    .schema authapp_user
-    .schema django_migrations
-    SELECT app, name, applied FROM django_migrations ORDER BY id DESC LIMIT 10;
-EOF
-fi
-
-# Debug: Check if superuser exists
-echo "Checking for existing superusers:"
-python manage.py shell -c "from django.contrib.auth import get_user_model; User = get_user_model(); print('Superusers:', User.objects.filter(is_superuser=True).count())"
-
-# Setup roles
-python manage.py setup_roles
-
-# Debug: List collected static files and their sizes
-echo "Checking collected static files:"
-ls -la /opt/render/project/src/staticfiles/admin/
-echo "Total size of static files:"
-du -sh /opt/render/project/src/staticfiles/
-
-# Final database check
-echo "Final database check:"
-if [[ $DATABASE_URL == postgresql://* ]]; then
-    python manage.py dbshell << EOF
-    \dt
-    SELECT COUNT(*) FROM authapp.user;
-    SELECT COUNT(*) FROM django_migrations;
-EOF
-else
-    python manage.py dbshell << EOF
-    .tables
-    SELECT COUNT(*) FROM authapp_user;
-    SELECT COUNT(*) FROM django_migrations;
-EOF
-fi
-
-# Add these lines after the migrations in build.sh
-echo "Checking migration status after running migrations:"
-python manage.py showmigrations authapp
-python manage.py showmigrations auth
-python manage.py showmigrations contenttypes
-
-# Add this to build.sh
-echo "Running migrations with error handling..."
-if ! python manage.py migrate --noinput; then
-    echo "Error: Migrations failed"
-    echo "Checking database connection..."
-    python manage.py shell -c "from django.db import connection; print(connection.settings_dict)"
-    exit 1
-fi
-
-python manage.py migrate --noinput && gunicorn talentsearch.wsgi:application
+# Collect static files
+echo "Collecting static files..."
+python manage.py collectstatic --noinput
