@@ -43,12 +43,17 @@ source .venv/bin/activate
 
 # Force database connection and migrations
 echo "Forcing database migrations..."
-python manage.py migrate --noinput
-python manage.py migrate authapp --noinput
-python manage.py migrate contenttypes --noinput
+# First, migrate the auth and contenttypes apps as they are dependencies
 python manage.py migrate auth --noinput
-python manage.py migrate admin --noinput
-python manage.py migrate sessions --noinput
+python manage.py migrate contenttypes --noinput
+# Then migrate the custom user app
+python manage.py migrate authapp --noinput
+# Finally, migrate all other apps
+python manage.py migrate --noinput
+
+# Verify migrations
+echo "Verifying migrations..."
+python manage.py showmigrations --list
 
 # Create superuser if none exists
 echo "Creating superuser if needed..."
@@ -118,6 +123,21 @@ else
     SELECT COUNT(*) FROM authapp_user;
     SELECT COUNT(*) FROM django_migrations;
 EOF
+fi
+
+# Add these lines after the migrations in build.sh
+echo "Checking migration status after running migrations:"
+python manage.py showmigrations authapp
+python manage.py showmigrations auth
+python manage.py showmigrations contenttypes
+
+# Add this to build.sh
+echo "Running migrations with error handling..."
+if ! python manage.py migrate --noinput; then
+    echo "Error: Migrations failed"
+    echo "Checking database connection..."
+    python manage.py shell -c "from django.db import connection; print(connection.settings_dict)"
+    exit 1
 fi
 
 python manage.py migrate --noinput && gunicorn talentsearch.wsgi:application
