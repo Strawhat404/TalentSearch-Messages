@@ -8,6 +8,12 @@ from decouple import config, Csv
 import os
 import logging
 
+# Print ALLOWED_HOSTS for debugging
+try:
+    print(">>> ALLOWED_HOSTS (before):", repr(ALLOWED_HOSTS))
+except Exception as e:
+    print(">>> ALLOWED_HOSTS not set yet:", e)
+
 # Temporary debug settings
 DEBUG = False
 
