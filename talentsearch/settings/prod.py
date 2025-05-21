@@ -13,7 +13,12 @@ DEBUG = False
 # Get SECRET_KEY from environment or generate a new one
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=['.onrender.com'])
+ALLOWED_HOSTS = [
+    'talentsearch-messages-uokp.onrender.com',
+    'localhost',
+    '127.0.0.1',
+    # ...any other domains you use...
+]
 
 # Static files configuration
 STATIC_ROOT = '/opt/render/project/src/staticfiles'
