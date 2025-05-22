@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'taggit',
     'corsheaders',
+    'django_filters',
 
     # Custom apps
     'authapp',
@@ -59,6 +60,8 @@ INSTALLED_APPS = [
     'feed_likes',
     'feed_comments',
     'comment_likes',
+    'rental_items',
+    'rental_ratings',
 ]
 
 MIDDLEWARE = [
@@ -143,6 +146,7 @@ AUTH_USER_MODEL = 'authapp.User'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
@@ -159,6 +163,35 @@ REST_FRAMEWORK = {
         'create': '5/minute',
     },
 }
+
+# JWT settings
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': False,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': False,
+
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUDIENCE': None,
+    'ISSUER': None,
+
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+
+    'JTI_CLAIM': 'jti',
+}
+
+# Password reset token timeout (24 hours in seconds)
+PASSWORD_RESET_TIMEOUT = 86400
 
 # API Schema
 SPECTACULAR_SETTINGS = {

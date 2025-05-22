@@ -8,6 +8,10 @@ from django.core import mail
 from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from .utils import password_reset_token_generator
+from django.utils import timezone
+from datetime import timedelta
+from django.test.utils import freeze_time
+import time_machine
 
 User = get_user_model()
 
@@ -189,3 +193,25 @@ class NotificationViewsTest(TestCase):
         """Test getting notifications without authentication"""
         response = self.client.get(self.notification_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+class PasswordResetTokenTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='test@example.com',
+            password='testpass123',
+            name='Test User'
+        )
+
+    def test_token_expiration(self):
+        """Test that password reset tokens expire after 24 hours"""
+        # Generate a token with current time
+        current_time = timezone.now()
+        with time_machine.travel(current_time):
+            token = password_reset_token_generator.make_token(self.user)
+            # Verify token is valid initially
+            self.assertTrue(password_reset_token_generator.check_token(self.user, token))
+        
+        # Travel 25 hours into the future and verify token is expired
+        future_time = current_time + timedelta(hours=25)
+        with time_machine.travel(future_time):
+            self.assertFalse(password_reset_token_generator.check_token(self.user, token))
