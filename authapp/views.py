@@ -10,6 +10,7 @@ from django.utils.encoding import force_str, force_bytes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
+from django.conf import settings
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
@@ -124,7 +125,8 @@ class ForgotPasswordView(APIView):
 
         token = password_reset_token_generator.make_token(user)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
-        reset_link = f"http://127.0.0.1:8000{reverse('reset-password')}?uid={uid}&token={token}"
+        frontend_url = getattr(settings, "FRONTEND_URL", "https://talentsearch-messages-uokp.onrender.com")
+        reset_link = f"{frontend_url}/api/auth/reset-password/?uid={uid}&token={token}"
 
         send_mail(
             'Password Reset Request',

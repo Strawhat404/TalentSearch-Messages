@@ -7,6 +7,7 @@ import dj_database_url
 from decouple import config, Csv
 import os
 import logging
+from django.conf import settings
 
 # Print ALLOWED_HOSTS for debugging
 try:
@@ -156,7 +157,7 @@ DATABASES = {
 }
 
 # Email config for production
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', cast=int, default=587)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=True)
@@ -186,3 +187,6 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+
+# New FRONTEND_URL setting
+FRONTEND_URL = "https://talentsearch-messages-uokp.onrender.com"
