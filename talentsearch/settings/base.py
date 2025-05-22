@@ -17,13 +17,18 @@ env = environ.Env(
 # Set base directory
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-# Read from .env file
-environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
+# Read from .env file if it exists
+if os.path.exists(os.path.join(BASE_DIR, ".env")):
+    environ.Env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Security
-SECRET_KEY = env("SECRET_KEY")
-DEBUG = env("DEBUG")
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+SECRET_KEY = env("SECRET_KEY", default="django-insecure-key-for-development-only")
+DEBUG = env("DEBUG", default=False)
+ALLOWED_HOSTS = [
+    'talentsearch-messages-uokp.onrender.com',
+    'localhost',
+    '127.0.0.1',
+]
 
 # Application definition
 INSTALLED_APPS = [
@@ -40,6 +45,7 @@ INSTALLED_APPS = [
     'drf_yasg',
     'drf_spectacular',
     'taggit',
+    'corsheaders',
 
     # Custom apps
     'authapp',
@@ -57,6 +63,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -193,3 +200,17 @@ USE_TZ = True
 
 # Default primary key field type
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# CORS settings
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_HEADERS = True
+
+# For development only (optional)
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
