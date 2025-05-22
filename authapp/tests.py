@@ -162,6 +162,107 @@ class AuthViewsTest(TestCase):
         self.user.refresh_from_db()
         self.assertTrue(self.user.check_password('newpass123'))
 
+    def test_reset_password_invalid_token(self):
+        """Test password reset with invalid token"""
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        data = {
+            'uid': uid,
+            'token': 'invalid-token',
+            'new_password': 'newpass123'
+        }
+        response = self.client.post(self.reset_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'Invalid or expired token')
+
+    def test_reset_password_expired_token(self):
+        """Test password reset with expired token"""
+        # Generate token
+        current_time = timezone.now()
+        with time_machine.travel(current_time):
+            token = password_reset_token_generator.make_token(self.user)
+            uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        
+        # Travel 25 hours into the future
+        future_time = current_time + timedelta(hours=25)
+        with time_machine.travel(future_time):
+            data = {
+                'uid': uid,
+                'token': token,
+                'new_password': 'newpass123'
+            }
+            response = self.client.post(self.reset_password_url, data)
+            self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+            self.assertEqual(response.data['error'], 'Invalid or expired token')
+
+    def test_reset_password_missing_fields(self):
+        """Test password reset with missing required fields"""
+        # Test missing token
+        uid = urlsafe_base64_encode(force_bytes(self.user.pk))
+        data = {
+            'uid': uid,
+            'new_password': 'newpass123'
+        }
+        response = self.client.post(self.reset_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'UID, token, and new password are required')
+
+        # Test missing password
+        token = password_reset_token_generator.make_token(self.user)
+        data = {
+            'uid': uid,
+            'token': token
+        }
+        response = self.client.post(self.reset_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'UID, token, and new password are required')
+
+    def test_reset_password_invalid_uid(self):
+        """Test password reset with invalid user ID"""
+        token = password_reset_token_generator.make_token(self.user)
+        data = {
+            'uid': 'invalid-uid',
+            'token': token,
+            'new_password': 'newpass123'
+        }
+        response = self.client.post(self.reset_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'Invalid or expired token')
+
+    def test_reset_password_nonexistent_user(self):
+        """Test password reset for non-existent user"""
+        # Generate token for non-existent user ID
+        nonexistent_uid = urlsafe_base64_encode(force_bytes(99999))  # Assuming this ID doesn't exist
+        token = password_reset_token_generator.make_token(self.user)  # Using valid token format
+        data = {
+            'uid': nonexistent_uid,
+            'token': token,
+            'new_password': 'newpass123'
+        }
+        response = self.client.post(self.reset_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'Invalid or expired token')
+
+    def test_forgot_password_nonexistent_email(self):
+        """Test forgot password with non-existent email"""
+        data = {'email': 'nonexistent@example.com'}
+        response = self.client.post(self.forgot_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data['error'], 'User with this email does not exist')
+
+    def test_forgot_password_missing_email(self):
+        """Test forgot password with missing email"""
+        data = {}
+        response = self.client.post(self.forgot_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(response.data['error'], 'Email is required')
+
+    def test_forgot_password_invalid_email_format(self):
+        """Test forgot password with invalid email format"""
+        data = {'email': 'invalid-email'}
+        response = self.client.post(self.forgot_password_url, data)
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn('email', response.data)
+
 class NotificationViewsTest(TestCase):
     def setUp(self):
         self.client = APIClient()
@@ -215,3 +316,62 @@ class PasswordResetTokenTest(TestCase):
         future_time = current_time + timedelta(hours=25)
         with time_machine.travel(future_time):
             self.assertFalse(password_reset_token_generator.check_token(self.user, token))
+
+    def test_token_invalidation_after_password_change(self):
+        """Test that tokens are invalidated after password change"""
+        # Generate initial token
+        token = password_reset_token_generator.make_token(self.user)
+        self.assertTrue(password_reset_token_generator.check_token(self.user, token))
+        
+        # Change password
+        self.user.set_password('newpassword123')
+        self.user.save()
+        
+        # Verify token is now invalid
+        self.assertFalse(password_reset_token_generator.check_token(self.user, token))
+
+    def test_token_for_new_user(self):
+        """Test token generation for a new user who has never logged in"""
+        new_user = User.objects.create_user(
+            email='new@example.com',
+            password='newpass123',
+            name='New User'
+        )
+        # Verify new user has no last_login
+        self.assertIsNone(new_user.last_login)
+        
+        # Generate and verify token
+        token = password_reset_token_generator.make_token(new_user)
+        self.assertTrue(password_reset_token_generator.check_token(new_user, token))
+
+    def test_invalid_token_scenarios(self):
+        """Test various invalid token scenarios"""
+        # Generate valid token
+        valid_token = password_reset_token_generator.make_token(self.user)
+        
+        # Test with wrong user
+        other_user = User.objects.create_user(
+            email='other@example.com',
+            password='otherpass123',
+            name='Other User'
+        )
+        self.assertFalse(password_reset_token_generator.check_token(other_user, valid_token))
+        
+        # Test with invalid token format
+        self.assertFalse(password_reset_token_generator.check_token(self.user, 'invalid-token'))
+        
+        # Test with empty token
+        self.assertFalse(password_reset_token_generator.check_token(self.user, ''))
+
+    def test_token_reuse_prevention(self):
+        """Test that using a token invalidates it for future use"""
+        # Generate token
+        token = password_reset_token_generator.make_token(self.user)
+        
+        # First use of token (simulating password reset)
+        self.assertTrue(password_reset_token_generator.check_token(self.user, token))
+        self.user.set_password('newpassword123')
+        self.user.save()
+        
+        # Second use of same token should fail
+        self.assertFalse(password_reset_token_generator.check_token(self.user, token))
