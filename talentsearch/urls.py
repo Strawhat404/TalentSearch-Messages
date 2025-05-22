@@ -42,6 +42,8 @@ urlpatterns = [
     path('api/feed_likes/', include('feed_likes.urls', namespace='feed_likes')),
     path('api/feed_comments/', include('feed_comments.urls')),
     path('api/comment_likes/', include('comment_likes.urls')),
+    path('api/rental/', include('rental_items.urls')),
+    path('api/ratings/', include('rental_ratings.urls')),
     # API Documentation
     path('api/docs/', include(api_docs_urlpatterns)),
 ]

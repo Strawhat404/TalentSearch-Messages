@@ -8,8 +8,15 @@ class PasswordResetTokenGenerator(PasswordResetTokenGenerator):
     def _make_hash_value(self, user, timestamp):
         """
         This method is used to generate the hash value.
-        It includes the user's ID and last login timestamp.
+        It includes only essential fields:
+        - User's ID
+        - Timestamp
+        - Password hash (changes when password changes)
         """
-        return str(user.pk) + str(timestamp) + str(user.last_login)
+        return (
+            six.text_type(user.pk) + 
+            six.text_type(timestamp) + 
+            six.text_type(user.password)
+        )
 
 password_reset_token_generator = PasswordResetTokenGenerator()
