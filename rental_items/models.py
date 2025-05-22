@@ -151,7 +151,7 @@ def delete_old_additional_image(sender, instance, **kwargs):
 
 class RentalItemRating(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    rental_item = models.ForeignKey(RentalItem, on_delete=models.CASCADE, related_name='ratings')
+    rental_item = models.ForeignKey(RentalItem, related_name="ratings", on_delete=models.CASCADE)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='rental_item_ratings')
     rating = models.IntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(5)],
