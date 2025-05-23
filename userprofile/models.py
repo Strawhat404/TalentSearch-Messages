@@ -153,6 +153,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 import re
 from django.core.validators import RegexValidator
+from datetime import date
 
 User = get_user_model()
 class Profile(models.Model):
@@ -331,6 +332,25 @@ class Profile(models.Model):
                     'min_salary': 'Minimum salary cannot be greater than maximum salary.'
                 })
 
+        if self.postal_code:
+            postal_pattern = r'^\d{4}$'
+            if not re.match(postal_pattern, self.postal_code.strip()):
+                raise ValidationError({
+                    'postal_code': 'Postal code must be exactly 4 digits (e.g., "1234").'
+                })
+            if not self.city or not self.region:
+                raise ValidationError({
+                    'postal_code': 'City and region must be provided when postal code is set.'
+                })
+        if self.birthdate and self.birthdate > date.today():
+            raise ValidationError({
+                'birthdate': 'Birthdate cannot be in the future.'
+            })
+
+        if self.id_expiry_date and self.id_expiry_date < date.today():
+            raise ValidationError({
+                'id_expiry_date': 'ID expiry date cannot be in the past.'
+            })
     def save(self, *args, **kwargs):
         if not self.name or self.name.strip() == "":
             raise ValueError("Name cannot be blank.")

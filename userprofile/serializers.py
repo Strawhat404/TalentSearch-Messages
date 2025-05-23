@@ -293,7 +293,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             'preferred_industry', 'leadership_style', 'communication_style', 'motivation',
             'verified', 'flagged', 'status'
         ]
-        read_only_fields = ['id', 'age', 'created_at', 'verified', 'flagged', 'email']
+        read_only_fields = ['id', 'age', 'created_at', 'verified', 'flagged', 'email', 'id_verified']
 
     def to_representation(self, instance):
         """
@@ -372,6 +372,31 @@ class ProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Maximum salary cannot be negative.")
         return value
 
+    def validate_birthdate(self, value):
+        # Existing method (unchanged)
+        if value is None:
+            return value
+        try:
+            if value > date.today():
+                raise serializers.ValidationError("Birthdate cannot be in the future.")
+        except TypeError:
+            raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD.")
+        return value
+
+    # Add this snippet here
+    def validate_id_expiry_date(self, value):
+        """
+        Ensure id_expiry_date is not in the past and is in a valid format.
+        """
+        if value is None:
+            return value
+        try:
+            if value < date.today():
+                raise serializers.ValidationError("ID expiry date cannot be in the past.")
+        except TypeError:
+            raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD.")
+        return value
+
     def validate(self, data):
         """
         Validate id_type and id_number together.
@@ -421,6 +446,17 @@ class ProfileSerializer(serializers.ModelSerializer):
                     'min_salary': 'Minimum salary cannot be greater than maximum salary.'
                 })
 
+        postal_code = data.get('postal_code')
+        if postal_code:
+            postal_pattern = r'^\d{4}$'
+            if not re.match(postal_pattern, postal_code.strip()):
+                raise serializers.ValidationError({
+                    'postal_code': 'Postal code must be exactly 4 digits (e.g., "1234").'
+                })
+            if not data.get('city') or not data.get('region'):
+                raise serializers.ValidationError({
+                    'postal_code': 'City and region must be provided when postal code is set.'
+                })
         return data
 
     def validate_height(self, value):
