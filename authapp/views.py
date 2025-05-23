@@ -90,7 +90,7 @@ class LoginView(APIView):
                 
                 return Response({
                     'token': token.key,
-                    'expires_in': settings.REST_FRAMEWORK['TOKEN_EXPIRE_MINUTES'] * 60,  # Convert to seconds
+                    'expires_in': (settings.REST_FRAMEWORK.get('TOKEN_EXPIRE_MINUTES', 60)) * 60,  # Convert to seconds (fallback 60 minutes)
                     'user': {
                         'id': user.id,
                         'email': user.email,
