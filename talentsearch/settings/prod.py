@@ -7,15 +7,17 @@ import dj_database_url
 from decouple import config, Csv
 import os
 import logging
+from django.conf import settings
+
+# Print ALLOWED_HOSTS for debugging
+try:
+    print(">>> ALLOWED_HOSTS (before):", repr(ALLOWED_HOSTS))
+except Exception as e:
+    print(">>> ALLOWED_HOSTS not set yet:", e)
 
 # Temporary debug settings
-DEBUG = True  # Temporarily set to True to see detailed error messages
-ALLOWED_HOSTS = ['*']  # Temporarily allow all hosts
+DEBUG = False
 
-# Get SECRET_KEY from environment or generate a new one
-SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
-
-# Option 1: Direct list
 ALLOWED_HOSTS = [
     'talentsearch-messages-uokp.onrender.com',
     'localhost',
@@ -23,13 +25,8 @@ ALLOWED_HOSTS = [
     '.onrender.com',  # This allows all subdomains of onrender.com
 ]
 
-# OR Option 2: Using environment variables (if you're using django-environ)
-# ALLOWED_HOSTS = env.list('ALLOWED_HOSTS', default=[
-#     'talentsearch-messages-uokp.onrender.com',
-#     'localhost',
-#     '127.0.0.1',
-#     '.onrender.com',
-# ])
+# Get SECRET_KEY from environment or generate a new one
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
 
 # Static files configuration
 STATIC_ROOT = '/opt/render/project/src/staticfiles'
@@ -160,7 +157,7 @@ DATABASES = {
 }
 
 # Email config for production
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', cast=int, default=587)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=True)
@@ -178,6 +175,7 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
@@ -189,3 +187,6 @@ SESSION_ENGINE = 'django.contrib.sessions.backends.db'
 SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+
+# New FRONTEND_URL setting
+FRONTEND_URL = "https://talentsearch-messages-uokp.onrender.com"

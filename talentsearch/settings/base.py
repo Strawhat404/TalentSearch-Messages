@@ -7,6 +7,7 @@ Base settings for TalentSearch project.
 import os
 from pathlib import Path
 import environ
+import sys
 
 # Initialize environment variables
 env = environ.Env(
@@ -46,6 +47,8 @@ INSTALLED_APPS = [
     'drf_spectacular',
     'taggit',
     'corsheaders',
+    'django_filters',
+    'rest_framework_simplejwt.token_blacklist',
 
     # Custom apps
     'authapp',
@@ -59,11 +62,13 @@ INSTALLED_APPS = [
     'feed_likes',
     'feed_comments',
     'comment_likes',
+    'rental_items',
+    'rental_ratings',
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -72,6 +77,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
+    'authapp.middleware.SessionExpirationMiddleware',
 ]
 
 ROOT_URLCONF = 'talentsearch.urls'
@@ -142,6 +148,8 @@ AUTH_USER_MODEL = 'authapp.User'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
+        'authapp.authentication.CustomJWTAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
@@ -150,15 +158,51 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_THROTTLE_CLASSES': [
         'rest_framework.throttling.AnonRateThrottle',
-        'rest_framework.throttling.UserRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
     ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '100/hour',
-        'user': '1000/hour',
+        'anon': '100/day',
+        'user': '1000/day',
+        'test': '1000/minute',
         'auth': '10/minute',
-        'create': '5/minute',
     },
+    'TOKEN_EXPIRE_MINUTES': 60,  # Token expires after 1 hour
 }
+
+# JWT settings
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'JTI_CLAIM': 'jti',
+    'TOKEN_USER_CLASS': 'authapp.models.User',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_BLACKLIST_ENABLED': True,
+    'TOKEN_BLACKLIST_CHECK_ON_AUTHENTICATION': True,
+}
+
+# Session settings
+SESSION_COOKIE_AGE = 3600  # 1 hour in seconds
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_ENGINE = 'django.contrib.sessions.backends.db'
+SESSION_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+
+# Password reset settings
+PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds
+PASSWORD_RESET_TOKEN_TIMEOUT = 86400  # 24 hours in seconds
 
 # API Schema
 SPECTACULAR_SETTINGS = {
@@ -214,3 +258,24 @@ CORS_ALLOW_ALL_HEADERS = True
 # For development only (optional)
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
+
+# Test Settings
+if 'test' in sys.argv:
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
+        'anon': '1000/minute',
+        'user': '1000/minute',
+        'test': '1000/minute',
+        'auth': '1000/minute',
+        'create': '1000/minute',  # Add create scope rate for tests
+    }
+    # Override JWT settings for tests
+    SIMPLE_JWT.update({
+        'ACCESS_TOKEN_LIFETIME': timedelta(seconds=1),
+        'REFRESH_TOKEN_LIFETIME': timedelta(seconds=2),
+        'ROTATE_REFRESH_TOKENS': True,
+        'BLACKLIST_AFTER_ROTATION': True,
+    })
+    # Only use JWT authentication for tests
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = [
+        'authapp.authentication.CustomJWTAuthentication',
+    ]
