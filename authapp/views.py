@@ -18,6 +18,7 @@ from django.http import JsonResponse
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+from rest_framework.exceptions import AuthenticationFailed
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
@@ -27,6 +28,8 @@ from .utils import password_reset_token_generator
 from .models import Notification
 from talentsearch.throttles import AuthRateThrottle
 from django.contrib.auth import get_user_model
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -138,6 +141,12 @@ class ForgotPasswordView(APIView):
         if not email:
             return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
 
+        # Validate email format
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'email': ['Invalid email format']}, status=status.HTTP_400_BAD_REQUEST)
+
         user = User.objects.filter(email__iexact=email).first()
         if not user:
             return Response({'error': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
@@ -194,7 +203,12 @@ class NotificationListView(generics.ListAPIView):
         """
         Returns notifications for the authenticated user.
         """
-        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        user = self.request.user
+        import sys
+        print(f'DEBUG: get_queryset user={user} type={type(user)} is_authenticated={getattr(user, "is_authenticated", None)}', file=sys.stderr)
+        if not user or not getattr(user, 'is_authenticated', False):
+            raise AuthenticationFailed('Authentication credentials were not provided or are invalid.')
+        return Notification.objects.filter(user=user).order_by('-created_at')
 
 class TokenAuthenticationMiddleware:
     def __init__(self, get_response):
@@ -219,35 +233,35 @@ class TokenAuthenticationMiddleware:
                 jti = token_obj['jti']
                 if BlacklistedToken.objects.filter(token__jti=jti).exists():
                     print('DEBUG: Token is blacklisted', file=sys.stderr)
-                    return JsonResponse({'error': 'Token is invalid'}, status=401)
-                if token_obj.is_expired():
-                    print('DEBUG: Token is expired', file=sys.stderr)
-                    return JsonResponse({'error': 'Token has expired'}, status=401)
-                user_id = token_obj.get('user_id')
+                    return Response({'error': 'Token is invalid'}, status=status.HTTP_401_UNAUTHORIZED)
                 try:
-                    user = User.objects.get(id=user_id)
-                    request.user = user
-                    if not hasattr(request, 'session'):
-                        request.session = {}
-                    request.session['last_login'] = timezone.now().isoformat()
-                    request.session.save()
-                    print('DEBUG: Token valid, user authenticated', file=sys.stderr)
-                except User.DoesNotExist:
-                    print('DEBUG: User not found for token', file=sys.stderr)
-                    return JsonResponse({'error': 'User not found'}, status=401)
-            except (TokenError, InvalidToken, jwt.ExpiredSignatureError):
-                print('DEBUG: Token error/expired', file=sys.stderr)
-                return JsonResponse({'error': 'Token has expired'}, status=401)
+                    # Accessing 'exp' will raise if expired
+                    _ = token_obj['exp']
+                    user_id = token_obj.get('user_id')
+                    try:
+                        user = User.objects.get(id=user_id)
+                        request.user = user
+                        if not hasattr(request, 'session'):
+                            request.session = {}
+                        request.session['last_login'] = timezone.now().isoformat()
+                        request.session.save()
+                        print('DEBUG: Token valid, user authenticated', file=sys.stderr)
+                    except User.DoesNotExist:
+                        print('DEBUG: User not found for token', file=sys.stderr)
+                        return Response({'error': 'User not found'}, status=status.HTTP_401_UNAUTHORIZED)
+                except (TokenError, InvalidToken, jwt.ExpiredSignatureError, KeyError):
+                    print('DEBUG: Token is expired', file=sys.stderr)
+                    return Response({'error': 'Token has expired'}, status=status.HTTP_401_UNAUTHORIZED)
             except Exception as e:
                 print(f'DEBUG: Exception in token auth: {e}', file=sys.stderr)
-                return JsonResponse({'error': str(e)}, status=401)
+                return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
         # Handle session authentication
         elif hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False) and not auth_header:
             print('DEBUG: Session authentication detected', file=sys.stderr)
             if not hasattr(request, 'session') or not request.session.session_key:
                 print('DEBUG: No active session', file=sys.stderr)
-                return JsonResponse({'error': 'No active session'}, status=401)
+                return Response({'error': 'No active session'}, status=status.HTTP_401_UNAUTHORIZED)
             last_login = request.session.get('last_login')
             if last_login:
                 try:
@@ -257,11 +271,11 @@ class TokenAuthenticationMiddleware:
                     if session_age > settings.SESSION_COOKIE_AGE:
                         print('DEBUG: Session expired', file=sys.stderr)
                         request.session.flush()
-                        return JsonResponse({'error': 'Session has expired'}, status=401)
+                        return Response({'error': 'Session has expired'}, status=status.HTTP_401_UNAUTHORIZED)
                 except (ValueError, TypeError):
                     print('DEBUG: Invalid session timestamp', file=sys.stderr)
                     request.session.flush()
-                    return JsonResponse({'error': 'Invalid session'}, status=401)
+                    return Response({'error': 'Invalid session'}, status=status.HTTP_401_UNAUTHORIZED)
             request.session['last_login'] = timezone.now().isoformat()
             request.session.save()
             print('DEBUG: Session valid, user authenticated', file=sys.stderr)
@@ -293,13 +307,11 @@ class ChangePasswordView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Set new password
+        # Set new password using the model's set_password method
+        # This will automatically update last_password_change
         request.user.set_password(new_password)
         request.user.save()
 
-        # Invalidate all existing tokens
-        Token.objects.filter(user=request.user).delete()
-        
         # Blacklist all JWT tokens
         OutstandingToken.objects.filter(user=request.user).delete()
         
@@ -314,8 +326,9 @@ class ChangePasswordView(APIView):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        # Invalidate any existing tokens for this user
-        OutstandingToken.objects.filter(user=self.user).delete()
+        # Blacklist any existing tokens for this user
+        for token in OutstandingToken.objects.filter(user=self.user):
+            BlacklistedToken.objects.get_or_create(token=token)
         return data
 
     def get_token(self, user):
@@ -323,36 +336,41 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Add custom claims
         token['email'] = user.email
         token['name'] = user.name
+        token['last_password_change'] = user.last_password_change.timestamp() if user.last_password_change else None
+        # Token expiration is handled by SIMPLE_JWT settings
         return token
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200:
+            # Blacklist any existing tokens for this user
+            user = User.objects.get(email=request.data['email'])
+            for token in OutstandingToken.objects.filter(user=user):
+                BlacklistedToken.objects.get_or_create(token=token)
+        return response
+
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [AuthRateThrottle]
 
     def post(self, request):
-        # Delete the auth token if it exists
+        """
+        Logs out the user by blacklisting their token.
+        """
         try:
-            request.user.auth_token.delete()
-        except (AttributeError, ObjectDoesNotExist):
-            pass
-
-        # Blacklist the JWT token if it exists
-        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-        if auth_header.startswith('Bearer '):
-            token = auth_header.split(' ')[1]
-            try:
-                token_obj = AccessToken(token)
-                token_obj.blacklist()
-            except Exception:
-                pass
-
-        # Clear the session
-        request.session.flush()
-
-        return Response(
-            {'detail': 'Successfully logged out.'},
-            status=status.HTTP_200_OK
-        )
+            # Get the token from the Authorization header
+            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+                # Blacklist the token
+                token_obj = OutstandingToken.objects.get(token=token)
+                BlacklistedToken.objects.get_or_create(token=token_obj)
+            
+            # Clear session
+            request.session.flush()
+            
+            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
+        except (OutstandingToken.DoesNotExist, IndexError):
+            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)

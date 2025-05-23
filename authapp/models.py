@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -22,12 +23,12 @@ class User(AbstractUser):
     name = models.CharField(max_length=255, default='Unknown User')
     username = None  # Remove the username field
     email = models.EmailField(unique=True)  # Use email as the unique identifier
+    last_password_change = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'email'  # Use email as the username field
-    REQUIRED_FIELDS = []  # Remove username from required fields
+    REQUIRED_FIELDS = ['name']  # Remove username from required fields
 
     objects = UserManager()  # Use the custom user manager
-    pass
 
     groups = models.ManyToManyField(
         'auth.Group',
@@ -43,6 +44,18 @@ class User(AbstractUser):
         help_text='Specific permissions for this user.',
         related_query_name='user'
     )
+
+    def set_password(self, raw_password):
+        """Set the user's password and update last_password_change timestamp."""
+        super().set_password(raw_password)
+        self.last_password_change = timezone.now()
+        if self.pk:  # Only update specific fields if the user exists
+            self.save(update_fields=['last_password_change'])
+        else:  # Otherwise save everything
+            self.save()
+
+    class Meta:
+        db_table = 'auth_user'
 
 class Notification(models.Model):
     NOTIFICATION_TYPES = (

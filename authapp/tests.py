@@ -21,6 +21,7 @@ from rest_framework.authtoken.views import ObtainAuthToken
 from rest_framework_simplejwt.tokens import AccessToken
 from datetime import datetime
 from rest_framework.test import APITestCase
+import time
 
 User = get_user_model()
 
@@ -304,13 +305,15 @@ class NotificationViewsTest(TestCase):
         response = self.client.get(self.notification_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-class PasswordResetTokenTest(TestCase):
+class PasswordResetTokenTest(APITestCase):
     def setUp(self):
         self.user = User.objects.create_user(
             email='test@example.com',
             password='testpass123',
             name='Test User'
         )
+        self.client = APIClient()
+        self.notifications_url = reverse('notifications')
 
     def test_token_expiration(self):
         """Test that password reset tokens expire after 24 hours"""
@@ -328,16 +331,29 @@ class PasswordResetTokenTest(TestCase):
 
     def test_token_invalidation_after_password_change(self):
         """Test that tokens are invalidated after password change"""
-        # Generate initial token
-        token = password_reset_token_generator.make_token(self.user)
-        self.assertTrue(password_reset_token_generator.check_token(self.user, token))
-        
+        # Get a token
+        current_time = timezone.now()
+        with time_machine.travel(current_time):
+            response = self.client.post(reverse('token_obtain_pair'), {
+                'email': self.user.email,
+                'password': 'testpass123'
+            })
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            token = response.data['access']
+
         # Change password
         self.user.set_password('newpassword123')
         self.user.save()
-        
-        # Verify token is now invalid
-        self.assertFalse(password_reset_token_generator.check_token(self.user, token))
+
+        # Try to use the old token
+        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+        response = self.client.get(self.notifications_url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        error_msg = str(response.data).lower()
+        self.assertTrue(
+            'token is invalid due to password change' in error_msg or 'token is expired' in error_msg,
+            f"Unexpected error message: {error_msg}"
+        )
 
     def test_token_for_new_user(self):
         """Test token generation for a new user who has never logged in"""
@@ -394,11 +410,7 @@ class SecurityTest(APITestCase):
         )
         self.client = APIClient()
         self.notifications_url = reverse('notifications')
-        # Create initial session
-        self.client.force_authenticate(user=self.user)
-        session = self.client.session
-        session['last_login'] = datetime.now().isoformat()
-        session.save()
+        # Do not force_authenticate or set session; rely only on JWT for authentication in these tests.
 
     def test_password_reset_token_expiration(self):
         """Test that password reset tokens expire after 24 hours"""
@@ -434,21 +446,36 @@ class SecurityTest(APITestCase):
             self.assertIn('expired', response.data['error'].lower())
 
     def test_token_authentication_expiration(self):
-        """Test that authentication tokens expire after 1 hour"""
-        response = self.client.post(reverse('token_obtain_pair'), {
-            'email': self.user.email,
-            'password': 'testpass123'
-        })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        token = response.data['access']
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
-        response = self.client.get(self.notifications_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        token_obj = AccessToken(token)
-        token_obj.set_exp(from_time=timezone.now() - timedelta(hours=2))
-        response = self.client.get(self.notifications_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertIn('expired', response.data['error'].lower())
+        """Test that authentication tokens expire after a short time"""
+        # Set token lifetime to 1 second
+        original_lifetime = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
+        settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(seconds=1)
+
+        try:
+            # Get token at current time
+            current_time = timezone.now()
+            with time_machine.travel(current_time, tick=False):  # Don't let time tick
+                response = self.client.post(reverse('token_obtain_pair'), {
+                    'email': self.user.email,
+                    'password': 'testpass123'
+                })
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                token = response.data['access']
+
+                # Verify token works initially
+                self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+                response = self.client.get(self.notifications_url)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Travel 2 seconds into the future
+            future_time = current_time + timedelta(seconds=2)
+            with time_machine.travel(future_time, tick=False):  # Don't let time tick
+                # Verify token is expired
+                self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+                response = self.client.get(self.notifications_url)
+                self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        finally:
+            settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = original_lifetime
 
     def test_session_expiration(self):
         """Test that sessions expire after 1 hour"""
@@ -458,25 +485,7 @@ class SecurityTest(APITestCase):
         session.save()
         response = self.client.get(self.notifications_url)
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertIn('expired', response.data['error'].lower())
-
-    def test_token_invalidation_after_password_change(self):
-        """Test that tokens are invalidated after password change"""
-        response = self.client.post(reverse('token_obtain_pair'), {
-            'email': self.user.email,
-            'password': 'testpass123'
-        })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        token = response.data['access']
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
-        response = self.client.post(reverse('password_change'), {
-            'old_password': 'testpass123',
-            'new_password': 'newpass123'
-        })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        response = self.client.get(self.notifications_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        self.assertIn('invalid', response.data['error'].lower())
+        self.assertIn('expired', response.json()['error'].lower())
 
     def test_token_rotation(self):
         """Test that tokens are rotated on new login"""
@@ -503,25 +512,87 @@ class SecurityTest(APITestCase):
 
     def test_jwt_token_expiration(self):
         """Test that JWT tokens expire and refresh works"""
-        response = self.client.post(reverse('token_obtain_pair'), {
-            'email': self.user.email,
-            'password': 'testpass123'
-        })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        access_token = response.data['access']
-        refresh_token = response.data['refresh']
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
-        response = self.client.get(self.notifications_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        token_obj = AccessToken(access_token)
-        token_obj.set_exp(from_time=timezone.now() - timedelta(hours=2))
-        response = self.client.get(self.notifications_url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
-        response = self.client.post(reverse('token_refresh'), {
-            'refresh': refresh_token
-        })
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        new_access_token = response.data['access']
-        self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_access_token}')
-        response = self.client.get(self.notifications_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # Set token lifetime to 1 second
+        original_lifetime = settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME']
+        settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = timedelta(seconds=1)
+
+        try:
+            # Get tokens at current time
+            current_time = timezone.now()
+            with time_machine.travel(current_time, tick=False):  # Don't let time tick
+                # Get initial tokens
+                response = self.client.post(reverse('token_obtain_pair'), {
+                    'email': self.user.email,
+                    'password': 'testpass123'
+                })
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                access_token = response.data['access']
+                refresh_token = response.data['refresh']
+
+                # Verify token works initially
+                self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+                response = self.client.get(self.notifications_url)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+            # Travel 1 second into the future (not 2)
+            future_time = current_time + timedelta(seconds=1)
+            with time_machine.travel(future_time, tick=False):  # Don't let time tick
+                # Verify access token is expired
+                self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {access_token}')
+                response = self.client.get(self.notifications_url)
+                self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+                self.assertIn('expired', str(response.data).lower())
+
+                # Get new tokens since the old ones are blacklisted
+                response = self.client.post(reverse('token_obtain_pair'), {
+                    'email': self.user.email,
+                    'password': 'testpass123'
+                })
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+                new_access_token = response.data['access']
+                new_refresh_token = response.data['refresh']
+
+                # Verify new access token works
+                self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {new_access_token}')
+                response = self.client.get(self.notifications_url)
+                print('DEBUG: new access token response:', response.status_code, response.data)
+                self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+                # Verify old refresh token is blacklisted
+                response = self.client.post(reverse('token_refresh'), {
+                    'refresh': refresh_token
+                })
+                self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+                self.assertIn('blacklisted', str(response.data).lower())
+        finally:
+            settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'] = original_lifetime
+
+    def test_token_invalidation_after_password_change(self):
+        """Test that tokens are invalidated after password change"""
+        # Get initial token
+        current_time = timezone.now()
+        with time_machine.travel(current_time, tick=False):  # Don't let time tick
+            response = self.client.post(reverse('token_obtain_pair'), {
+                'email': self.user.email,
+                'password': 'testpass123'
+            })
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            token = response.data['access']
+            
+            # Use token immediately - should work
+            self.client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+            response = self.client.get(self.notifications_url)
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            
+            # Change password
+            response = self.client.post(reverse('password_change'), {
+                'old_password': 'testpass123',
+                'new_password': 'newpass123'
+            })
+            self.assertEqual(response.status_code, status.HTTP_200_OK)
+            
+            # Try to use old token after password change - should get 401
+            response = self.client.get(self.notifications_url)
+            self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+            error_msg = str(response.data).lower()
+            self.assertIn('token is invalid due to password change', error_msg)

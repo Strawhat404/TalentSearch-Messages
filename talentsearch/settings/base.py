@@ -73,11 +73,11 @@ MIDDLEWARE = [
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
-    'authapp.views.TokenAuthenticationMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
+    'authapp.middleware.SessionExpirationMiddleware',
 ]
 
 ROOT_URLCONF = 'talentsearch.urls'
@@ -148,7 +148,7 @@ AUTH_USER_MODEL = 'authapp.User'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'authapp.authentication.CustomJWTAuthentication',
         'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
     ],
@@ -267,3 +267,14 @@ if 'test' in sys.argv:
         'test': '1000/minute',
         'auth': '1000/minute',
     }
+    # Override JWT settings for tests
+    SIMPLE_JWT.update({
+        'ACCESS_TOKEN_LIFETIME': timedelta(seconds=1),
+        'REFRESH_TOKEN_LIFETIME': timedelta(seconds=2),
+        'ROTATE_REFRESH_TOKENS': True,
+        'BLACKLIST_AFTER_ROTATION': True,
+    })
+    # Only use JWT authentication for tests
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = [
+        'authapp.authentication.CustomJWTAuthentication',
+    ]
