@@ -2,21 +2,34 @@
 # exit on error
 set -o errexit
 
+# Set the project directory
+cd /opt/render/project/src
+
 # Create and activate virtual environment
 python -m venv .venv
 source .venv/bin/activate
 
-# Upgrade pip
+# Upgrade pip and install dependencies
 python -m pip install --upgrade pip
-
-# Install Python dependencies
 pip install -r requirements.txt
 
-# Create necessary directories with proper permissions
-mkdir -p /opt/render/project/src/staticfiles
-mkdir -p /opt/render/project/src/static
-chmod -R 755 /opt/render/project/src/staticfiles
-chmod -R 755 /opt/render/project/src/static
+# Create static directories
+mkdir -p staticfiles
+mkdir -p static
+chmod -R 755 staticfiles
+chmod -R 755 static
+
+# Run migrations
+python manage.py makemigrations
+python manage.py migrate --noinput
+
+# Collect static files
+python manage.py collectstatic --noinput
+
+# Ensure daphne is installed and working
+pip install daphne
+echo "Daphne version:"
+.venv/bin/daphne --version
 
 # Debug: Show Django version and static files settings
 python -c "import django; print(f'Django version: {django.get_version()}')"
@@ -41,23 +54,3 @@ python manage.py showmigrations --list
 # Debug: Check if we can connect to the database
 echo "Testing database connection..."
 python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Database connection successful')"
-
-# Make sure you're in the correct directory
-cd /opt/render/project/src
-
-# Create new migrations
-echo "Creating new migrations..."
-python manage.py makemigrations
-
-# Run migrations
-echo "Running migrations..."
-python manage.py migrate --noinput
-
-# Collect static files
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
-
-# Verify daphne installation
-echo "Verifying daphne installation..."
-which daphne
-daphne --version
