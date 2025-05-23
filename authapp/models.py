@@ -64,12 +64,16 @@ class Notification(models.Model):
         ('alert', 'Alert'),
     )
     
+    # Maximum lengths for title and message
+    MAX_TITLE_LENGTH = 200  # Reasonable length for a notification title
+    MAX_MESSAGE_LENGTH = 2000  # Reasonable length for a notification message
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
-    message = models.TextField()
+    title = models.CharField(max_length=MAX_TITLE_LENGTH)
+    message = models.TextField(max_length=MAX_MESSAGE_LENGTH)
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='info')
     read = models.BooleanField(default=False)
-    link = models.URLField(blank=True, null=True)
+    link = models.URLField(blank=True, null=True, max_length=500)  # Added max_length for URL field
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
