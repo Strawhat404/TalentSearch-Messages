@@ -5,6 +5,7 @@ from drf_spectacular.types import OpenApiTypes
 from django.utils import timezone
 
 class NewsImageSerializer(serializers.ModelSerializer):
+    image = serializers.ImageField(allow_null=True, required=False)
     class Meta:
         model = NewsImage
         fields = ['id', 'image', 'caption']

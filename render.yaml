@@ -1,0 +1,49 @@
+services:
+  - type: web
+    name: talentsearch
+    env: python
+    buildCommand: ./build.sh
+    startCommand: daphne -b 0.0.0.0 -p 10000 talentsearch.asgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: SECRET_KEY
+        generateValue: true
+        sync: true  # Changed to true to ensure it's synced
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DATABASE_URL
+        value: postgresql://talentsearch_mrtv_user:ur1hjbD966sJ73ZsguOlWShXWWoAuuYz@dpg-d0fhqfi4d50c73etivmg-a/talentsearch_mrtv
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: talentsearch-redis
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: "talentsearch-messages-uokp.onrender.com,.onrender.com,localhost,127.0.0.1,*"
+      - key: DEBUG
+        value: false
+      - key: DJANGO_SETTINGS_MODULE
+        value: talentsearch.settings.prod
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USE_TLS
+        value: true
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+
+databases:
+  - name: talentsearch-db
+    databaseName: talentsearch
+    user: talentsearch
+
+services:
+  - type: redis
+    name: talentsearch-redis
+    ipAllowList: [] 
