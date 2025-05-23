@@ -166,7 +166,7 @@ REST_FRAMEWORK = {
         'test': '1000/minute',
         'auth': '10/minute',
     },
-    'TOKEN_EXPIRE_MINUTES': 60,  # Token expires after 1 hour
+    'TOKEN_EXPIRE_MINUTES': 60,  # Default token expiration (in minutes) if not overridden
 }
 
 # JWT settings
