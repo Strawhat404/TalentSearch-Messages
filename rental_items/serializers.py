@@ -16,7 +16,7 @@ class RentalItemRatingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RentalItemRating
-        fields = ['id', 'item_id', 'user_id', 'rating', 'comment', 'created_at', 'user_profile', 'item_details']
+        fields = ['id', 'rental_item', 'user_id', 'rating', 'comment', 'created_at', 'user_profile', 'item_details']
         read_only_fields = ['id', 'created_at', 'user_profile', 'item_details']
 
     def get_item_details(self, obj):

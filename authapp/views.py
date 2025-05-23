@@ -11,6 +11,14 @@ from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
 from django.conf import settings
+from datetime import datetime, timedelta
+from django.utils import timezone
+from rest_framework_simplejwt.tokens import AccessToken
+from django.http import JsonResponse
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+from rest_framework.exceptions import AuthenticationFailed
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
@@ -20,6 +28,8 @@ from .utils import password_reset_token_generator
 from .models import Notification
 from talentsearch.throttles import AuthRateThrottle
 from django.contrib.auth import get_user_model
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -63,9 +73,21 @@ class LoginView(APIView):
                 return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
             if user.check_password(password):
-                token, _ = Token.objects.get_or_create(user=user)
+                # Delete any existing tokens for this user
+                Token.objects.filter(user=user).delete()
+                
+                # Create new token with expiration
+                token = Token.objects.create(user=user)
+                token.created = timezone.now()
+                token.save()
+                
+                # Update last login
+                user.last_login = timezone.now()
+                user.save()
+                
                 return Response({
                     'token': token.key,
+                    'expires_in': settings.REST_FRAMEWORK['TOKEN_EXPIRE_MINUTES'] * 60,  # Convert to seconds
                     'user': {
                         'id': user.id,
                         'email': user.email,
@@ -118,6 +140,12 @@ class ForgotPasswordView(APIView):
         email = request.data.get('email')
         if not email:
             return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate email format
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response({'email': ['Invalid email format']}, status=status.HTTP_400_BAD_REQUEST)
 
         user = User.objects.filter(email__iexact=email).first()
         if not user:
@@ -175,4 +203,174 @@ class NotificationListView(generics.ListAPIView):
         """
         Returns notifications for the authenticated user.
         """
-        return Notification.objects.filter(user=self.request.user).order_by('-created_at')
+        user = self.request.user
+        import sys
+        print(f'DEBUG: get_queryset user={user} type={type(user)} is_authenticated={getattr(user, "is_authenticated", None)}', file=sys.stderr)
+        if not user or not getattr(user, 'is_authenticated', False):
+            raise AuthenticationFailed('Authentication credentials were not provided or are invalid.')
+        return Notification.objects.filter(user=user).order_by('-created_at')
+
+class TokenAuthenticationMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+        from rest_framework_simplejwt.tokens import AccessToken
+        from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
+        from django.utils import timezone
+        import jwt
+        from django.conf import settings
+        import sys
+
+        # Handle JWT token authentication
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            print('DEBUG: Bearer token detected', file=sys.stderr)
+            token = auth_header.split(' ')[1]
+            try:
+                token_obj = AccessToken(token)
+                jti = token_obj['jti']
+                if BlacklistedToken.objects.filter(token__jti=jti).exists():
+                    print('DEBUG: Token is blacklisted', file=sys.stderr)
+                    return Response({'error': 'Token is invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+                try:
+                    # Accessing 'exp' will raise if expired
+                    _ = token_obj['exp']
+                    user_id = token_obj.get('user_id')
+                    try:
+                        user = User.objects.get(id=user_id)
+                        request.user = user
+                        if not hasattr(request, 'session'):
+                            request.session = {}
+                        request.session['last_login'] = timezone.now().isoformat()
+                        request.session.save()
+                        print('DEBUG: Token valid, user authenticated', file=sys.stderr)
+                    except User.DoesNotExist:
+                        print('DEBUG: User not found for token', file=sys.stderr)
+                        return Response({'error': 'User not found'}, status=status.HTTP_401_UNAUTHORIZED)
+                except (TokenError, InvalidToken, jwt.ExpiredSignatureError, KeyError):
+                    print('DEBUG: Token is expired', file=sys.stderr)
+                    return Response({'error': 'Token has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+            except Exception as e:
+                print(f'DEBUG: Exception in token auth: {e}', file=sys.stderr)
+                return Response({'error': str(e)}, status=status.HTTP_401_UNAUTHORIZED)
+
+        # Handle session authentication
+        elif hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False) and not auth_header:
+            print('DEBUG: Session authentication detected', file=sys.stderr)
+            if not hasattr(request, 'session') or not request.session.session_key:
+                print('DEBUG: No active session', file=sys.stderr)
+                return Response({'error': 'No active session'}, status=status.HTTP_401_UNAUTHORIZED)
+            last_login = request.session.get('last_login')
+            if last_login:
+                try:
+                    last_login = datetime.fromisoformat(last_login)
+                    session_age = (timezone.now() - last_login).total_seconds()
+                    print(f'DEBUG: Session age: {session_age}', file=sys.stderr)
+                    if session_age > settings.SESSION_COOKIE_AGE:
+                        print('DEBUG: Session expired', file=sys.stderr)
+                        request.session.flush()
+                        return Response({'error': 'Session has expired'}, status=status.HTTP_401_UNAUTHORIZED)
+                except (ValueError, TypeError):
+                    print('DEBUG: Invalid session timestamp', file=sys.stderr)
+                    request.session.flush()
+                    return Response({'error': 'Invalid session'}, status=status.HTTP_401_UNAUTHORIZED)
+            request.session['last_login'] = timezone.now().isoformat()
+            request.session.save()
+            print('DEBUG: Session valid, user authenticated', file=sys.stderr)
+
+        response = self.get_response(request)
+        return response
+
+class ChangePasswordView(APIView):
+    throttle_classes = [AuthRateThrottle]
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Changes the user's password and invalidates all existing tokens.
+        """
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+
+        if not old_password or not new_password:
+            return Response(
+                {'error': 'Both old_password and new_password are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Verify old password
+        if not request.user.check_password(old_password):
+            return Response(
+                {'error': 'Invalid old password'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Set new password using the model's set_password method
+        # This will automatically update last_password_change
+        request.user.set_password(new_password)
+        request.user.save()
+
+        # Blacklist all JWT tokens
+        OutstandingToken.objects.filter(user=request.user).delete()
+        
+        # Clear session
+        request.session.flush()
+
+        return Response(
+            {'message': 'Password changed successfully. Please login again.'}, 
+            status=status.HTTP_200_OK
+        )
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # Blacklist any existing tokens for this user
+        for token in OutstandingToken.objects.filter(user=self.user):
+            BlacklistedToken.objects.get_or_create(token=token)
+        return data
+
+    def get_token(self, user):
+        token = super().get_token(user)
+        # Add custom claims
+        token['email'] = user.email
+        token['name'] = user.name
+        token['last_password_change'] = user.last_password_change.timestamp() if user.last_password_change else None
+        # Token expiration is handled by SIMPLE_JWT settings
+        return token
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200:
+            # Blacklist any existing tokens for this user
+            user = User.objects.get(email=request.data['email'])
+            for token in OutstandingToken.objects.filter(user=user):
+                BlacklistedToken.objects.get_or_create(token=token)
+        return response
+
+class LogoutView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Logs out the user by blacklisting their token.
+        """
+        try:
+            # Get the token from the Authorization header
+            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+            if auth_header.startswith('Bearer '):
+                token = auth_header.split(' ')[1]
+                # Blacklist the token
+                token_obj = OutstandingToken.objects.get(token=token)
+                BlacklistedToken.objects.get_or_create(token=token_obj)
+            
+            # Clear session
+            request.session.flush()
+            
+            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
+        except (OutstandingToken.DoesNotExist, IndexError):
+            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)

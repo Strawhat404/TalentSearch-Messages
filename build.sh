@@ -69,8 +69,8 @@ python manage.py showmigrations --list
 
 # Create superuser if none exists
 echo "Creating superuser if needed..."
-DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"abel@gmail.com"}
-DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"admin123"}
+DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"admin@example.com}
+DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"Test1234!"}
 DJANGO_SUPERUSER_NAME=${DJANGO_SUPERUSER_NAME:-"Admin User"}
 
 python manage.py shell -c "
