@@ -266,6 +266,7 @@ if 'test' in sys.argv:
         'user': '1000/minute',
         'test': '1000/minute',
         'auth': '1000/minute',
+        'create': '1000/minute',  # Add create scope rate for tests
     }
     # Override JWT settings for tests
     SIMPLE_JWT.update({
