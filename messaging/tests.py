@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from rest_framework import status
 from django.urls import reverse
-from .models import Message
+from .models import Message, MessageThread
 from django.utils import timezone
 import time
 from django.core.cache import cache
@@ -430,3 +430,162 @@ class MessageErrorHandlingTest(TestCase):
             'content': 'Test message'
         })
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+
+class MessageThreadViewTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user1 = User.objects.create_user(
+            username='user1',
+            email='user1@example.com',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='user2',
+            email='user2@example.com',
+            password='testpass123'
+        )
+        self.client.force_authenticate(user=self.user1)
+        self.thread_url = reverse('thread-list')
+
+    def test_create_thread(self):
+        """Test creating a new message thread"""
+        data = {
+            'participant_ids': [self.user2.id],
+            'title': 'Test Thread'
+        }
+        response = self.client.post(self.thread_url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(MessageThread.objects.count(), 1)
+        thread = MessageThread.objects.first()
+        self.assertEqual(thread.participants.count(), 2)
+        self.assertEqual(thread.title, 'Test Thread')
+
+    def test_list_threads(self):
+        """Test listing all threads for a user"""
+        # Create a thread
+        thread = MessageThread.objects.create(title='Test Thread')
+        thread.participants.add(self.user1, self.user2)
+
+        response = self.client.get(self.thread_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['title'], 'Test Thread')
+
+class MessageThreadDetailViewTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user1 = User.objects.create_user(
+            username='user1',
+            email='user1@example.com',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='user2',
+            email='user2@example.com',
+            password='testpass123'
+        )
+        self.client.force_authenticate(user=self.user1)
+        
+        # Create a thread
+        self.thread = MessageThread.objects.create(title='Test Thread')
+        self.thread.participants.add(self.user1, self.user2)
+        self.thread_url = reverse('thread-detail', args=[self.thread.id])
+
+    def test_get_thread_details(self):
+        """Test getting thread details"""
+        response = self.client.get(self.thread_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['title'], 'Test Thread')
+        self.assertEqual(len(response.data['participants']), 2)
+
+    def test_update_thread(self):
+        """Test updating thread details"""
+        data = {'title': 'Updated Thread'}
+        response = self.client.put(self.thread_url, data)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.thread.refresh_from_db()
+        self.assertEqual(self.thread.title, 'Updated Thread')
+
+    def test_delete_thread(self):
+        """Test soft deleting a thread"""
+        response = self.client.delete(self.thread_url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.thread.refresh_from_db()
+        self.assertFalse(self.thread.is_active)
+
+class MessageViewTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        self.user1 = User.objects.create_user(
+            username='user1',
+            email='user1@example.com',
+            password='testpass123'
+        )
+        self.user2 = User.objects.create_user(
+            username='user2',
+            email='user2@example.com',
+            password='testpass123'
+        )
+        self.client.force_authenticate(user=self.user1)
+        
+        # Create a thread
+        self.thread = MessageThread.objects.create(title='Test Thread')
+        self.thread.participants.add(self.user1, self.user2)
+        self.message_url = reverse('message-list')
+
+    def test_create_message(self):
+        """Test creating a new message in a thread"""
+        data = {
+            'thread_id': self.thread.id,
+            'content': 'Hello, this is a test message!'
+        }
+        response = self.client.post(self.message_url, data)
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(Message.objects.count(), 1)
+        message = Message.objects.first()
+        self.assertEqual(message.content, 'Hello, this is a test message!')
+        self.assertEqual(message.sender, self.user1)
+        self.assertEqual(message.thread, self.thread)
+
+    def test_list_messages(self):
+        """Test listing messages in a thread"""
+        # Create some messages
+        Message.objects.create(
+            thread=self.thread,
+            sender=self.user1,
+            receiver=self.user2,
+            content='Message 1'
+        )
+        Message.objects.create(
+            thread=self.thread,
+            sender=self.user2,
+            receiver=self.user1,
+            content='Message 2'
+        )
+
+        response = self.client.get(f'{self.message_url}?thread_id={self.thread.id}')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 2)
+
+    def test_message_queue_full(self):
+        """Test message creation when queue is full"""
+        cache.set('message_queue_full', True)
+        data = {
+            'thread_id': self.thread.id,
+            'content': 'Test message'
+        }
+        response = self.client.post(self.message_url, data)
+        self.assertEqual(response.status_code, status.HTTP_503_SERVICE_UNAVAILABLE)
+        cache.delete('message_queue_full')
+
+    def test_rate_limiting(self):
+        """Test rate limiting for message creation"""
+        data = {
+            'thread_id': self.thread.id,
+            'content': 'Test message'
+        }
+        # Make 11 requests in quick succession
+        for _ in range(11):
+            response = self.client.post(self.message_url, data)
+        
+        self.assertEqual(response.status_code, status.HTTP_429_TOO_MANY_REQUESTS)

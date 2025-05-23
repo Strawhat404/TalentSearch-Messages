@@ -1,6 +1,11 @@
 from django.urls import path
-from .views import MessageView
+from .views import MessageView, MessageThreadView, MessageThreadDetailView
 
 urlpatterns = [
-    path('', MessageView.as_view(), name='message_list_create'),
+    # Thread endpoints
+    path('threads/', MessageThreadView.as_view(), name='thread-list'),
+    path('threads/<int:thread_id>/', MessageThreadDetailView.as_view(), name='thread-detail'),
+    
+    # Message endpoints
+    path('messages/', MessageView.as_view(), name='message-list'),
 ]
