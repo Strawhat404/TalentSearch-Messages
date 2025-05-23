@@ -64,3 +64,4 @@ uritemplate==4.1.1
 wcwidth==0.2.13
 whitenoise==6.9.0
 daphne==4.2.0
+bleach==6.1.0

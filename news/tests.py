@@ -10,6 +10,7 @@ from PIL import Image
 from django.core.files import File
 import io
 from rest_framework.authtoken.models import Token
+from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
@@ -26,7 +27,7 @@ class NewsModelTest(TestCase):
         )
         self.news = News.objects.create(
             title='Test News',
-            content='Test content',
+            content='Test content that is long enough to pass validation',
             created_by=self.user,
             status='published'
         )
@@ -44,7 +45,7 @@ class NewsModelTest(TestCase):
     def test_news_creation(self):
         """Test News model creation and field validation."""
         self.assertEqual(self.news.title, 'Test News')
-        self.assertEqual(self.news.content, 'Test content')
+        self.assertEqual(self.news.content, 'Test content that is long enough to pass validation')
         self.assertEqual(self.news.created_by, self.user)
         self.assertEqual(self.news.status, 'published')
         self.assertEqual(self.news.image_gallery.count(), 1)
@@ -56,6 +57,47 @@ class NewsModelTest(TestCase):
         """Test News __str__ method."""
         self.assertEqual(str(self.news), 'Test News')
 
+    def test_content_length_validation(self):
+        """Test content length validation."""
+        # Test minimum length
+        with self.assertRaises(ValidationError):
+            News.objects.create(
+                title='Short Content',
+                content='Too short',
+                created_by=self.user,
+                status='draft'
+            )
+
+        # Test maximum length
+        with self.assertRaises(ValidationError):
+            News.objects.create(
+                title='Long Content',
+                content='x' * 50001,  # Exceeds 50,000 characters
+                created_by=self.user,
+                status='draft'
+            )
+
+    def test_status_transition_validation(self):
+        """Test status transition validation."""
+        # Test valid transition
+        self.news.status = 'archived'
+        self.news.save()  # Should not raise exception
+
+        # Test invalid transition
+        with self.assertRaises(ValidationError):
+            self.news.status = 'draft'  # Cannot go from archived to draft
+            self.news.save()
+
+    def test_content_sanitization(self):
+        """Test content sanitization."""
+        news = News.objects.create(
+            title='Sanitized Content',
+            content='<script>alert("xss")</script>Hello <b>World</b>',
+            created_by=self.user,
+            status='draft'
+        )
+        self.assertEqual(news.content, 'Hello World')
+
     def test_news_image_creation(self):
         """Test NewsImage model creation."""
         self.assertEqual(self.image.caption, 'Test Image')
@@ -64,6 +106,66 @@ class NewsModelTest(TestCase):
     def test_news_image_str(self):
         """Test NewsImage __str__ method."""
         self.assertEqual(str(self.image), 'Test Image')
+
+class NewsImageTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            email='testuser@example.com',
+            password='testpass',
+            name='Test User'
+        )
+
+    def _create_image(self, width=100, height=100, format='JPEG'):
+        """Helper to create a temporary image file."""
+        image = Image.new('RGB', (width, height))
+        tmp_file = tempfile.NamedTemporaryFile(suffix='.jpg', delete=False)
+        image.save(tmp_file, format)
+        tmp_file.seek(0)
+        return File(tmp_file, name='test_image.jpg')
+
+    def test_image_size_validation(self):
+        """Test image size validation."""
+        # Create a large image (6MB)
+        large_image = self._create_image(2000, 2000)
+        large_image.size = 6 * 1024 * 1024  # 6MB
+
+        with self.assertRaises(ValidationError):
+            NewsImage.objects.create(
+                image=large_image,
+                caption='Large Image'
+            )
+
+    def test_image_dimension_validation(self):
+        """Test image dimension validation."""
+        # Create an oversized image
+        oversized_image = self._create_image(2000, 2000)
+
+        with self.assertRaises(ValidationError):
+            NewsImage.objects.create(
+                image=oversized_image,
+                caption='Oversized Image'
+            )
+
+    def test_image_format_validation(self):
+        """Test image format validation."""
+        # Create an image with invalid format
+        invalid_image = self._create_image(format='BMP')
+
+        with self.assertRaises(ValidationError):
+            NewsImage.objects.create(
+                image=invalid_image,
+                caption='Invalid Format'
+            )
+
+    def test_valid_image_creation(self):
+        """Test valid image creation."""
+        valid_image = self._create_image(800, 600)
+        news_image = NewsImage.objects.create(
+            image=valid_image,
+            caption='Valid Image'
+        )
+        self.assertEqual(news_image.caption, 'Valid Image')
+        self.assertTrue(news_image.image)
 
 class NewsSerializerTest(TestCase):
     def setUp(self):
