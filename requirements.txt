@@ -4,6 +4,7 @@ attrs==25.3.0
 autobahn==24.4.2
 Automat==25.4.16
 black==24.2.0
+bleach==6.2.0
 cffi==1.17.1
 click==8.1.8
 constantly==23.10.4
@@ -82,5 +83,6 @@ txaio==23.1.1
 typing_extensions==4.13.2
 uritemplate==4.1.1
 wcwidth==0.2.13
+webencodings==0.5.1
 whitenoise==6.9.0
 zope.interface==7.2
