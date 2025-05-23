@@ -1,3 +1,9 @@
+
+"""
+Serializer for the Profile model, handling data validation and serialization.
+Includes custom validation for file uploads, URLs, and profile fields.
+"""
+
 from rest_framework import serializers
 from .models import Profile
 from django.core.files.storage import default_storage
