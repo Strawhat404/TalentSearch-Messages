@@ -5,52 +5,58 @@ set -o errexit
 # Set the project directory
 cd /opt/render/project/src
 
+# Remove existing virtual environment if it exists
+if [ -d ".venv" ]; then
+    echo "Removing existing virtual environment..."
+    rm -rf .venv
+fi
+
 # Create and activate virtual environment
+echo "Creating virtual environment..."
 python -m venv .venv
 source .venv/bin/activate
 
 # Upgrade pip and install dependencies
+echo "Upgrading pip..."
 python -m pip install --upgrade pip
+
+echo "Installing dependencies..."
 pip install -r requirements.txt
 
+# Explicitly install daphne
+echo "Installing daphne..."
+pip install daphne==4.2.0
+
 # Create static directories
+echo "Creating static directories..."
 mkdir -p staticfiles
 mkdir -p static
 chmod -R 755 staticfiles
 chmod -R 755 static
 
 # Run migrations
-python manage.py makemigrations
+echo "Running migrations..."
+python manage.py makemigrations --noinput
 python manage.py migrate --noinput
 
 # Collect static files
-python manage.py collectstatic --noinput
+echo "Collecting static files..."
+python manage.py collectstatic --noinput --clear
 
-# Ensure daphne is installed and working
-pip install daphne
-echo "Daphne version:"
-.venv/bin/daphne --version
+# Create start script
+echo "Creating start script..."
+cat > start-server.sh << 'EOF'
+#!/usr/bin/env bash
+set -e
 
-# Debug: Show Django version and static files settings
-python -c "import django; print(f'Django version: {django.get_version()}')"
-python manage.py check --deploy
+# Activate virtual environment
+source /opt/render/project/src/.venv/bin/activate
 
-# Debug: Show database connection info (without sensitive data)
-echo "Checking database connection..."
-python manage.py shell -c "
-from django.conf import settings
-from django.db import connection
-db_engine = settings.DATABASES['default']['ENGINE']
-print(f'Database engine: {db_engine}')
-print(f'Database name: {settings.DATABASES[\"default\"][\"NAME\"]}')
-print(f'Database user: {settings.DATABASES[\"default\"][\"USER\"]}')
-print(f'Database host: {settings.DATABASES[\"default\"][\"HOST\"]}')
-"
+# Start daphne server
+exec /opt/render/project/src/.venv/bin/daphne -b 0.0.0.0 -p 10000 talentsearch.asgi:application
+EOF
 
-# Show migration status before running migrations
-echo "Migration status before running migrations:"
-python manage.py showmigrations --list
+# Make start script executable
+chmod +x start-server.sh
 
-# Debug: Check if we can connect to the database
-echo "Testing database connection..."
-python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Database connection successful')"
+echo "Build completed successfully!"
