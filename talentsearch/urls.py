@@ -9,6 +9,8 @@ from drf_spectacular.views import (
     SpectacularRedocView,
     SpectacularSwaggerView,
 )
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
 # API Documentation URLs
 api_docs_urlpatterns = [
@@ -22,6 +24,10 @@ api_docs_urlpatterns = [
         permission_classes=[permissions.AllowAny],
     ), name='redoc'),
 ]
+
+@csrf_exempt
+def health_check(request):
+    return JsonResponse({"status": "healthy"})
 
 # Main URL patterns
 urlpatterns = [
@@ -44,6 +50,7 @@ urlpatterns = [
     path('api/comment_likes/', include('comment_likes.urls')),
     path('api/rental/', include('rental_items.urls')),
     path('api/ratings/', include('rental_ratings.urls')),
+    path('api/health/', health_check, name='health_check'),
     # API Documentation
     path('api/docs/', include(api_docs_urlpatterns)),
 ]

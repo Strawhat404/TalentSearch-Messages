@@ -1,26 +1,32 @@
 services:
   - type: web
-    name: talentsearch
+    name: talentsearch-backend
     env: python
-    buildCommand: ./build.sh
-    startCommand: bash /opt/render/project/src/start.sh
+    region: oregon  # Choose the region closest to your users
+    plan: standard  # You can adjust this based on your needs
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: daphne talentsearch.asgi:application --host 0.0.0.0 --port $PORT --workers $WEB_CONCURRENCY
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.13.3
       - key: SECRET_KEY
         generateValue: true
-        sync: true
       - key: WEB_CONCURRENCY
         value: 4
       - key: DATABASE_URL
-        value: postgresql://talentsearch_mrtv_user:ur1hjbD966sJ73ZsguOlWShXWWoAuuYz@dpg-d0fhqfi4d50c73etivmg-a/talentsearch_mrtv
+        fromDatabase:
+          name: talentsearch-db
+          property: connectionString
       - key: REDIS_URL
         fromService:
           type: redis
           name: talentsearch-redis
           property: connectionString
       - key: ALLOWED_HOSTS
-        value: "talentsearch-messages-uokp.onrender.com,.onrender.com,localhost,127.0.0.1,*"
+        value: "talentsearch-backend.onrender.com,.onrender.com,localhost,127.0.0.1"
       - key: DEBUG
         value: false
       - key: DJANGO_SETTINGS_MODULE
@@ -37,13 +43,22 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
+    healthCheckPath: /api/health/  # We'll create this endpoint
+    autoDeploy: true
+    numInstances: 1
+    disk:
+      name: talentsearch-disk
+      mountPath: /opt/render/project/src/media
+      sizeGB: 1
 
 databases:
   - name: talentsearch-db
     databaseName: talentsearch
     user: talentsearch
+    plan: free  # You can upgrade this based on your needs
 
 services:
   - type: redis
     name: talentsearch-redis
+    plan: free  # You can upgrade this based on your needs
     ipAllowList: [] 
