@@ -24,9 +24,9 @@ python -m pip install --upgrade pip
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-# Install gunicorn and uvicorn
-echo "Installing gunicorn and uvicorn..."
-pip install gunicorn uvicorn
+# Install gunicorn with uvicorn support
+echo "Installing gunicorn with uvicorn support..."
+pip install "gunicorn[uvicorn]"
 
 # Create static directories
 echo "Creating static directories..."
