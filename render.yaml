@@ -3,7 +3,7 @@ services:
     name: talentsearch
     env: python
     buildCommand: ./build.sh
-    startCommand: daphne -b 0.0.0.0 -p 10000 talentsearch.asgi:application
+    startCommand: /opt/render/project/src/start.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
