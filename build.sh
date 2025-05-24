@@ -24,9 +24,9 @@ python -m pip install --upgrade pip
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-# Install gunicorn and uvicorn explicitly
-echo "Installing gunicorn and uvicorn..."
-pip install gunicorn==23.0.0 uvicorn==0.27.1
+# Install uvicorn explicitly
+echo "Installing uvicorn..."
+pip install "uvicorn[standard]==0.27.1"
 
 # Create static directories
 echo "Creating static directories..."
