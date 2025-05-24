@@ -46,18 +46,18 @@ python manage.py collectstatic --noinput --clear
 
 # Create start script
 echo "Creating start script..."
-cat > start-server.sh << 'EOF'
+cat > $PROJECT_DIR/start.sh << 'EOF'
 #!/usr/bin/env bash
 set -e
 
 # Activate virtual environment
 source /opt/render/project/src/.venv/bin/activate
 
-# Start daphne server
-exec /opt/render/project/src/.venv/bin/daphne -b 0.0.0.0 -p 10000 talentsearch.asgi:application
+# Start uvicorn
+exec /opt/render/project/src/.venv/bin/uvicorn talentsearch.asgi:application --host 0.0.0.0 --port 10000 --workers 4
 EOF
 
 # Make start script executable
-chmod +x start-server.sh
+chmod +x $PROJECT_DIR/start.sh
 
 echo "Build completed successfully!"

@@ -3,7 +3,7 @@ services:
     name: talentsearch
     env: python
     buildCommand: ./build.sh
-    startCommand: uvicorn talentsearch.asgi:application --host 0.0.0.0 --port 10000 --workers 4
+    startCommand: /opt/render/project/src/start.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
