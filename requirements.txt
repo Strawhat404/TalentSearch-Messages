@@ -28,6 +28,7 @@ drf-yasg==1.21.10
 executing==2.2.0
 flake8==7.0.0
 gunicorn==23.0.0
+uvicorn[standard]==0.27.1
 hyperlink==21.0.0
 idna==3.10
 incremental==24.7.2

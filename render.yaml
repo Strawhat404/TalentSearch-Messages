@@ -3,13 +3,13 @@ services:
     name: talentsearch
     env: python
     buildCommand: ./build.sh
-    startCommand: daphne -b 0.0.0.0 -p 10000 talentsearch.asgi:application
+    startCommand: bash /opt/render/project/src/start.sh
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: SECRET_KEY
         generateValue: true
-        sync: true  # Changed to true to ensure it's synced
+        sync: true
       - key: WEB_CONCURRENCY
         value: 4
       - key: DATABASE_URL

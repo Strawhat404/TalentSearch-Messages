@@ -2,16 +2,36 @@
 # exit on error
 set -o errexit
 
-# Install Python dependencies
+# Create and activate a virtual environment
+echo "Creating virtual environment..."
+python -m venv .venv
+source .venv/bin/activate
+
+# Upgrade pip (to avoid pip upgrade notice)
+echo "Upgrading pip..."
+pip install --upgrade pip
+
+# Install dependencies (including daphne if it's in requirements.txt)
+echo "Installing dependencies (including daphne) from requirements.txt..."
 pip install -r requirements.txt
 
-# Create necessary directories with proper permissions
+# (Optional) Explicitly install daphne if it's not in requirements.txt
+# echo "Explicitly installing daphne (if not in requirements.txt)..."
+# pip install daphne
+
+# Debug: verify that daphne is installed in the venv
+echo "Verifying daphne installation (in venv)..."
+ls -l .venv/bin/daphne
+
+# Create necessary directories (for static files and media) with proper permissions
+echo "Creating static and media directories..."
 mkdir -p /opt/render/project/src/staticfiles
 mkdir -p /opt/render/project/src/media
 chmod -R 755 /opt/render/project/src/staticfiles
 chmod -R 755 /opt/render/project/src/media
 
 # Debug: Show Django version and static files settings
+echo "Checking Django setup..."
 python -c "import django; print(f'Django version: {django.get_version()}')"
 python manage.py check --deploy
 
@@ -34,12 +54,6 @@ python manage.py showmigrations --list
 # Debug: Check if we can connect to the database
 echo "Testing database connection..."
 python manage.py shell -c "from django.db import connection; connection.ensure_connection(); print('Database connection successful')"
-
-# Make sure you're in the correct directory
-cd /opt/render/project/src
-
-# Activate the virtual environment
-source .venv/bin/activate
 
 # Force database connection and migrations with error handling
 echo "Running migrations with error handling..."
@@ -69,7 +83,7 @@ python manage.py showmigrations --list
 
 # Create superuser if none exists
 echo "Creating superuser if needed..."
-DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"admin@example.com}
+DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL:-"admin@example.com"}
 DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD:-"Test1234!"}
 DJANGO_SUPERUSER_NAME=${DJANGO_SUPERUSER_NAME:-"Admin User"}
 
@@ -90,3 +104,21 @@ else:
 # Collect static files
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
+
+# Create a wrapper start script (start.sh) that activates the venv and then runs daphne
+echo "Creating wrapper start script (start.sh) to activate venv and run daphne..."
+cat > /opt/render/project/src/start.sh << 'EOF'
+#!/usr/bin/env bash
+set -e
+echo "Activating virtual environment..."
+source /opt/render/project/src/.venv/bin/activate
+echo "Starting daphne (from venv) ..."
+exec /opt/render/project/src/.venv/bin/daphne talentsearch.asgi:application --host 0.0.0.0 --port 10000 --workers 4
+EOF
+
+# Make start.sh executable
+chmod +x /opt/render/project/src/start.sh
+
+# Debug: verify start.sh exists and is executable
+echo "Verifying start.sh (wrapper script) ..."
+ls -l /opt/render/project/src/start.sh
