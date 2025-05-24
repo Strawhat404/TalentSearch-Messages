@@ -10,7 +10,10 @@ DEBUG = config('DEBUG', cast=bool, default=True)
 
 SECRET_KEY = config('SECRET_KEY', default='insecure-dev-key')
 
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS")
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+]
 
 # Use PostgreSQL or any DB via DATABASE_URL (no fallback to sqlite3)
 DATABASES = {
@@ -19,18 +22,6 @@ DATABASES = {
         conn_max_age=600
     )
 }
-
-# Optional Redis support for dev
-# if config('REDIS_URL', default=None):
-#     CACHES = {
-#         'default': {
-#             'BACKEND': 'django_redis.cache.RedisCache',
-#             'LOCATION': config('REDIS_URL'),
-#             'OPTIONS': {
-#                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-#             }
-#         }
-#     }
 
 # Optional Redis support for dev
 if config('REDIS_URL', default=None):
@@ -51,6 +42,15 @@ else:
         }
     }
 
-
 # Console backend for emails in development
 EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+
+# CORS settings for local frontend devs
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+]
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_HEADERS = True
+CORS_ALLOW_ALL_ORIGINS = True  # For dev only, allows all origins

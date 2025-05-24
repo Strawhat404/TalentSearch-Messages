@@ -1,0 +1,64 @@
+services:
+  - type: web
+    name: talentsearch-backend
+    env: python
+    region: oregon  # Choose the region closest to your users
+    plan: standard  # You can adjust this based on your needs
+    buildCommand: |
+      python -m pip install --upgrade pip
+      pip install -r requirements.txt
+      python manage.py collectstatic --noinput
+    startCommand: daphne -b 0.0.0.0 -p $PORT talentsearch.asgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.3
+      - key: SECRET_KEY
+        generateValue: true
+      - key: WEB_CONCURRENCY
+        value: 4
+      - key: DATABASE_URL
+        fromDatabase:
+          name: talentsearch-db
+          property: connectionString
+      - key: REDIS_URL
+        fromService:
+          type: redis
+          name: talentsearch-redis
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        value: "talentsearch-backend.onrender.com,.onrender.com,localhost,127.0.0.1"
+      - key: DEBUG
+        value: false
+      - key: DJANGO_SETTINGS_MODULE
+        value: talentsearch.settings.prod
+      - key: EMAIL_HOST
+        value: smtp.gmail.com
+      - key: EMAIL_PORT
+        value: 587
+      - key: EMAIL_USE_TLS
+        value: true
+      - key: EMAIL_HOST_USER
+        sync: false
+      - key: EMAIL_HOST_PASSWORD
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        sync: false
+    healthCheckPath: /api/health/  # We'll create this endpoint
+    autoDeploy: true
+    numInstances: 1
+    disk:
+      name: talentsearch-disk
+      mountPath: /opt/render/project/src/media
+      sizeGB: 1
+
+databases:
+  - name: talentsearch-db
+    databaseName: talentsearch
+    user: talentsearch
+    plan: free  # You can upgrade this based on your needs
+
+services:
+  - type: redis
+    name: talentsearch-redis
+    plan: free  # You can upgrade this based on your needs
+    ipAllowList: [] 

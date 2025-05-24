@@ -1,6 +1,7 @@
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 
 class UserManager(BaseUserManager):
@@ -22,12 +23,12 @@ class User(AbstractUser):
     name = models.CharField(max_length=255, default='Unknown User')
     username = None  # Remove the username field
     email = models.EmailField(unique=True)  # Use email as the unique identifier
+    last_password_change = models.DateTimeField(default=timezone.now)
 
     USERNAME_FIELD = 'email'  # Use email as the username field
-    REQUIRED_FIELDS = []  # Remove username from required fields
+    REQUIRED_FIELDS = ['name']  # Remove username from required fields
 
     objects = UserManager()  # Use the custom user manager
-    pass
 
     groups = models.ManyToManyField(
         'auth.Group',
@@ -44,6 +45,18 @@ class User(AbstractUser):
         related_query_name='user'
     )
 
+    def set_password(self, raw_password):
+        """Set the user's password and update last_password_change timestamp."""
+        super().set_password(raw_password)
+        self.last_password_change = timezone.now()
+        if self.pk:  # Only update specific fields if the user exists
+            self.save(update_fields=['last_password_change'])
+        else:  # Otherwise save everything
+            self.save()
+
+    class Meta:
+        db_table = 'auth_user'
+
 class Notification(models.Model):
     NOTIFICATION_TYPES = (
         ('info', 'Information'),
@@ -51,12 +64,16 @@ class Notification(models.Model):
         ('alert', 'Alert'),
     )
     
+    # Maximum lengths for title and message
+    MAX_TITLE_LENGTH = 200  # Reasonable length for a notification title
+    MAX_MESSAGE_LENGTH = 2000  # Reasonable length for a notification message
+    
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    title = models.CharField(max_length=255)
-    message = models.TextField()
+    title = models.CharField(max_length=MAX_TITLE_LENGTH)
+    message = models.TextField(max_length=MAX_MESSAGE_LENGTH)
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='info')
     read = models.BooleanField(default=False)
-    link = models.URLField(blank=True, null=True)
+    link = models.URLField(blank=True, null=True, max_length=500)  # Added max_length for URL field
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):

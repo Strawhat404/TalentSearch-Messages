@@ -5,7 +5,9 @@ Ensures required fields are provided and not blank.
 
 from rest_framework import serializers
 from .models import Job
-
+import re
+from urllib.parse import urlparse
+from datetime import date
 
 class JobSerializer(serializers.ModelSerializer):
     """
@@ -35,12 +37,16 @@ class JobSerializer(serializers.ModelSerializer):
         """
         Validate required fields to ensure they are not blank.
         Checks all required fields for POST and provided fields for PUT.
+        Adds validations for date range, Ethiopia-specific postal code, company website,
+        Ethiopia-specific compensation, and future dates.
         """
         required_fields = [
             'talents', 'project_type', 'organization_type', 'first_name',
             'last_name', 'company_name', 'job_title', 'country'
         ]
         errors = {}
+
+        # Existing validation for required fields
         if not self.partial:
             for field in required_fields:
                 if field not in data:
@@ -51,6 +57,57 @@ class JobSerializer(serializers.ModelSerializer):
             for field, value in data.items():
                 if field in required_fields and (value is None or str(value).strip() == ""):
                     errors[field] = f"{field.replace('_', ' ').title()} cannot be blank."
+
+        # Date range validation: Ensure project_end_date is not before project_start_date
+        if 'project_start_date' in data and 'project_end_date' in data:
+            start_date = data.get('project_start_date')
+            end_date = data.get('project_end_date')
+            if start_date and end_date and end_date < start_date:
+                errors['project_end_date'] = "Project end date cannot be before project start date."
+
+        # Ethiopia-specific postal code validation: Must be a 4-digit number
+        if 'postal_code' in data and data.get('postal_code'):
+            postal_code = data.get('postal_code')
+            if not re.match(r'^\d{4}$', postal_code):
+                errors['postal_code'] = "Postal code must be a 4-digit number (e.g., 1000 for Addis Ababa)."
+
+        # Company website validation: Ensure it has a valid scheme and domain
+        if 'company_website' in data and data.get('company_website'):
+            website = data.get('company_website')
+            try:
+                parsed = urlparse(website)
+                if not all([parsed.scheme in ['http', 'https'], parsed.netloc]):
+                    errors['company_website'] = "Company website must be a valid URL with http or https scheme."
+            except ValueError:
+                errors['company_website'] = "Invalid URL format for company website."
+
+        # Ethiopia-specific compensation validation: Ensure compensation_amount is valid for ETB
+        if 'compensation_type' in data and 'compensation_amount' in data:
+            comp_type = data.get('compensation_type')
+            comp_amount = data.get('compensation_amount')
+            if comp_type and comp_amount:
+                # Allow "ETB" prefix/suffix or plain number (e.g., "ETB 50000", "50000 ETB", "50000")
+                cleaned_amount = comp_amount.strip().replace('ETB', '').replace(',', '').strip()
+                try:
+                    amount = float(cleaned_amount)
+                    if amount <= 0:
+                        errors['compensation_amount'] = "Compensation amount must be a positive number in ETB."
+                except (ValueError, TypeError):
+                    errors['compensation_amount'] = "Compensation amount must be a valid number (e.g., 50000 or ETB 50000)."
+            elif comp_type and not comp_amount:
+                errors['compensation_amount'] = "Compensation amount is required when compensation type is provided."
+            elif comp_amount and not comp_type:
+                errors['compensation_type'] = "Compensation type is required when compensation amount is provided."
+
+        # Future date validation: Ensure project dates are in the future
+        current_date = date.today()
+        if 'project_start_date' in data and data.get('project_start_date'):
+            if data.get('project_start_date') < current_date:
+                errors['project_start_date'] = "Project start date must be today or in the future."
+        if 'project_end_date' in data and data.get('project_end_date'):
+            if data.get('project_end_date') < current_date:
+                errors['project_end_date'] = "Project end date must be today or in the future."
+
         if errors:
             raise serializers.ValidationError(errors)
         return data

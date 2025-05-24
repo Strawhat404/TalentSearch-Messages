@@ -4,6 +4,10 @@ Django model for jobs, storing job-related information linked to a user.
 
 from django.db import models
 from django.contrib.auth import get_user_model
+from django.core.exceptions import ValidationError
+from django.core.validators import RegexValidator
+from datetime import date
+
 User = get_user_model()
 
 class Job(models.Model):
@@ -20,14 +24,49 @@ class Job(models.Model):
     company_website = models.URLField(blank=True, null=True)
     job_title = models.CharField(max_length=255, blank=False)
     country = models.CharField(max_length=100, blank=False)
-    postal_code = models.CharField(max_length=20, blank=True, null=True)
+    postal_code = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        validators=[
+            RegexValidator(
+                regex=r'^\d{4}$',
+                message="Postal code must be a 4-digit number (e.g., 1000 for Addis Ababa)."
+            )
+        ]
+    )
     project_title = models.CharField(max_length=255, blank=True)
     project_start_date = models.DateField(blank=True, null=True)
     project_end_date = models.DateField(blank=True, null=True)
-    compensation_type = models.CharField(max_length=50, blank=True)
+    COMPENSATION_TYPES = (
+        ('Salary', 'Salary'),
+        ('Hourly', 'Hourly'),
+        ('Fixed', 'Fixed'),
+        ('Other', 'Other'),
+    )
+    compensation_type = models.CharField(max_length=50, blank=True, choices=COMPENSATION_TYPES)
     compensation_amount = models.CharField(max_length=100, blank=True)
     project_details = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        """
+        Model-level validation for date range and future dates.
+        """
+        if self.project_start_date and self.project_end_date:
+            if self.project_end_date < self.project_start_date:
+                raise ValidationError({
+                    'project_end_date': "Project end date cannot be before project start date."
+                })
+        current_date = date.today()
+        if self.project_start_date and self.project_start_date < current_date:
+            raise ValidationError({
+                'project_start_date': "Project start date must be today or in the future."
+            })
+        if self.project_end_date and self.project_end_date < current_date:
+            raise ValidationError({
+                'project_end_date': "Project end date must be today or in the future."
+            })
 
     def __str__(self):
         """

@@ -5,8 +5,10 @@ from .serializers import AdvertSerializer
 from talentsearch.throttles import CreateRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiTypes
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 class AdvertView(APIView):
+    permission_classes = [IsAuthenticated]
     @extend_schema(
         tags=['adverts'],
         summary='List or create advertisements',
@@ -19,8 +21,9 @@ class AdvertView(APIView):
         }
     )
     def get(self, request):
-        # Your existing view code
-        pass
+        adverts = Advert.objects.all()
+        serializer = AdvertSerializer(adverts, many=True)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
         tags=['adverts'],
@@ -33,8 +36,14 @@ class AdvertView(APIView):
         }
     )
     def post(self, request):
-        # Your existing view code
-        pass
+        serializer = AdvertSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                "id": serializer.data['id'],
+                "message": "Advert created successfully."
+            }, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class AdvertListCreateView(generics.ListCreateAPIView):
     queryset = Advert.objects.all()
