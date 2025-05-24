@@ -3,7 +3,8 @@
 set -o errexit
 
 # Set the project directory
-cd /opt/render/project/src
+PROJECT_DIR="/opt/render/project/src"
+cd $PROJECT_DIR
 
 # Remove existing virtual environment if it exists
 if [ -d ".venv" ]; then
@@ -23,16 +24,16 @@ python -m pip install --upgrade pip
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-# Explicitly install daphne
-echo "Installing daphne..."
-pip install daphne==4.2.0
+# Install gunicorn and uvicorn
+echo "Installing gunicorn and uvicorn..."
+pip install gunicorn uvicorn
 
 # Create static directories
 echo "Creating static directories..."
-mkdir -p staticfiles
-mkdir -p static
-chmod -R 755 staticfiles
-chmod -R 755 static
+mkdir -p $PROJECT_DIR/staticfiles
+mkdir -p $PROJECT_DIR/static
+chmod -R 755 $PROJECT_DIR/staticfiles
+chmod -R 755 $PROJECT_DIR/static
 
 # Run migrations
 echo "Running migrations..."
