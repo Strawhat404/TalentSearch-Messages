@@ -949,7 +949,7 @@ class AuthenticationEdgeCasesTest(TestCase):
         
         for email in variations:
             data = {
-                'username': email,
+                'email': email,
                 'password': self.user_data['password']
             }
             response = self.client.post(self.login_url, data)
@@ -964,7 +964,7 @@ class AuthenticationEdgeCasesTest(TestCase):
         self.user.save()
         # Try login with new password
         data = {
-            'username': self.user_data['email'],
+            'email': self.user_data['email'],
             'password': new_password
         }
         response = self.client.post(self.login_url, data)
@@ -980,14 +980,14 @@ class AuthenticationEdgeCasesTest(TestCase):
         # Try 5 failed attempts
         for _ in range(5):
             data = {
-                'username': self.user_data['email'],
+                'email': self.user_data['email'],
                 'password': wrong_password
             }
             response = self.client.post(self.login_url, data)
         
         # Next attempt should be locked out
         data = {
-            'username': self.user_data['email'],
+            'email': self.user_data['email'],
             'password': self.user_data['password']
         }
         response = self.client.post(self.login_url, data)
@@ -997,7 +997,7 @@ class AuthenticationEdgeCasesTest(TestCase):
         """Test concurrent login from multiple devices"""
         # First login
         data = {
-            'username': self.user_data['email'],
+            'email': self.user_data['email'],
             'password': self.user_data['password']
         }
         response1 = self.client.post(self.login_url, data)
@@ -1035,7 +1035,7 @@ class TokenManagementTest(TestCase):
         """Test token validity after password change"""
         # Get initial token
         response = self.client.post(self.login_url, {
-            'username': self.user.email,
+            'email': self.user.email,
             'password': 'testpass123'
         })
         token = response.data['token']
@@ -1051,7 +1051,7 @@ class TokenManagementTest(TestCase):
         """Test token expiration"""
         # Get token
         response = self.client.post(self.login_url, {
-            'username': self.user.email,
+            'email': self.user.email,
             'password': 'testpass123'
         })
         token = response.data['token']
@@ -1065,7 +1065,7 @@ class TokenManagementTest(TestCase):
         """Test concurrent use of same token"""
         # Get token
         response = self.client.post(self.login_url, {
-            'username': self.user.email,
+            'email': self.user.email,
             'password': 'testpass123'
         })
         token = response.data['token']
@@ -1090,7 +1090,7 @@ class TokenManagementTest(TestCase):
         """Test token invalidation on logout"""
         # Get token
         response = self.client.post(self.login_url, {
-            'username': self.user.email,
+            'email': self.user.email,
             'password': 'testpass123'
         })
         token = response.data['token']
@@ -1106,7 +1106,7 @@ class TokenManagementTest(TestCase):
         """Test behavior with manually edited tokens"""
         # Get valid token
         response = self.client.post(self.login_url, {
-            'username': self.user.email,
+            'email': self.user.email,
             'password': 'testpass123'
         })
         token = response.data['token']

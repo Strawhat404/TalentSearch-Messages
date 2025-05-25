@@ -279,3 +279,9 @@ if 'test' in sys.argv:
     REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = [
         'authapp.authentication.CustomJWTAuthentication',
     ]
+
+# Authentication settings
+AUTHENTICATION_BACKENDS = [
+    'authapp.backends.EmailBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]

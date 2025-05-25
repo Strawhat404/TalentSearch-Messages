@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 from django.utils import timezone
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from django.http import JsonResponse
-from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 from rest_framework.exceptions import AuthenticationFailed
@@ -23,13 +23,16 @@ from rest_framework.throttling import UserRateThrottle, AnonRateThrottle
 from django.core.cache import cache
 import time
 from django.test.client import RequestFactory
+import logging
+import uuid
+from django.db import transaction, IntegrityError
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
     NotificationSerializer, TokenSerializer, PasswordChangeSerializer
 )
-from .utils import password_reset_token_generator
-from .models import Notification, SecurityLog
+from .utils import password_reset_token_generator, BruteForceProtection
+from .models import Notification, SecurityLog, PasswordResetToken
 from talentsearch.throttles import AuthRateThrottle
 from django.contrib.auth import get_user_model
 from django.core.validators import validate_email
@@ -38,6 +41,7 @@ from django.contrib.auth.tokens import default_token_generator
 import time_machine
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
@@ -72,116 +76,104 @@ class LoginRateThrottle(UserRateThrottle):
 class AnonLoginRateThrottle(AnonRateThrottle):
     rate = '3/minute'  # 3 attempts per minute for anonymous users
 
-class BruteForceProtection:
-    MAX_ATTEMPTS = 5
-    LOCKOUT_TIME = 300  # 5 minutes in seconds
-
-    @classmethod
-    def is_locked_out(cls, username):
-        key = f'login_attempts_{username}'
-        attempts = cache.get(key, 0)
-        return attempts >= cls.MAX_ATTEMPTS
-
-    @classmethod
-    def record_attempt(cls, username):
-        key = f'login_attempts_{username}'
-        attempts = cache.get(key, 0) + 1
-        cache.set(key, attempts, cls.LOCKOUT_TIME)
-        return attempts
-
-    @classmethod
-    def reset_attempts(cls, username):
-        key = f'login_attempts_{username}'
-        cache.delete(key)
-
 class LoginView(APIView):
     throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
     permission_classes = [AllowAny]
 
     def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
+        try:
+            # Validate input
+            serializer = LoginSerializer(data=request.data)
+            if not serializer.is_valid():
+                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        # Return error if username or password is missing
-        if not username or not password:
-            return Response({
-                'error': 'Username and password are required'
-            }, status=status.HTTP_400_BAD_REQUEST)
+            email = serializer.validated_data['email'].lower()
+            password = serializer.validated_data['password']
 
-        username = username.lower()  # Normalize email to lowercase
-
-        # Skip rate limiting for test client requests
-        is_test_client = hasattr(request, '_request') and isinstance(request._request, RequestFactory)
-        if not is_test_client and BruteForceProtection.is_locked_out(username):
-            return Response({
-                'error': 'Account temporarily locked. Please try again later.'
-            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
-
-        user = authenticate(username=username, password=password)
-        if user is not None:
-            if not is_test_client:
-                BruteForceProtection.reset_attempts(username)
-            
-            # Check if user already has an active token for concurrent login test
-            existing_token = Token.objects.filter(user=user).first()
-            if existing_token and not is_test_client:
+            # Check for brute force protection
+            if BruteForceProtection.is_locked_out(email):
+                logger.warning(f"Login attempt blocked - account locked for email: {email}")
                 return Response({
-                    'error': 'User is already logged in on another device'
-                }, status=status.HTTP_401_UNAUTHORIZED)
+                    "error": "Account temporarily locked. Please try again later."
+                }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+            # Add small delay to prevent timing attacks
+            time.sleep(0.1)
+
+            # Authenticate user
+            user = authenticate(request, email=email, password=password)
             
-            # Invalidate all existing tokens for this user
-            # First blacklist any outstanding tokens
-            outstanding_tokens = OutstandingToken.objects.filter(user=user)
-            for token in outstanding_tokens:
-                BlacklistedToken.objects.get_or_create(token=token)
-            outstanding_tokens.delete()
-            
-            # Then delete any auth tokens and blacklist them
-            auth_tokens = Token.objects.filter(user=user)
-            for token in auth_tokens:
+            if user is not None:
+                if not user.is_active:
+                    logger.warning(f"Login attempt for inactive account: {email}")
+                    return Response({
+                        "error": "Account is inactive."
+                    }, status=status.HTTP_401_UNAUTHORIZED)
+
+                # Reset brute force protection on successful login
+                BruteForceProtection.reset_attempts(email)
+
+                # Create tokens
+                refresh = RefreshToken.for_user(user)
+                
+                # Update last login and log security event
+                user.last_login = timezone.now()
+                user.save(update_fields=['last_login'])
+
+                # Log successful login with email
+                SecurityLog.objects.create(
+                    user=user,
+                    email=user.email,  # Explicitly set the email
+                    event_type='login',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT'),
+                    details={'success': True}
+                )
+
+                return Response({
+                    'token': str(refresh.access_token),
+                    'refresh': str(refresh),
+                    'expires_in': 3600,
+                    'user': {
+                        'id': user.id,
+                        'email': user.email.lower(),
+                        'name': user.name
+                    }
+                }, status=status.HTTP_200_OK)
+            else:
+                # Record failed attempt
+                BruteForceProtection.record_attempt(email)
+                
+                # Log failed login attempt with email
                 try:
-                    outstanding_token = OutstandingToken.objects.get(token=token.key)
-                    BlacklistedToken.objects.get_or_create(token=outstanding_token)
-                except OutstandingToken.DoesNotExist:
-                    pass
-            auth_tokens.delete()
-            
-            # Create new token with expiration
-            token = Token.objects.create(user=user)
-            token.created = timezone.now()
-            token.save()
-            
-            # Create corresponding outstanding token
-            OutstandingToken.objects.create(
-                user=user,
-                token=token.key,
-                created_at=timezone.now(),
-                expires_at=timezone.now() + timedelta(minutes=60)  # Default to 60 minutes
-            )
-            
-            # Update last login
-            user.last_login = timezone.now()
-            user.save()
-            
-            return Response({
-                'token': token.key,
-                'expires_in': 3600,  # 60 minutes in seconds
-                'user': {
-                    'id': user.id,
-                    'email': user.email.lower(),
-                    'name': user.name
-                }
-            }, status=status.HTTP_200_OK)
-        else:
-            if not is_test_client:
-                attempts = BruteForceProtection.record_attempt(username)
-                remaining = BruteForceProtection.MAX_ATTEMPTS - attempts
+                    user = User.objects.get(email=email)
+                    SecurityLog.objects.create(
+                        user=user,
+                        email=email,  # Explicitly set the email
+                        event_type='login_failed',
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        user_agent=request.META.get('HTTP_USER_AGENT'),
+                        details={'reason': 'invalid_credentials'}
+                    )
+                except User.DoesNotExist:
+                    # For non-existent users, still log the attempt but without a user
+                    SecurityLog.objects.create(
+                        email=email,  # Only set the email
+                        event_type='login_failed',
+                        ip_address=request.META.get('REMOTE_ADDR'),
+                        user_agent=request.META.get('HTTP_USER_AGENT'),
+                        details={'reason': 'user_not_found'}
+                    )
+
                 return Response({
-                    'error': f'Invalid credentials. {remaining} attempts remaining.'
+                    "error": "Invalid credentials."
                 }, status=status.HTTP_401_UNAUTHORIZED)
+
+        except Exception as e:
+            logger.error(f"Login error: {str(e)}", exc_info=True)
             return Response({
-                'error': 'Invalid credentials.'
-            }, status=status.HTTP_401_UNAUTHORIZED)
+                "error": "An error occurred during login. Please try again."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 class AdminLoginView(APIView):
@@ -513,42 +505,23 @@ class LogoutView(APIView):
 
     def post(self, request):
         try:
-            # Handle both Bearer token and Token authentication
-            auth_header = request.META.get('HTTP_AUTHORIZATION', '')
-            if auth_header.startswith('Bearer '):
-                token_key = auth_header.split(' ')[1]
-                try:
-                    token = OutstandingToken.objects.get(token=token_key)
-                    BlacklistedToken.objects.get_or_create(token=token)
-                except OutstandingToken.DoesNotExist:
-                    # If token not found in OutstandingToken, try to find in Token model
-                    try:
-                        token = Token.objects.get(key=token_key)
-                        token.delete()
-                    except Token.DoesNotExist:
-                        pass
-            else:
-                # Handle Token authentication
-                if hasattr(request, 'auth') and request.auth:
-                    # First try to blacklist as outstanding token
-                    try:
-                        outstanding_token = OutstandingToken.objects.get(token=request.auth.key)
-                        BlacklistedToken.objects.get_or_create(token=outstanding_token)
-                    except OutstandingToken.DoesNotExist:
-                        pass
-                    # Then delete the token
-                    request.auth.delete()
+            # Log the logout
+            SecurityLog.objects.create(
+                user=request.user,
+                event_type='logout',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
 
-            # Clear session
-            if hasattr(request, 'session'):
-                request.session.flush()
-            
-            # Always return 200 to prevent token enumeration
-            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
+            return Response({
+                "message": "Successfully logged out."
+            }, status=status.HTTP_200_OK)
+
         except Exception as e:
-            # Log the error but still return 200 to prevent token enumeration
-            print(f"Logout error: {str(e)}", file=sys.stderr)
-            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
+            logger.error(f"Logout error: {str(e)}", exc_info=True)
+            return Response({
+                "error": "An error occurred during logout."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class RotateAPIKeyView(APIView):
     """
@@ -708,3 +681,116 @@ def send_recovery_sms(user, token, uid):
     # Implement SMS sending logic here
     # This is a placeholder - you'll need to integrate with an SMS service
     pass
+
+class PasswordResetRequestView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]  # Prevent abuse
+
+    def post(self, request):
+        try:
+            email = request.data.get('email', '').lower()
+            try:
+                user = User.objects.get(email=email)
+                if not user.is_active:
+                    return Response({
+                        "error": "Account is inactive."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # Invalidate any existing reset tokens
+                PasswordResetToken.objects.filter(
+                    user=user,
+                    used=False,
+                    expires_at__gt=timezone.now()
+                ).update(used=True)
+
+                # Create new reset token
+                token = PasswordResetToken.objects.create(
+                    user=user,
+                    expires_at=timezone.now() + timedelta(hours=24),
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT')
+                )
+
+                # Log the reset request
+                SecurityLog.objects.create(
+                    user=user,
+                    event_type='password_reset_requested',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT')
+                )
+
+                # Send reset email (implement your email sending logic)
+                # send_password_reset_email(user.email, token.token)
+
+                return Response({
+                    "message": "If an account exists with this email, you will receive password reset instructions."
+                }, status=status.HTTP_200_OK)
+
+            except User.DoesNotExist:
+                # Don't reveal if email exists or not
+                return Response({
+                    "message": "If an account exists with this email, you will receive password reset instructions."
+                }, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            logger.error(f"Password reset request error: {str(e)}", exc_info=True)
+            return Response({
+                "error": "An error occurred. Please try again."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class PasswordResetConfirmView(APIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [AnonRateThrottle]
+
+    def post(self, request):
+        try:
+            token = request.data.get('token')
+            new_password = request.data.get('password')
+
+            if not token or not new_password:
+                return Response({
+                    "error": "Token and new password are required."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                reset_token = PasswordResetToken.objects.get(
+                    token=token,
+                    used=False,
+                    expires_at__gt=timezone.now()
+                )
+
+                # Check if new password is same as old
+                if reset_token.user.check_password(new_password):
+                    return Response({
+                        "error": "New password must be different from the current password."
+                    }, status=status.HTTP_400_BAD_REQUEST)
+
+                # Update password
+                reset_token.user.set_password(new_password)
+                reset_token.user.save()
+
+                # Mark token as used
+                reset_token.invalidate()
+
+                # Log the password change
+                SecurityLog.objects.create(
+                    user=reset_token.user,
+                    event_type='password_changed',
+                    ip_address=request.META.get('REMOTE_ADDR'),
+                    user_agent=request.META.get('HTTP_USER_AGENT')
+                )
+
+                return Response({
+                    "message": "Password has been reset successfully."
+                }, status=status.HTTP_200_OK)
+
+            except PasswordResetToken.DoesNotExist:
+                return Response({
+                    "error": "Invalid or expired token."
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        except Exception as e:
+            logger.error(f"Password reset confirmation error: {str(e)}", exc_info=True)
+            return Response({
+                "error": "An error occurred. Please try again."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
