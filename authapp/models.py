@@ -23,7 +23,13 @@ class User(AbstractUser):
     name = models.CharField(max_length=255, default='Unknown User')
     username = None  # Remove the username field
     email = models.EmailField(unique=True)  # Use email as the unique identifier
+    backup_email = models.EmailField(blank=True, null=True, help_text='Backup email for account recovery')
+    phone_number = models.CharField(max_length=20, blank=True, null=True, help_text='Phone number for account recovery')
     last_password_change = models.DateTimeField(default=timezone.now)
+    is_locked = models.BooleanField(default=False, help_text='Whether the account is locked due to failed attempts')
+    lockout_until = models.DateTimeField(null=True, blank=True, help_text='When the account lockout expires')
+    failed_login_attempts = models.IntegerField(default=0, help_text='Number of failed login attempts')
+    last_failed_login = models.DateTimeField(null=True, blank=True, help_text='Timestamp of last failed login attempt')
 
     USERNAME_FIELD = 'email'  # Use email as the username field
     REQUIRED_FIELDS = ['name']  # Remove username from required fields
@@ -78,3 +84,34 @@ class Notification(models.Model):
     
     def __str__(self):
         return f"{self.title} - {self.user.email}"
+
+class SecurityLog(models.Model):
+    EVENT_TYPES = (
+        ('login_success', 'Login Success'),
+        ('login_failed', 'Login Failed'),
+        ('password_change', 'Password Change'),
+        ('password_reset', 'Password Reset'),
+        ('account_lockout', 'Account Lockout'),
+        ('api_key_rotation', 'API Key Rotation'),
+        ('session_expired', 'Session Expired'),
+        ('security_alert', 'Security Alert'),
+    )
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
+    event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
+    ip_address = models.GenericIPAddressField()
+    user_agent = models.TextField(blank=True)
+    email = models.EmailField(blank=True)  # For failed login attempts where user might not exist
+    details = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'event_type']),
+            models.Index(fields=['created_at']),
+            models.Index(fields=['ip_address']),
+        ]
+
+    def __str__(self):
+        return f"{self.event_type} - {self.user.email if self.user else self.email} - {self.created_at}"
