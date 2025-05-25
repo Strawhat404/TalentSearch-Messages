@@ -47,6 +47,33 @@ class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
     
+    @extend_schema(
+        tags=['auth'],
+        summary='Register a new user',
+        description='Registers a new user and returns their details and authentication token',
+        request=UserSerializer,
+        responses={
+            201: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={
+                    'id': 123,
+                    'email': 'user@example.com',
+                    'name': 'John Doe',
+                    'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                },
+                status_codes=['201']
+            ),
+            OpenApiExample(
+                'Error Response',
+                value={'error': 'Invalid input'},
+                status_codes=['400']
+            )
+        ]
+    )
     def post(self, request):
         """
         Registers a new user and returns their details and authentication token.
@@ -80,6 +107,44 @@ class LoginView(APIView):
     throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='User login',
+        description='Authenticate a user and return JWT tokens',
+        request=LoginSerializer,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            429: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={
+                    'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                    'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                    'expires_in': 3600,
+                    'user': {
+                        'id': 123,
+                        'email': 'user@example.com',
+                        'name': 'John Doe'
+                    }
+                },
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Invalid Credentials',
+                value={'error': 'Invalid credentials'},
+                status_codes=['400']
+            ),
+            OpenApiExample(
+                'Account Locked',
+                value={'error': 'Account temporarily locked. Please try again later'},
+                status_codes=['429']
+            )
+        ]
+    )
     def post(self, request):
         try:
             # Validate input
@@ -180,6 +245,40 @@ class AdminLoginView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='Admin login',
+        description='Authenticate an admin user and return their details and token',
+        request=AdminLoginSerializer,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={
+                    'id': 123,
+                    'email': 'admin@example.com',
+                    'name': 'Admin User',
+                    'role': 'admin',
+                    'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
+                },
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Invalid Credentials',
+                value={'error': 'Invalid credentials'},
+                status_codes=['400']
+            ),
+            OpenApiExample(
+                'Not Admin User',
+                value={'error': 'User is not an admin'},
+                status_codes=['401']
+            )
+        ]
+    )
     def post(self, request):
         """
         Logs in admin using email and password.
@@ -208,6 +307,42 @@ class AdminLoginView(APIView):
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='Request password reset',
+        description='Request a password reset token to be sent to the user\'s email',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'email': {'type': 'string', 'format': 'email'}
+                },
+                'required': ['email']
+            }
+        },
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            500: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={'message': 'If an account exists with this email, you will receive password reset instructions.'},
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Inactive Account',
+                value={'error': 'Account is inactive.'},
+                status_codes=['400']
+            ),
+            OpenApiExample(
+                'Server Error',
+                value={'error': 'An error occurred. Please try again.'},
+                status_codes=['500']
+            )
+        ]
+    )
     def post(self, request):
         email = request.data.get('email')
         if not email:
@@ -316,6 +451,33 @@ class NotificationListView(generics.ListCreateAPIView):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='List notifications',
+        description='Get all notifications for the authenticated user',
+        responses={
+            200: NotificationSerializer(many=True),
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value=[{
+                    'id': 1,
+                    'type': 'security_alert',
+                    'message': 'New login from unknown device',
+                    'created_at': '2024-03-20T10:00:00Z',
+                    'read': False
+                }],
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Unauthorized',
+                value={'detail': 'Authentication credentials were not provided.'},
+                status_codes=['401']
+            )
+        ]
+    )
     def get_queryset(self):
         """
         Returns notifications for the authenticated user.
@@ -424,6 +586,37 @@ class ChangePasswordView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [IsAuthenticated]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='Change password',
+        description='Change user password and invalidate all existing tokens',
+        request=PasswordChangeSerializer,
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={'message': 'Password changed successfully. Please login again.'},
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Invalid Old Password',
+                value={'error': 'Invalid old password'},
+                status_codes=['400']
+            ),
+            OpenApiExample(
+                'Validation Error',
+                value={
+                    'old_password': ['This field is required.'],
+                    'new_password': ['Password must be at least 8 characters long.']
+                },
+                status_codes=['400']
+            )
+        ]
+    )
     def post(self, request):
         """
         Changes the user's password and invalidates all existing tokens.
@@ -531,6 +724,30 @@ class RotateAPIKeyView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [AuthRateThrottle]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='Rotate API key',
+        description='Generate a new API key and invalidate the old one',
+        responses={
+            200: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={
+                    'api_key': 'new-api-key-token',
+                    'message': 'API key rotated successfully'
+                },
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Unauthorized',
+                value={'detail': 'Authentication credentials were not provided.'},
+                status_codes=['401']
+            )
+        ]
+    )
     def post(self, request):
         """Rotate the user's API key."""
         # Delete existing token
@@ -561,6 +778,27 @@ class LogoutAllDevicesView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [AuthRateThrottle]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='Logout from all devices',
+        description='Logout from all devices by invalidating all tokens',
+        responses={
+            200: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={'message': 'Successfully logged out from all devices. 3 sessions terminated.'},
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Unauthorized',
+                value={'detail': 'Authentication credentials were not provided.'},
+                status_codes=['401']
+            )
+        ]
+    )
     def post(self, request):
         """Logout from all devices by invalidating all tokens."""
         # Get all tokens for the user
@@ -592,6 +830,43 @@ class AccountRecoveryView(APIView):
     """
     permission_classes = [AllowAny]
     
+    @extend_schema(
+        tags=['auth'],
+        summary='Request account recovery',
+        description='Request account recovery via backup email or phone number',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'identifier': {'type': 'string'},
+                    'recovery_method': {'type': 'string', 'enum': ['email', 'phone']}
+                },
+                'required': ['identifier', 'recovery_method']
+            }
+        },
+        responses={
+            200: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+            500: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={'message': 'Recovery instructions sent to your email'},
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Account Not Found',
+                value={'error': 'No account found with the provided information'},
+                status_codes=['404']
+            ),
+            OpenApiExample(
+                'Server Error',
+                value={'error': 'An error occurred during account recovery'},
+                status_codes=['500']
+            )
+        ]
+    )
     def post(self, request):
         identifier = request.data.get('identifier')  # email or phone
         recovery_method = request.data.get('recovery_method')  # 'email' or 'phone'
@@ -742,6 +1017,48 @@ class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
+    @extend_schema(
+        tags=['auth'],
+        summary='Confirm password reset',
+        description='Reset password using a valid reset token',
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'token': {'type': 'string'},
+                    'password': {'type': 'string', 'format': 'password'}
+                },
+                'required': ['token', 'password']
+            }
+        },
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            500: OpenApiTypes.OBJECT,
+        },
+        examples=[
+            OpenApiExample(
+                'Success Response',
+                value={'message': 'Password has been reset successfully.'},
+                status_codes=['200']
+            ),
+            OpenApiExample(
+                'Invalid Token',
+                value={'error': 'Invalid or expired token.'},
+                status_codes=['400']
+            ),
+            OpenApiExample(
+                'Same Password',
+                value={'error': 'New password must be different from the current password.'},
+                status_codes=['400']
+            ),
+            OpenApiExample(
+                'Server Error',
+                value={'error': 'An error occurred. Please try again.'},
+                status_codes=['500']
+            )
+        ]
+    )
     def post(self, request):
         try:
             token = request.data.get('token')
