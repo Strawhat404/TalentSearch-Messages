@@ -101,81 +101,87 @@ class LoginView(APIView):
     def post(self, request):
         username = request.data.get('username')
         password = request.data.get('password')
-        if username:
-            username = username.lower()  # Normalize email to lowercase
 
-            # Skip rate limiting for test client requests
-            is_test_client = hasattr(request, '_request') and isinstance(request._request, RequestFactory)
-            if not is_test_client and BruteForceProtection.is_locked_out(username):
-                return Response({
-                    'error': 'Account temporarily locked. Please try again later.'
-                }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        # Return error if username or password is missing
+        if not username or not password:
+            return Response({
+                'error': 'Username and password are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
 
-            user = authenticate(username=username, password=password)
-            if user is not None:
-                if not is_test_client:
-                    BruteForceProtection.reset_attempts(username)
-                
-                # Check if user already has an active token for concurrent login test
-                existing_token = Token.objects.filter(user=user).first()
-                if existing_token and not is_test_client:
-                    return Response({
-                        'error': 'User is already logged in on another device'
-                    }, status=status.HTTP_401_UNAUTHORIZED)
-                
-                # Invalidate all existing tokens for this user
-                # First blacklist any outstanding tokens
-                outstanding_tokens = OutstandingToken.objects.filter(user=user)
-                for token in outstanding_tokens:
-                    BlacklistedToken.objects.get_or_create(token=token)
-                outstanding_tokens.delete()
-                
-                # Then delete any auth tokens and blacklist them
-                auth_tokens = Token.objects.filter(user=user)
-                for token in auth_tokens:
-                    try:
-                        outstanding_token = OutstandingToken.objects.get(token=token.key)
-                        BlacklistedToken.objects.get_or_create(token=outstanding_token)
-                    except OutstandingToken.DoesNotExist:
-                        pass
-                auth_tokens.delete()
-                
-                # Create new token with expiration
-                token = Token.objects.create(user=user)
-                token.created = timezone.now()
-                token.save()
-                
-                # Create corresponding outstanding token
-                OutstandingToken.objects.create(
-                    user=user,
-                    token=token.key,
-                    created_at=timezone.now(),
-                    expires_at=timezone.now() + timedelta(minutes=60)  # Default to 60 minutes
-                )
-                
-                # Update last login
-                user.last_login = timezone.now()
-                user.save()
-                
+        username = username.lower()  # Normalize email to lowercase
+
+        # Skip rate limiting for test client requests
+        is_test_client = hasattr(request, '_request') and isinstance(request._request, RequestFactory)
+        if not is_test_client and BruteForceProtection.is_locked_out(username):
+            return Response({
+                'error': 'Account temporarily locked. Please try again later.'
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+        user = authenticate(username=username, password=password)
+        if user is not None:
+            if not is_test_client:
+                BruteForceProtection.reset_attempts(username)
+            
+            # Check if user already has an active token for concurrent login test
+            existing_token = Token.objects.filter(user=user).first()
+            if existing_token and not is_test_client:
                 return Response({
-                    'token': token.key,
-                    'expires_in': 3600,  # 60 minutes in seconds
-                    'user': {
-                        'id': user.id,
-                        'email': user.email.lower(),
-                        'name': user.name
-                    }
-                }, status=status.HTTP_200_OK)
-            else:
-                if not is_test_client:
-                    attempts = BruteForceProtection.record_attempt(username)
-                    remaining = BruteForceProtection.MAX_ATTEMPTS - attempts
-                    return Response({
-                        'error': f'Invalid credentials. {remaining} attempts remaining.'
-                    }, status=status.HTTP_401_UNAUTHORIZED)
-                return Response({
-                    'error': 'Invalid credentials.'
+                    'error': 'User is already logged in on another device'
                 }, status=status.HTTP_401_UNAUTHORIZED)
+            
+            # Invalidate all existing tokens for this user
+            # First blacklist any outstanding tokens
+            outstanding_tokens = OutstandingToken.objects.filter(user=user)
+            for token in outstanding_tokens:
+                BlacklistedToken.objects.get_or_create(token=token)
+            outstanding_tokens.delete()
+            
+            # Then delete any auth tokens and blacklist them
+            auth_tokens = Token.objects.filter(user=user)
+            for token in auth_tokens:
+                try:
+                    outstanding_token = OutstandingToken.objects.get(token=token.key)
+                    BlacklistedToken.objects.get_or_create(token=outstanding_token)
+                except OutstandingToken.DoesNotExist:
+                    pass
+            auth_tokens.delete()
+            
+            # Create new token with expiration
+            token = Token.objects.create(user=user)
+            token.created = timezone.now()
+            token.save()
+            
+            # Create corresponding outstanding token
+            OutstandingToken.objects.create(
+                user=user,
+                token=token.key,
+                created_at=timezone.now(),
+                expires_at=timezone.now() + timedelta(minutes=60)  # Default to 60 minutes
+            )
+            
+            # Update last login
+            user.last_login = timezone.now()
+            user.save()
+            
+            return Response({
+                'token': token.key,
+                'expires_in': 3600,  # 60 minutes in seconds
+                'user': {
+                    'id': user.id,
+                    'email': user.email.lower(),
+                    'name': user.name
+                }
+            }, status=status.HTTP_200_OK)
+        else:
+            if not is_test_client:
+                attempts = BruteForceProtection.record_attempt(username)
+                remaining = BruteForceProtection.MAX_ATTEMPTS - attempts
+                return Response({
+                    'error': f'Invalid credentials. {remaining} attempts remaining.'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+            return Response({
+                'error': 'Invalid credentials.'
+            }, status=status.HTTP_401_UNAUTHORIZED)
 
 
 class AdminLoginView(APIView):
