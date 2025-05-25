@@ -2,7 +2,11 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+import uuid
+from django.core.exceptions import ValidationError
+import logging
 
+logger = logging.getLogger(__name__)
 
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
@@ -86,32 +90,86 @@ class Notification(models.Model):
         return f"{self.title} - {self.user.email}"
 
 class SecurityLog(models.Model):
-    EVENT_TYPES = (
-        ('login_success', 'Login Success'),
-        ('login_failed', 'Login Failed'),
-        ('password_change', 'Password Change'),
-        ('password_reset', 'Password Reset'),
-        ('account_lockout', 'Account Lockout'),
-        ('api_key_rotation', 'API Key Rotation'),
-        ('session_expired', 'Session Expired'),
-        ('security_alert', 'Security Alert'),
+    """Model to track security-related events"""
+    user = models.ForeignKey(
+        'User', 
+        on_delete=models.CASCADE, 
+        related_name='security_logs',
+        null=True,  # Make it nullable
+        blank=True  # Allow blank in forms
     )
-
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
-    event_type = models.CharField(max_length=50, choices=EVENT_TYPES)
-    ip_address = models.GenericIPAddressField()
-    user_agent = models.TextField(blank=True)
-    email = models.EmailField(blank=True)  # For failed login attempts where user might not exist
-    details = models.JSONField(default=dict, blank=True)
+    email = models.EmailField()
+    event_type = models.CharField(max_length=50)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    details = models.JSONField(default=dict)
 
     class Meta:
         ordering = ['-created_at']
         indexes = [
-            models.Index(fields=['user', 'event_type']),
-            models.Index(fields=['created_at']),
-            models.Index(fields=['ip_address']),
+            models.Index(fields=['user', 'event_type', 'created_at']),
+            models.Index(fields=['email', 'created_at']),
         ]
 
     def __str__(self):
-        return f"{self.event_type} - {self.user.email if self.user else self.email} - {self.created_at}"
+        return f"{self.event_type} for {self.email} at {self.created_at}"
+
+    def save(self, *args, **kwargs):
+        # Ensure email is set from user if not provided
+        if not self.email and self.user:
+            self.email = self.user.email
+        super().save(*args, **kwargs)
+
+class PasswordResetToken(models.Model):
+    user = models.ForeignKey('User', on_delete=models.CASCADE, related_name='password_reset_tokens')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    used = models.BooleanField(default=False)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.TextField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Password Reset Token'
+        verbose_name_plural = 'Password Reset Tokens'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['token']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f"Reset token for {self.user.email}"
+
+    def clean(self):
+        if self.expires_at <= timezone.now():
+            raise ValidationError("Expiration time must be in the future")
+        
+        # Check for existing valid tokens
+        if not self.pk:  # Only check for new tokens
+            existing_tokens = PasswordResetToken.objects.filter(
+                user=self.user,
+                used=False,
+                expires_at__gt=timezone.now()
+            )
+            if existing_tokens.exists():
+                raise ValidationError("User already has an active reset token")
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+
+    @property
+    def is_valid(self):
+        return not self.used and not self.is_expired
+
+    def invalidate(self):
+        """Invalidate the token and log the action"""
+        self.used = True
+        self.save()
+        logger.info(f"Password reset token invalidated for user {self.user.email}")

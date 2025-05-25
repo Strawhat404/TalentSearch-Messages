@@ -2,7 +2,8 @@ from django.urls import path, include
 from .views import (
     RegisterView, LoginView, AdminLoginView, ForgotPasswordView, ResetPasswordView,
     NotificationListView, ChangePasswordView, LogoutView, CustomTokenObtainPairView,
-    RotateAPIKeyView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView
+    RotateAPIKeyView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView,
+    PasswordResetRequestView, PasswordResetConfirmView
 )
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.authtoken.views import obtain_auth_token
@@ -16,8 +17,8 @@ urlpatterns = [
     # Password Management
     path('forgot-password/', ForgotPasswordView.as_view(), name='forgot-password'),
     path('reset-password/', ResetPasswordView.as_view(), name='reset-password'),
-    path('password-reset-request/', ForgotPasswordView.as_view(), name='password-reset-request'),
-    path('password-reset-confirm/', ResetPasswordView.as_view(), name='password-reset-confirm'),
+    path('password-reset-request/', PasswordResetRequestView.as_view(), name='password-reset-request'),
+    path('password-reset-confirm/', PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     path('change-password/', ChangePasswordView.as_view(), name='change-password'),
     
     # Account Management

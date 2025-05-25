@@ -97,8 +97,60 @@ class LoginSerializer(serializers.Serializer):
     """
     Serializer for login functionality (using email).
     """
-    email = serializers.EmailField()
-    password = serializers.CharField(write_only=True)
+    email = serializers.EmailField(
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'required': 'Email is required',
+            'blank': 'Email cannot be blank',
+            'invalid': 'Enter a valid email address'
+        }
+    )
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        allow_blank=False,
+        error_messages={
+            'required': 'Password is required',
+            'blank': 'Password cannot be blank'
+        }
+    )
+
+    def validate_email(self, value):
+        """
+        Validate email format and ensure it's not empty.
+        """
+        if not value or not isinstance(value, str):
+            raise serializers.ValidationError("Email is required")
+        
+        value = value.strip().lower()
+        if not value:
+            raise serializers.ValidationError("Email cannot be empty")
+        
+        # Basic email format validation
+        if '@' not in value or '.' not in value:
+            raise serializers.ValidationError("Enter a valid email address")
+        
+        return value
+
+    def validate(self, attrs):
+        """
+        Validate both email and password are present and not empty.
+        """
+        email = attrs.get('email', '').strip()
+        password = attrs.get('password', '').strip()
+        
+        if not email:
+            raise serializers.ValidationError({
+                'email': 'Email is required'
+            })
+        
+        if not password:
+            raise serializers.ValidationError({
+                'password': 'Password is required'
+            })
+        
+        return attrs
 
 
 class AdminLoginSerializer(serializers.Serializer):
