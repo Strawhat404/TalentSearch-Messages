@@ -41,7 +41,7 @@ urlpatterns = [
     path('api/messages/', include('messaging.urls')),
     path('api/news/', include('news.urls')),
     path('api/adverts/', include('adverts.urls')),
-    path('api/auth/profile/', include('userprofile.urls')),
+    path('api/profile/', include('userprofile.urls')),
     path('api/user_gallery/', include('usergallery.urls')),
     path('api/feed_posts/', include('feed_posts.urls', namespace='feed_posts')),
     path('api/jobs/', include('jobs.urls')),
