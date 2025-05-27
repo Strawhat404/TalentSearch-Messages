@@ -216,10 +216,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'age', 'created_at', 'verified', 'flagged', 'email']
 
     def to_representation(self, instance):
-        # Start with the base representation (excluding nested serializers initially)
         representation = super(serializers.ModelSerializer, self).to_representation(instance)
-
-        # Define nested serializers and their corresponding field names
         nested_serializers = [
             ('identity_verification', IdentityVerificationSerializer),
             ('professional_qualifications', ProfessionalQualificationsSerializer),
@@ -231,40 +228,37 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('personal_info', PersonalInfoSerializer),
             ('media', MediaSerializer),
         ]
-
         file_fields = [
             ('media', 'photo'), ('media', 'video'),
             ('identity_verification', 'id_front'), ('identity_verification', 'id_back')
         ]
-
-        # Process each nested serializer
         for field_name, serializer_class in nested_serializers:
             related_instance = getattr(instance, field_name, None)
             if related_instance:
-                # If the related instance exists, use the serializer to represent it
                 serializer = serializer_class(related_instance)
                 representation[field_name] = serializer.data
             else:
-                # If the related instance doesn't exist, construct an empty representation
                 serializer = serializer_class()
                 empty_data = {}
                 for field in serializer.fields.values():
-                    # Set default values based on field type
                     if field.read_only:
                         continue
                     if isinstance(field, serializers.BooleanField):
                         empty_data[field.field_name] = False
                     elif isinstance(field, (serializers.IntegerField, serializers.FloatField, serializers.DecimalField)):
                         empty_data[field.field_name] = None
-                    elif isinstance(field, serializers.ListField) or field.field_name in ['skills', 'software_proficiency', 'equipment_experience', 'reference', 'preferred_industry', 'health_conditions', 'medications', 'scholarships', 'academic_achievements', 'certifications', 'online_courses', 'previous_employers', 'projects', 'training', 'hobbies', 'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience', 'award_recognitions']:
+                    elif isinstance(field, serializers.ListField) or field.field_name in [
+                        'skills', 'software_proficiency', 'equipment_experience', 'reference', 'preferred_industry',
+                        'health_conditions', 'medications', 'scholarships', 'academic_achievements', 'certifications',
+                        'online_courses', 'previous_employers', 'projects', 'training', 'hobbies', 'social_media_handles',
+                        'language_proficiency', 'special_skills', 'tools_experience', 'award_recognitions'
+                    ]:
                         empty_data[field.field_name] = []
                     elif isinstance(field, serializers.DictField) or field.field_name == 'social_media_links':
                         empty_data[field.field_name] = {}
                     else:
                         empty_data[field.field_name] = None
                 representation[field_name] = empty_data
-
-        # Handle file fields (photo, video, id_front, id_back)
         for model_field, field in file_fields:
             if representation[model_field] is None:
                 continue
@@ -279,21 +273,24 @@ class ProfileSerializer(serializers.ModelSerializer):
                     setattr(related_instance, field, None)
                     related_instance.save()
                 representation[model_field][field] = None
-
-        # Mask id_number if identity_verification exists and has an id_number
         if representation['identity_verification'] and representation['identity_verification']['id_number']:
             id_number = representation['identity_verification']['id_number']
             if len(id_number) > 4:
                 representation['identity_verification']['id_number'] = '*' * (len(id_number) - 4) + id_number[-4:]
-
         return representation
 
     def validate_name(self, value):
-        if not value.strip():
+        """
+        Ensure the name field is not blank, consistent with old validation logic.
+        """
+        if not value or not value.strip():
             raise serializers.ValidationError("Name cannot be blank.")
         return value
 
     def validate_birthdate(self, value):
+        """
+        Ensure birthdate is provided and not in the future, consistent with old validation logic.
+        """
         if value is None:
             raise serializers.ValidationError("Birthdate is required.")
         try:
@@ -304,12 +301,18 @@ class ProfileSerializer(serializers.ModelSerializer):
         return value
 
     def validate_profession(self, value):
-        if not value.strip():
+        """
+        Ensure the profession field is not blank, consistent with old validation logic.
+        """
+        if not value or not value.strip():
             raise serializers.ValidationError("Profession cannot be blank.")
         return value
 
     def validate_nationality(self, value):
-        if not value.strip():
+        """
+        Ensure the nationality field is not blank, consistent with old validation logic.
+        """
+        if not value or not value.strip():
             raise serializers.ValidationError("Nationality cannot be blank.")
         return value
 
@@ -334,14 +337,12 @@ class ProfileSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'identity_verification.id_number': f'{id_type} requires a valid ID number.'})
         elif id_number and not id_type:
             raise serializers.ValidationError({'identity_verification.id_type': 'ID type must be specified when providing an ID number.'})
-
         prof_data = data.get('professional_qualifications', {})
         min_salary = prof_data.get('min_salary')
         max_salary = prof_data.get('max_salary')
         if min_salary is not None and max_salary is not None:
             if min_salary > max_salary:
                 raise serializers.ValidationError({'professional_qualifications.min_salary': 'Minimum salary cannot be greater than maximum salary.'})
-
         contact_data = data.get('contact_info', {})
         postal_code = contact_data.get('postal_code')
         if postal_code:
@@ -366,29 +367,19 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('media', Media, MediaSerializer)
         ]
         nested_validated_data = {key: validated_data.pop(key, {}) for key, _, _ in nested_data}
-
-        # Validate nested serializers before creating any objects
         for key, model, serializer_class in nested_data:
             if nested_validated_data[key]:
                 serializer = serializer_class(data=nested_validated_data[key])
                 serializer.is_valid(raise_exception=True)
                 nested_validated_data[key] = serializer.validated_data
-
-        # Check if a profile already exists for the user
         if Profile.objects.filter(user=user).exists():
             raise serializers.ValidationError({"error": "A profile already exists for this user."})
-
-        # Use atomic transaction to ensure all or nothing is saved
         try:
             with transaction.atomic():
-                # Create Profile with validated data
                 profile = Profile.objects.create(user=user, **validated_data)
-
-                # Create nested objects
                 for key, model, _ in nested_data:
                     if nested_validated_data[key]:
                         model.objects.create(profile=profile, **nested_validated_data[key])
-
                 return profile
         except (ValueError, IntegrityError) as e:
             raise serializers.ValidationError({"error": str(e) if isinstance(e, ValueError) else "A profile already exists for this user or a database constraint was violated."})
