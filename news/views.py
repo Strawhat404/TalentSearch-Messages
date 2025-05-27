@@ -8,6 +8,9 @@ from django.shortcuts import get_object_or_404
 from talentsearch.throttles import CreateRateThrottle
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
 from drf_spectacular.types import OpenApiTypes
+from rest_framework import generics
+from .models import NewsImage
+from .serializers import NewsImageSerializer
 
 class NewsView(APIView):
     permission_classes = [IsAuthenticated, IsAdminUser]
@@ -67,3 +70,8 @@ class NewsDetailView(APIView):
         news = get_object_or_404(News, id=id)
         news.delete()
         return Response({"message": "News deleted successfully."}, status=status.HTTP_200_OK)
+
+class NewsImageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = NewsImage.objects.all()
+    serializer_class = NewsImageSerializer
+    lookup_field = 'id'
