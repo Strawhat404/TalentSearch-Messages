@@ -57,7 +57,7 @@ class GalleryItemSerializer(serializers.ModelSerializer):
         return {
             'name': obj.profile_id.name,
             'profession': obj.profile_id.profession,
-            'photo_url': obj.profile_id.photo.url if obj.profile_id.photo else ''
+            'photo_url': obj.profile_id.media.photo.url if obj.profile_id.media and obj.profile_id.media.photo else ''
         }
 
     def validate_item_url(self, value):
