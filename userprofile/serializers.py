@@ -1,4 +1,3 @@
-
 from rest_framework import serializers
 from .models import (
     Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
@@ -217,26 +216,76 @@ class ProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'age', 'created_at', 'verified', 'flagged', 'email']
 
     def to_representation(self, instance):
-        representation = super().to_representation(instance)
+        # Start with the base representation (excluding nested serializers initially)
+        representation = super(serializers.ModelSerializer, self).to_representation(instance)
+
+        # Define nested serializers and their corresponding field names
+        nested_serializers = [
+            ('identity_verification', IdentityVerificationSerializer),
+            ('professional_qualifications', ProfessionalQualificationsSerializer),
+            ('physical_attributes', PhysicalAttributesSerializer),
+            ('medical_info', MedicalInfoSerializer),
+            ('education', EducationSerializer),
+            ('work_experience', WorkExperienceSerializer),
+            ('contact_info', ContactInfoSerializer),
+            ('personal_info', PersonalInfoSerializer),
+            ('media', MediaSerializer),
+        ]
+
         file_fields = [
             ('media', 'photo'), ('media', 'video'),
             ('identity_verification', 'id_front'), ('identity_verification', 'id_back')
         ]
+
+        # Process each nested serializer
+        for field_name, serializer_class in nested_serializers:
+            related_instance = getattr(instance, field_name, None)
+            if related_instance:
+                # If the related instance exists, use the serializer to represent it
+                serializer = serializer_class(related_instance)
+                representation[field_name] = serializer.data
+            else:
+                # If the related instance doesn't exist, construct an empty representation
+                serializer = serializer_class()
+                empty_data = {}
+                for field in serializer.fields.values():
+                    # Set default values based on field type
+                    if field.read_only:
+                        continue
+                    if isinstance(field, serializers.BooleanField):
+                        empty_data[field.field_name] = False
+                    elif isinstance(field, (serializers.IntegerField, serializers.FloatField, serializers.DecimalField)):
+                        empty_data[field.field_name] = None
+                    elif isinstance(field, serializers.ListField) or field.field_name in ['skills', 'software_proficiency', 'equipment_experience', 'reference', 'preferred_industry', 'health_conditions', 'medications', 'scholarships', 'academic_achievements', 'certifications', 'online_courses', 'previous_employers', 'projects', 'training', 'hobbies', 'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience', 'award_recognitions']:
+                        empty_data[field.field_name] = []
+                    elif isinstance(field, serializers.DictField) or field.field_name == 'social_media_links':
+                        empty_data[field.field_name] = {}
+                    else:
+                        empty_data[field.field_name] = None
+                representation[field_name] = empty_data
+
+        # Handle file fields (photo, video, id_front, id_back)
         for model_field, field in file_fields:
-            model_instance = getattr(instance, model_field, None)
-            if model_instance:
-                file_obj = getattr(model_instance, field, None)
-                if file_obj and default_storage.exists(file_obj.name):
-                    representation[model_field][field] = file_obj.url
-                else:
-                    if file_obj:
-                        setattr(model_instance, field, None)
-                        model_instance.save()
-                    representation[model_field][field] = None
-        if instance.identity_verification:
-            id_number = instance.identity_verification.id_number
-            if id_number and len(id_number) > 4:
+            if representation[model_field] is None:
+                continue
+            file_obj = None
+            related_instance = getattr(instance, model_field, None)
+            if related_instance:
+                file_obj = getattr(related_instance, field, None)
+            if file_obj and default_storage.exists(file_obj.name):
+                representation[model_field][field] = file_obj.url
+            else:
+                if file_obj and related_instance:
+                    setattr(related_instance, field, None)
+                    related_instance.save()
+                representation[model_field][field] = None
+
+        # Mask id_number if identity_verification exists and has an id_number
+        if representation['identity_verification'] and representation['identity_verification']['id_number']:
+            id_number = representation['identity_verification']['id_number']
+            if len(id_number) > 4:
                 representation['identity_verification']['id_number'] = '*' * (len(id_number) - 4) + id_number[-4:]
+
         return representation
 
     def validate_name(self, value):
