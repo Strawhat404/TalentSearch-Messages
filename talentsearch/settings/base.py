@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'comment_likes',
     'rental_items',
     'rental_ratings',
+
 ]
 
 MIDDLEWARE = [
