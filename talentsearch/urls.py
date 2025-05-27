@@ -50,7 +50,6 @@ urlpatterns = [
     path('api/comment_likes/', include('comment_likes.urls')),
     path('api/rental/', include('rental_items.urls')),
     path('api/ratings/', include('rental_ratings.urls')),
-    path('api/user_ratings/', include('user_ratings.urls')),
     path('api/health/', health_check, name='health_check'),
     # API Documentation
     path('api/docs/', include(api_docs_urlpatterns)),

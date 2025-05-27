@@ -58,7 +58,6 @@ INSTALLED_APPS = [
     'adverts',
     'userprofile',
     'usergallery',
-    'user_ratings',
     'jobs',
     'feed_likes',
     'feed_comments',
