@@ -9,6 +9,21 @@ import os
 import re
 import magic
 from datetime import date
+import bleach
+
+# Helper function to sanitize strings
+def sanitize_string(value):
+    if not value:
+        return value
+    # First, remove HTML tags using bleach
+    cleaned_value = bleach.clean(value, tags=[], strip=True)
+    # Remove JavaScript-like patterns (e.g., alert(...), evil(), etc.)
+    cleaned_value = re.sub(r'\b(alert|eval|prompt|confirm|evil)\s*\([^)]*\)', '', cleaned_value, flags=re.IGNORECASE)
+    # Remove any remaining parentheses content that might resemble JavaScript
+    cleaned_value = re.sub(r'\b\w+\s*\([^)]*\)', '', cleaned_value)
+    # Remove excessive whitespace and strip
+    cleaned_value = re.sub(r'\s+', ' ', cleaned_value).strip()
+    return cleaned_value
 
 class IdentityVerificationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -21,6 +36,13 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
         if id_number and len(id_number) > 4:
             return '*' * (len(id_number) - 4) + id_number[-4:]
         return id_number
+
+    def validate_id_type(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                raise serializers.ValidationError("ID type cannot be empty after sanitization.")
+        return value
 
     def validate_id_expiry_date(self, value):
         if value is None:
@@ -78,6 +100,118 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
             'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
         ]
 
+    def validate_experience_level(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_work_authorization(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_industry_experience(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_availability(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_preferred_work_location(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_shift_preference(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_willingness_to_relocate(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_overtime_availability(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_travel_willingness(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_driving_skills(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_role_title(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_union_membership(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_preferred_company_size(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_leadership_style(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_communication_style(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_motivation(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
     def validate_min_salary(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Minimum salary cannot be negative.")
@@ -96,6 +230,55 @@ class PhysicalAttributesSerializer(serializers.ModelSerializer):
             'skin_tone', 'facial_hair', 'tattoos_visible', 'piercings_visible', 'physical_condition'
         ]
 
+    def validate_gender(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_hair_color(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_eye_color(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_body_type(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_skin_tone(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_facial_hair(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_physical_condition(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
     def validate_weight(self, value):
         if value is not None and value < 0:
             raise serializers.ValidationError("Weight cannot be negative.")
@@ -111,6 +294,20 @@ class MedicalInfoSerializer(serializers.ModelSerializer):
         model = MedicalInfo
         fields = ['health_conditions', 'medications', 'disability_status', 'disability_type']
 
+    def validate_disability_status(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_disability_type(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return "None"
+        return value
+
 class EducationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Education
@@ -120,6 +317,41 @@ class EducationSerializer(serializers.ModelSerializer):
             'certifications', 'online_courses'
         ]
 
+    def validate_education_level(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_degree_type(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_field_of_study(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_graduation_year(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_institution_name(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
 class WorkExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkExperience
@@ -128,6 +360,27 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
             'projects', 'training', 'internship_experience'
         ]
 
+    def validate_years_of_experience(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_employment_status(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_internship_experience(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
 class ContactInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactInfo
@@ -135,6 +388,55 @@ class ContactInfoSerializer(serializers.ModelSerializer):
             'address', 'city', 'region', 'postal_code', 'residence_type',
             'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
         ]
+
+    def validate_address(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_city(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_region(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_residence_type(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_residence_duration(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_housing_status(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_emergency_contact(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
 
 class PersonalInfoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -146,11 +448,59 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
             'award_recognitions'
         ]
 
-    def validate_social_media_links(self, value):
-        for platform, url in value.items():
-            if url and not (url.startswith('http://') or url.startswith('https://')):
-                raise serializers.ValidationError({platform: "Invalid URL. Must start with http:// or https://"})
+    def validate_marital_status(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
         return value
+
+    def validate_ethnicity(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_personality_type(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_work_preference(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_volunteer_experience(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_company_culture_preference(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_social_media_links(self, value):
+        sanitized_value = {}
+        for platform, url in value.items():
+            if url:
+                sanitized_url = sanitize_string(url)
+                if not (sanitized_url.startswith('http://') or sanitized_url.startswith('https://')):
+                    raise serializers.ValidationError({platform: "Invalid URL. Must start with http:// or https://"})
+                sanitized_value[platform] = sanitized_url
+            else:
+                sanitized_value[platform] = url
+        return sanitized_value
 
 class MediaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -280,17 +630,11 @@ class ProfileSerializer(serializers.ModelSerializer):
         return representation
 
     def validate_name(self, value):
-        """
-        Ensure the name field is not blank, consistent with old validation logic.
-        """
         if not value or not value.strip():
             raise serializers.ValidationError("Name cannot be blank.")
-        return value
+        return sanitize_string(value)
 
     def validate_birthdate(self, value):
-        """
-        Ensure birthdate is provided and not in the future, consistent with old validation logic.
-        """
         if value is None:
             raise serializers.ValidationError("Birthdate is required.")
         try:
@@ -301,19 +645,27 @@ class ProfileSerializer(serializers.ModelSerializer):
         return value
 
     def validate_profession(self, value):
-        """
-        Ensure the profession field is not blank, consistent with old validation logic.
-        """
         if not value or not value.strip():
             raise serializers.ValidationError("Profession cannot be blank.")
-        return value
+        return sanitize_string(value)
 
     def validate_nationality(self, value):
-        """
-        Ensure the nationality field is not blank, consistent with old validation logic.
-        """
         if not value or not value.strip():
             raise serializers.ValidationError("Nationality cannot be blank.")
+        return sanitize_string(value)
+
+    def validate_location(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
+        return value
+
+    def validate_status(self, value):
+        if value:
+            value = sanitize_string(value)
+            if not value.strip():
+                return ""
         return value
 
     def validate(self, data):

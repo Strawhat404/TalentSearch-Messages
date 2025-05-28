@@ -8,10 +8,12 @@ from .serializers import UserRatingSerializer, UserRatingUpdateSerializer
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
+from rest_framework.permissions import IsAuthenticated
 
 User = get_user_model()
 
 class UserRatingCreateListView(APIView):
+    permission_classes = [IsAuthenticated]
     def post(self, request):
         """
         Create a new user rating, preventing duplicate ratings for the same user pair.
@@ -102,6 +104,7 @@ class UserRatingCreateListView(APIView):
         return Response(response_data, status=status.HTTP_200_OK)
 
 class UserRatingUpdateDeleteView(APIView):
+    permission_classes = [IsAuthenticated]
     def put(self, request, id):
         """
         Update an existing rating by ID.
@@ -150,6 +153,7 @@ class UserRatingUpdateDeleteView(APIView):
 
 # Keep UserRatingSummaryView unchanged
 class UserRatingSummaryView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         """
         Get rating summary for a specific user.
