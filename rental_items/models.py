@@ -51,8 +51,6 @@ class RentalItem(models.Model):
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
     image = models.ImageField(
         upload_to='rental_items/main/',
-        null=True,
-        blank=True,
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text='Main image for the rental item'
     )

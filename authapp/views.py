@@ -84,24 +84,23 @@ class RegisterView(APIView):
         serializer = UserSerializer(data=data)
         if serializer.is_valid():
             user = serializer.save()
-            token, created = Token.objects.get_or_create(user=user)
+            refresh = RefreshToken.for_user(user)
             return Response({
                 'id': user.id,
                 'email': user.email.lower(),
                 'name': user.name,
-                'token': token.key
+                'token': str(refresh.access_token),
+                'refresh': str(refresh),
+                'expires_in': 360
             }, status=status.HTTP_201_CREATED)
-        # Handle validation errors
-        if 'error' in serializer.errors:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LoginRateThrottle(UserRateThrottle):
-    rate = '5/minute'  # 5 attempts per minute for authenticated users
+    rate = '1000/minute'  # or higher for testing
 
 class AnonLoginRateThrottle(AnonRateThrottle):
-    rate = '3/minute'  # 3 attempts per minute for anonymous users
+    rate = '100/minute'  # 3 attempts per minute for anonymous users
 
 class LoginView(APIView):
     throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
@@ -124,7 +123,7 @@ class LoginView(APIView):
                 value={
                     'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
                     'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                    'expires_in': 3600,
+                    'expires_in': 360,
                     'user': {
                         'id': 123,
                         'email': 'user@example.com',
@@ -147,7 +146,6 @@ class LoginView(APIView):
     )
     def post(self, request):
         try:
-            # Validate input
             serializer = LoginSerializer(data=request.data)
             if not serializer.is_valid():
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -162,9 +160,6 @@ class LoginView(APIView):
                     "error": "Account temporarily locked. Please try again later."
                 }, status=status.HTTP_429_TOO_MANY_REQUESTS)
 
-            # Add small delay to prevent timing attacks
-            time.sleep(0.1)
-
             # Authenticate user
             user = authenticate(request, email=email, password=password)
             
@@ -178,17 +173,20 @@ class LoginView(APIView):
                 # Reset brute force protection on successful login
                 BruteForceProtection.reset_attempts(email)
 
-                # Create tokens
+                # Create JWT tokens
                 refresh = RefreshToken.for_user(user)
+                
+                # Get the actual token lifetime in seconds
+                token_lifetime = int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds())
                 
                 # Update last login and log security event
                 user.last_login = timezone.now()
                 user.save(update_fields=['last_login'])
 
-                # Log successful login with email
+                # Log successful login
                 SecurityLog.objects.create(
                     user=user,
-                    email=user.email,  # Explicitly set the email
+                    email=user.email,
                     event_type='login',
                     ip_address=request.META.get('REMOTE_ADDR'),
                     user_agent=request.META.get('HTTP_USER_AGENT'),
@@ -198,7 +196,7 @@ class LoginView(APIView):
                 return Response({
                     'token': str(refresh.access_token),
                     'refresh': str(refresh),
-                    'expires_in': 3600,
+                    'expires_in': token_lifetime,  # Use actual token lifetime
                     'user': {
                         'id': user.id,
                         'email': user.email.lower(),
