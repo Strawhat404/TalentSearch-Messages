@@ -91,7 +91,7 @@ class RegisterView(APIView):
                 'name': user.name,
                 'token': str(refresh.access_token),
                 'refresh': str(refresh),
-                'expires_in': 360
+                'expires_in': 3600
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -123,7 +123,7 @@ class LoginView(APIView):
                 value={
                     'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
                     'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                    'expires_in': 360,
+                    'expires_in': 3600,
                     'user': {
                         'id': 123,
                         'email': 'user@example.com',
