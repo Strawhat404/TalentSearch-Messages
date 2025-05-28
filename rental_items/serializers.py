@@ -34,7 +34,7 @@ class RentalItemRatingSerializer(serializers.ModelSerializer):
 class RentalItemSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     specs = serializers.JSONField()
-    image = serializers.ImageField(required=False)
+    image = serializers.ImageField(required=True)
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
