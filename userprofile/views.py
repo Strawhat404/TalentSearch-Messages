@@ -507,7 +507,7 @@ class VerificationView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['verification'],
         summary="Verify a profile",
         description="Verify a user profile with proper documentation and notes.",
@@ -523,11 +523,14 @@ class VerificationView(APIView):
             }
         },
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Profile verified successfully",
+                schema=VerificationStatusSerializer
+            ),
+            400: openapi.Response(description="Validation error"),
+            401: openapi.Response(description="Unauthorized"),
+            403: openapi.Response(description="Permission denied"),
+            404: openapi.Response(description="Profile not found"),
         }
     )
     def post(self, request, profile_id):
@@ -593,14 +596,17 @@ class VerificationView(APIView):
 class VerificationAuditLogView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['verification'],
         summary="Get verification audit logs",
         description="Get the audit logs for profile verifications.",
         responses={
-            200: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Audit logs retrieved successfully",
+                schema=VerificationAuditLogSerializer(many=True)
+            ),
+            401: openapi.Response(description="Unauthorized"),
+            403: openapi.Response(description="Permission denied"),
         }
     )
     def get(self, request, profile_id):
