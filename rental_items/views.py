@@ -13,7 +13,8 @@ from .serializers import (
     RentalItemRatingSerializer
 )
 from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly
-from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class RentalItemViewSet(viewsets.ModelViewSet):
     queryset = RentalItem.objects.all()
@@ -58,70 +59,47 @@ class RentalItemViewSet(viewsets.ModelViewSet):
             'approved': True
         })
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_items'],
         summary='Update rental item',
         description='Update an existing rental item',
         request=RentalItemUpdateSerializer,
         responses={
             200: RentalItemSerializer,
-            400: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            400: openapi.Response(description='Validation error'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rental item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 'uuid',
-                    'name': 'Updated Item Name',
-                    'type': 'equipment',
-                    'category': 'tools',
-                    'daily_rate': 50.00,
-                    'available': True,
-                    'featured_item': False,
-                    'approved': True,
-                    'user_profile': {
-                        'name': 'Owner Name',
-                        'photo': 'photo_url'
-                    }
-                },
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'daily_rate': ['Must be greater than 0.'],
-                    'name': ['This field is required.']
-                },
-                status_codes=['400']
-            )
-        ]
+        help_text='Update an existing rental item',
+        example={
+            'id': 'uuid',
+            'name': 'Updated Item Name',
+            'type': 'equipment',
+            'category': 'tools',
+            'daily_rate': 50.00,
+            'available': True,
+            'featured_item': False,
+            'approved': True,
+            'user_profile': {
+                'name': 'Owner Name',
+                'photo': 'photo_url'
+            }
+        }
     )
     def update(self, request, *args, **kwargs):
         return super().update(request, *args, **kwargs)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_items'],
         summary='Delete rental item',
         description='Delete a rental item',
         responses={
             204: None,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rental item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=None,
-                status_codes=['204']
-            ),
-            OpenApiExample(
-                'Permission Denied',
-                value={'detail': 'You do not have permission to perform this action.'},
-                status_codes=['403']
-            )
-        ]
+        help_text='Delete a rental item',
+        example=None
     )
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -174,27 +152,17 @@ class RatingViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_items'],
         summary='Delete rating',
         description='Delete a rating for a rental item',
         responses={
-            200: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            200: openapi.Response(description='Rating deleted successfully'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={'message': 'Rating deleted successfully.'},
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Permission Denied',
-                value={'detail': 'You do not have permission to perform this action.'},
-                status_codes=['403']
-            )
-        ]
+        help_text='Delete a rating for a rental item',
+        example={'message': 'Rating deleted successfully.'}
     )
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

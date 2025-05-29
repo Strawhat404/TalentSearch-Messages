@@ -6,7 +6,8 @@ from django.shortcuts import get_object_or_404
 from .models import Rating
 from .serializers import RatingSerializer
 from rental_items.models import RentalItem
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 # Create your views here.
 
@@ -55,129 +56,67 @@ class RatingViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_ratings'],
         summary='List ratings',
         description='Get all ratings with optional filtering',
         parameters=[
-            OpenApiParameter(
+            openapi.Parameter(
                 name='item_id',
-                type=str,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
                 description='Filter ratings by item ID'
             ),
-            OpenApiParameter(
+            openapi.Parameter(
                 name='user_id',
-                type=str,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
                 description='Filter ratings by user ID'
             ),
-            OpenApiParameter(
+            openapi.Parameter(
                 name='min_rating',
-                type=int,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
                 description='Filter by minimum rating value'
             ),
-            OpenApiParameter(
+            openapi.Parameter(
                 name='sort',
-                type=str,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
                 description='Sort by: newest, highest, lowest'
             )
         ],
         responses={
             200: RatingSerializer(many=True),
-            400: OpenApiTypes.OBJECT,
+            400: openapi.Response(description='Invalid sort parameter'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=[{
-                    'id': 'uuid',
-                    'item_id': 'item_uuid',
-                    'user_id': 'user_uuid',
-                    'rating': 5,
-                    'comment': 'Great item!',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'user_profile': {
-                        'name': 'User Name',
-                        'photo': 'photo_url'
-                    },
-                    'item_details': {
-                        'name': 'Item Name',
-                        'image': 'image_url'
-                    }
-                }],
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Invalid Parameters',
-                value={'error': 'Invalid sort parameter'},
-                status_codes=['400']
-            )
-        ]
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_ratings'],
         summary='Create rating',
         description='Create a new rating for a rental item',
         request=RatingSerializer,
         responses={
             201: RatingSerializer,
-            400: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            400: openapi.Response(description='Validation error'),
+            404: openapi.Response(description='Rental item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 'uuid',
-                    'item_id': 'item_uuid',
-                    'user_id': 'user_uuid',
-                    'rating': 5,
-                    'comment': 'Great item!',
-                    'created_at': '2024-03-20T10:00:00Z'
-                },
-                status_codes=['201']
-            ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'rating': ['Rating must be between 1 and 5.'],
-                    'item_id': ['This field is required.']
-                },
-                status_codes=['400']
-            ),
-            OpenApiExample(
-                'Item Not Found',
-                value={'error': 'Rental item not found'},
-                status_codes=['404']
-            )
-        ]
     )
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_ratings'],
         summary='Delete rating',
         description='Delete a rating',
         responses={
             204: None,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=None,
-                status_codes=['204']
-            ),
-            OpenApiExample(
-                'Permission Denied',
-                value={'detail': 'You do not have permission to perform this action.'},
-                status_codes=['403']
-            )
-        ]
     )
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

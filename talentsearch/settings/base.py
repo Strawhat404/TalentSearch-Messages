@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
-    'drf_spectacular',
     'taggit',
     'corsheaders',
     'django_filters',
@@ -153,7 +152,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
@@ -182,38 +180,6 @@ CSRF_COOKIE_HTTPONLY = True
 # Password reset settings
 PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds
 PASSWORD_RESET_TOKEN_TIMEOUT = 86400  # 24 hours in seconds
-
-# API Schema
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'TalentSearch API',
-    'DESCRIPTION': 'API documentation for TalentSearch platform',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SWAGGER_UI_SETTINGS': {
-        'deepLinking': True,
-        'persistAuthorization': True,
-        'displayOperationId': True,
-        'filter': True,
-        'tagsSorter': 'alpha',
-        'operationsSorter': 'alpha',
-    },
-    'TAGS': [
-        {'name': 'auth', 'description': 'Authentication operations'},
-        {'name': 'messages', 'description': 'Messaging system operations'},
-        {'name': 'news', 'description': 'News management operations'},
-        {'name': 'adverts', 'description': 'Advertisement management operations'},
-    ],
-    'SECURITY': [{'Token': []}],
-    'SECURITY_DEFINITIONS': {
-        'Token': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'Token-based authentication. Format: Token <your_token>'
-        }
-    },
-}
 
 # Time and language
 LANGUAGE_CODE = 'en-us'

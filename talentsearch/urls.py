@@ -4,26 +4,20 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
 from rest_framework import permissions
-from drf_spectacular.views import (
-    SpectacularAPIView,
-    SpectacularRedocView,
-    SpectacularSwaggerView,
-)
+from drf_yasg.views import get_schema_view
+from drf_yasg import openapi
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 
-# API Documentation URLs
-api_docs_urlpatterns = [
-    path('schema/', SpectacularAPIView.as_view(), name='schema'),
-    path('swagger/', SpectacularSwaggerView.as_view(
-        url_name='schema',
-        permission_classes=[permissions.AllowAny],
-    ), name='swagger-ui'),
-    path('redoc/', SpectacularRedocView.as_view(
-        url_name='schema',
-        permission_classes=[permissions.AllowAny],
-    ), name='redoc'),
-]
+schema_view = get_schema_view(
+   openapi.Info(
+      title="TalentSearch API",
+      default_version='v1',
+      description="API documentation for TalentSearch platform",
+   ),
+   public=True,
+   permission_classes=(permissions.AllowAny,),
+)
 
 @csrf_exempt
 def health_check(request):
@@ -31,8 +25,8 @@ def health_check(request):
 
 # Main URL patterns
 urlpatterns = [
-    # Root URL redirects to API docs
-    path('', RedirectView.as_view(url='/api/docs/swagger/', permanent=True)),
+    # Root URL redirects to Swagger UI
+    path('', RedirectView.as_view(url='/swagger/', permanent=True)),
     
     path('admin/', admin.site.urls),
     
@@ -53,7 +47,8 @@ urlpatterns = [
     path('api/user_ratings/', include('user_ratings.urls')),
     path('api/health/', health_check, name='health_check'),
     # API Documentation
-    path('api/docs/', include(api_docs_urlpatterns)),
+    path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
 ]
 
 # Serve media and static files in development

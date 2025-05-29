@@ -1,7 +1,5 @@
 from rest_framework import serializers
 from .models import News, NewsImage
-from drf_spectacular.utils import extend_schema_field
-from drf_spectacular.types import OpenApiTypes
 from django.utils import timezone
 
 class NewsImageSerializer(serializers.ModelSerializer):
@@ -40,7 +38,6 @@ class NewsSerializer(serializers.ModelSerializer):
     def get_tags(self, obj):
         return [tag.name for tag in obj.tags.all()]
 
-    @extend_schema_field(OpenApiTypes.OBJECT)
     def get_created_by(self, obj):
         return {
             'id': obj.created_by.id if obj.created_by else None,

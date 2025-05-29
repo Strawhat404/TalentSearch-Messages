@@ -2,8 +2,6 @@ from rest_framework import serializers
 from .models import Advert
 from django.core.validators import FileExtensionValidator, MinValueValidator, MaxValueValidator
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema_field
-from drf_spectacular.types import OpenApiTypes
 import os
 import logging
 import bleach
@@ -88,13 +86,6 @@ class AdvertSerializer(serializers.ModelSerializer):
         required=False,
         help_text="End date and time for the advertisement campaign"
     )
-
-    @extend_schema_field(OpenApiTypes.OBJECT)
-    def get_created_by(self, obj):
-        return {
-            'id': obj.created_by.id,
-            'username': obj.created_by.username
-        }
 
     def validate_image(self, value):
         if value and value.size > MAX_IMAGE_SIZE:

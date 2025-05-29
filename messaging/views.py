@@ -3,21 +3,17 @@ from rest_framework.response import Response
 from rest_framework import status
 from .models import Message
 from .serializers import MessageSerializer
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from drf_spectacular.types import OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class MessageView(APIView):
     throttle_classes = []
 
-    @extend_schema(
-        tags=['messages'],
-        summary='List or create messages',
-        description='Get all messages or create a new message',
-        request=MessageSerializer,
+    @swagger_auto_schema(
+        operation_summary='List messages',
+        operation_description='Get all messages',
         responses={
             200: MessageSerializer(many=True),
-            201: MessageSerializer,
-            400: OpenApiTypes.OBJECT,
         }
     )
     def get(self, request):
@@ -31,14 +27,22 @@ class MessageView(APIView):
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @extend_schema(
-        tags=['messages'],
-        summary='Create message',
-        description='Create a new message',
-        request=MessageSerializer,
+    @swagger_auto_schema(
+        operation_summary='Create message',
+        operation_description='Create a new message',
+        request_body=MessageSerializer,
         responses={
-            201: MessageSerializer,
-            400: OpenApiTypes.OBJECT,
+            201: openapi.Response(
+                description="Message sent successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_STRING, example='uuid'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Message sent successfully.')
+                    }
+                )
+            ),
+            400: openapi.Response(description="Validation Error")
         }
     )
     def post(self, request):

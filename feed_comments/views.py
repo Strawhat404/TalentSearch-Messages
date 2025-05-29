@@ -3,7 +3,8 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .models import Comment, CommentLike
 from .serializers import (
     CommentSerializer,
@@ -62,17 +63,13 @@ class CommentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name='post_id',
-                type=str,
-                description='Filter comments by post ID'
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                'post_id', openapi.IN_QUERY, description='Filter comments by post ID', type=openapi.TYPE_STRING
             ),
-            OpenApiParameter(
-                name='parent_id',
-                type=str,
-                description='Filter replies by parent comment ID'
+            openapi.Parameter(
+                'parent_id', openapi.IN_QUERY, description='Filter replies by parent comment ID', type=openapi.TYPE_STRING
             ),
         ],
         responses={200: CommentSerializer(many=True)}
@@ -80,15 +77,15 @@ class CommentViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
-        request=CommentCreateSerializer,
+    @swagger_auto_schema(
+        request_body=CommentCreateSerializer,
         responses={201: CommentSerializer}
     )
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
-    @extend_schema(
-        request=CommentLikeSerializer,
+    @swagger_auto_schema(
+        request_body=CommentLikeSerializer,
         responses={200: CommentSerializer}
     )
     @action(detail=True, methods=['post'])

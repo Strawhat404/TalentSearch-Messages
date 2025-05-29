@@ -3,7 +3,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from .models import FeedLike
 from .serializers import FeedLikeSerializer
-from drf_spectacular.utils import extend_schema, OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 import uuid
 
 class FeedLikeListView(generics.ListCreateAPIView):
@@ -32,21 +33,25 @@ class FeedLikeListView(generics.ListCreateAPIView):
 
         return queryset.order_by('-created_at')
 
-    @extend_schema(
-        tags=['feed_likes'],
-        summary='List feed likes',
-        description='Get all feed likes with optional filtering by post_id and user_id',
-        responses={200: FeedLikeSerializer(many=True), 400: OpenApiTypes.OBJECT}
+    @swagger_auto_schema(
+        operation_summary='List feed likes',
+        operation_description='Get all feed likes with optional filtering by post_id and user_id',
+        responses={
+            200: FeedLikeSerializer(many=True),
+            400: openapi.Response(description="Validation Error")
+        }
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @extend_schema(
-        tags=['feed_likes'],
-        summary='Like a post',
-        description='Create a new like for a post',
-        request=FeedLikeSerializer,
-        responses={201: OpenApiTypes.OBJECT, 400: OpenApiTypes.OBJECT}
+    @swagger_auto_schema(
+        operation_summary='Like a post',
+        operation_description='Create a new like for a post',
+        request_body=FeedLikeSerializer,
+        responses={
+            201: FeedLikeSerializer(),
+            400: openapi.Response(description="Validation Error")
+        }
     )
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -59,12 +64,22 @@ class FeedLikeDeleteView(generics.GenericAPIView):
     serializer_class = FeedLikeSerializer
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        tags=['feed_likes'],
-        summary='Unlike a post',
-        description='Remove a like from a post',
-        request=FeedLikeSerializer,
-        responses={200: OpenApiTypes.OBJECT, 404: OpenApiTypes.OBJECT}
+    @swagger_auto_schema(
+        operation_summary='Unlike a post',
+        operation_description='Remove a like from a post',
+        request_body=FeedLikeSerializer,
+        responses={
+            200: openapi.Response(
+                description="Post unliked successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Post unliked successfully')
+                    }
+                )
+            ),
+            404: openapi.Response(description="Not Found")
+        }
     )
     def delete(self, request, *args, **kwargs):
         post_id = request.data.get('post_id')

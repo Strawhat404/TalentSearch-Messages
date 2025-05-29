@@ -5,7 +5,8 @@ from rest_framework.views import APIView
 from .models import FeedPost
 from .serializers import FeedPostSerializer
 from django.utils import timezone
-from drf_spectacular.utils import extend_schema, OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 import os
 
 class FeedPostListView(generics.ListCreateAPIView):
@@ -36,26 +37,33 @@ class FeedPostListView(generics.ListCreateAPIView):
         
         return queryset
 
-    @extend_schema(
-        tags=['feed_posts'],
-        summary='List feed posts',
-        description='Get all feed posts with optional filtering',
+    @swagger_auto_schema(
+        operation_summary='List feed posts',
+        operation_description='Get all feed posts with optional filtering',
         responses={
             200: FeedPostSerializer(many=True),
-            400: OpenApiTypes.OBJECT,
+            400: openapi.Response(description="Validation Error")
         }
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @extend_schema(
-        tags=['feed_posts'],
-        summary='Create feed post',
-        description='Create a new feed post',
-        request=FeedPostSerializer,
+    @swagger_auto_schema(
+        operation_summary='Create feed post',
+        operation_description='Create a new feed post',
+        request_body=FeedPostSerializer,
         responses={
-            201: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
+            201: openapi.Response(
+                description="Post created successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_STRING, example='uuid'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Post created successfully')
+                    }
+                )
+            ),
+            400: openapi.Response(description="Validation Error")
         }
     )
     def post(self, request, *args, **kwargs):
@@ -73,25 +81,31 @@ class FeedPostDetailView(generics.RetrieveDestroyAPIView):
     permission_classes = [IsAuthenticated]
     lookup_field = 'id'
 
-    @extend_schema(
-        tags=['feed_posts'],
-        summary='Get feed post by ID',
-        description='Get a specific feed post by its ID',
+    @swagger_auto_schema(
+        operation_summary='Get feed post by ID',
+        operation_description='Get a specific feed post by its ID',
         responses={
-            200: FeedPostSerializer,
-            404: OpenApiTypes.OBJECT,
+            200: FeedPostSerializer(),
+            404: openapi.Response(description="Not Found")
         }
     )
     def get(self, request, *args, **kwargs):
         return super().get(request, *args, **kwargs)
 
-    @extend_schema(
-        tags=['feed_posts'],
-        summary='Delete feed post',
-        description='Delete a specific feed post by its ID',
+    @swagger_auto_schema(
+        operation_summary='Delete feed post',
+        operation_description='Delete a specific feed post by its ID',
         responses={
-            200: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Post deleted successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Post deleted successfully')
+                    }
+                )
+            ),
+            404: openapi.Response(description="Not Found")
         }
     )
     def delete(self, request, *args, **kwargs):
@@ -110,13 +124,20 @@ class FeedPostMediaView(APIView):
         except FeedPost.DoesNotExist:
             return None
 
-    @extend_schema(
-        tags=['feed_posts'],
-        summary='Delete media from post',
-        description='Delete only the media file from a post while keeping the post itself',
+    @swagger_auto_schema(
+        operation_summary='Delete media from post',
+        operation_description='Delete only the media file from a post while keeping the post itself',
         responses={
-            200: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Media deleted successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Media deleted successfully')
+                    }
+                )
+            ),
+            404: openapi.Response(description="Not Found")
         }
     )
     def delete(self, request, *args, **kwargs):
