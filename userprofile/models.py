@@ -124,7 +124,7 @@ class IdentityVerification(models.Model):
             elif self.id_type == 'drivers_license':
                 if not re.match(r'^[A-Za-z0-9]+$', self.id_number):
                     raise ValidationError({
-                        'id_number': 'Driver’s License must contain only letters and numbers.'
+                        'id_number': "Driver's License must contain only letters and numbers."
                     })
         elif self.id_type and not self.id_number:
             raise ValidationError({
@@ -393,3 +393,50 @@ class Media(models.Model):
         blank=True,
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
     )
+
+class VerificationStatus(models.Model):
+    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='verification_status')
+    is_verified = models.BooleanField(default=False)
+    verification_type = models.CharField(max_length=50)  # e.g., 'id', 'address', 'phone'
+    verification_date = models.DateTimeField(auto_now_add=True)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    verification_method = models.CharField(max_length=50)  # e.g., 'document', 'phone_call', 'email'
+    verification_notes = models.TextField(blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.is_verified:
+            # Create audit log
+            VerificationAuditLog.objects.create(
+                profile=self.profile,
+                previous_status=False,
+                new_status=True,
+                changed_by=self.verified_by,
+                verification_type=self.verification_type,
+                verification_method=self.verification_method,
+                notes=self.verification_notes
+            )
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Verification Status for {self.profile.name}"
+
+class VerificationAuditLog(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='verification_logs')
+    previous_status = models.BooleanField()
+    new_status = models.BooleanField()
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    verification_type = models.CharField(max_length=50)
+    verification_method = models.CharField(max_length=50)
+    notes = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True)
+    user_agent = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name = 'Verification Audit Log'
+        verbose_name_plural = 'Verification Audit Logs'
+
+    def __str__(self):
+        return f"Verification Log for {self.profile.name} at {self.changed_at}"

@@ -3,32 +3,39 @@ Development settings for TalentSearch project.
 """
 
 from .base import *
-import dj_database_url
-from decouple import config
 
-DEBUG = config('DEBUG', cast=bool, default=True)
+DEBUG = True
+SECRET_KEY = 'django-insecure-key-for-development-only'
 
-SECRET_KEY = config('SECRET_KEY', default='insecure-dev-key')
-
-ALLOWED_HOSTS = [
-    'localhost',
-    '127.0.0.1',
-]
-
-# Use PostgreSQL or any DB via DATABASE_URL (no fallback to sqlite3)
 DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL'),
-        conn_max_age=600
-    )
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# Email settings for development
+EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST = 'localhost'
+EMAIL_PORT = 1025
+EMAIL_HOST_USER = 'dev@example.com'
+EMAIL_HOST_PASSWORD = 'dev_password'
+EMAIL_USE_TLS = False
+DEFAULT_FROM_EMAIL = 'dev@example.com'
+
+# Redis settings for development
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
 }
 
 # Optional Redis support for dev
-if config('REDIS_URL', default=None):
+if env('REDIS_URL', default=None):
     CACHES = {
         'default': {
             'BACKEND': 'django_redis.cache.RedisCache',
-            'LOCATION': config('REDIS_URL'),
+            'LOCATION': env('REDIS_URL'),
             'OPTIONS': {
                 'CLIENT_CLASS': 'django_redis.client.DefaultClient',
             }
@@ -41,9 +48,6 @@ else:
             'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
         }
     }
-
-# Console backend for emails in development
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 
 # CORS settings for local frontend devs
 CORS_ALLOWED_ORIGINS = [

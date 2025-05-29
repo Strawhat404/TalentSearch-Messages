@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
-    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media
+    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -684,7 +684,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                     raise serializers.ValidationError({'identity_verification.id_number': 'Passport must start with "E" or "EP" followed by 7-8 digits.'})
             elif id_type == 'drivers_license':
                 if not re.match(r'^[A-Za-z0-9]+$', id_number):
-                    raise serializers.ValidationError({'identity_verification.id_number': 'Driver’s License must contain only letters and numbers.'})
+                    raise serializers.ValidationError({'identity_verification.id_number': "Driver's License must contain only letters and numbers."})
         elif id_type and not id_number:
             raise serializers.ValidationError({'identity_verification.id_number': f'{id_type} requires a valid ID number.'})
         elif id_number and not id_type:
@@ -779,3 +779,36 @@ class ProfileSerializer(serializers.ModelSerializer):
             setattr(instance, attr, value)
         instance.save()
         return instance
+
+class VerificationStatusSerializer(serializers.ModelSerializer):
+    verified_by_email = serializers.EmailField(source='verified_by.email', read_only=True)
+    
+    class Meta:
+        model = VerificationStatus
+        fields = [
+            'is_verified', 'verification_type', 'verification_date', 
+            'verified_by', 'verified_by_email', 'verification_method', 
+            'verification_notes', 'last_updated'
+        ]
+        read_only_fields = ['verification_date', 'verified_by', 'last_updated']
+
+    def validate(self, data):
+        # Only allow verification through proper channels
+        if 'is_verified' in data and data['is_verified']:
+            request = self.context.get('request')
+            if not request or not request.user.has_perm('userprofile.verify_profiles'):
+                raise serializers.ValidationError("You don't have permission to verify profiles")
+        return data
+
+class VerificationAuditLogSerializer(serializers.ModelSerializer):
+    changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
+    profile_name = serializers.CharField(source='profile.name', read_only=True)
+
+    class Meta:
+        model = VerificationAuditLog
+        fields = [
+            'id', 'profile', 'profile_name', 'previous_status', 'new_status',
+            'changed_by', 'changed_by_email', 'changed_at', 'verification_type',
+            'verification_method', 'notes', 'ip_address', 'user_agent'
+        ]
+        read_only_fields = ['changed_at', 'changed_by', 'ip_address', 'user_agent']

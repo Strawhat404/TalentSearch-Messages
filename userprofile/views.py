@@ -4,8 +4,8 @@ from rest_framework import status
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiTypes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from .models import Profile
-from .serializers import ProfileSerializer
+from .models import Profile, VerificationStatus, VerificationAuditLog
+from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -168,3 +168,130 @@ class ProfileView(APIView):
             return Response({"message": "Profile deleted successfully."}, status=status.HTTP_200_OK)
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+class VerificationView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @extend_schema(
+        tags=['verification'],
+        summary="Verify a profile",
+        description="Verify a user profile with proper documentation and notes.",
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'verification_type': {'type': 'string', 'enum': ['id', 'address', 'phone']},
+                    'verification_method': {'type': 'string', 'enum': ['document', 'phone_call', 'email']},
+                    'verification_notes': {'type': 'string'},
+                },
+                'required': ['verification_type', 'verification_method']
+            }
+        },
+        responses={
+            200: OpenApiTypes.OBJECT,
+            400: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+            404: OpenApiTypes.OBJECT,
+        }
+    )
+    def post(self, request, profile_id):
+        try:
+            profile = Profile.objects.get(id=profile_id)
+            
+            # Check if user has permission to verify
+            if not request.user.has_perm('userprofile.verify_profiles'):
+                return Response(
+                    {"message": "You don't have permission to verify profiles."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Create or update verification status
+            verification, created = VerificationStatus.objects.get_or_create(
+                profile=profile,
+                defaults={
+                    'is_verified': True,
+                    'verification_type': request.data.get('verification_type'),
+                    'verified_by': request.user,
+                    'verification_method': request.data.get('verification_method'),
+                    'verification_notes': request.data.get('verification_notes', '')
+                }
+            )
+
+            if not created:
+                verification.is_verified = True
+                verification.verification_type = request.data.get('verification_type')
+                verification.verified_by = request.user
+                verification.verification_method = request.data.get('verification_method')
+                verification.verification_notes = request.data.get('verification_notes', '')
+                verification.save()
+
+            # Create audit log
+            VerificationAuditLog.objects.create(
+                profile=profile,
+                previous_status=False,
+                new_status=True,
+                changed_by=request.user,
+                verification_type=verification.verification_type,
+                verification_method=verification.verification_method,
+                notes=verification.verification_notes,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
+
+            return Response({
+                "message": "Profile verified successfully",
+                "verification": VerificationStatusSerializer(verification).data
+            }, status=status.HTTP_200_OK)
+
+        except Profile.DoesNotExist:
+            return Response(
+                {"message": "Profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"message": f"An error occurred: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+class VerificationAuditLogView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        tags=['verification'],
+        summary="Get verification audit logs",
+        description="Get the audit logs for profile verifications.",
+        responses={
+            200: OpenApiTypes.OBJECT,
+            401: OpenApiTypes.OBJECT,
+            403: OpenApiTypes.OBJECT,
+        }
+    )
+    def get(self, request, profile_id):
+        try:
+            profile = Profile.objects.get(id=profile_id)
+            
+            # Check if user has permission to view audit logs
+            if not request.user.has_perm('userprofile.view_verification_logs'):
+                return Response(
+                    {"message": "You don't have permission to view verification logs."},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            logs = VerificationAuditLog.objects.filter(profile=profile)
+            serializer = VerificationAuditLogSerializer(logs, many=True)
+            
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Profile.DoesNotExist:
+            return Response(
+                {"message": "Profile not found."},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"message": f"An error occurred: {str(e)}"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
