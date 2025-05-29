@@ -301,13 +301,7 @@ class ProfileView(APIView):
                 )
             serializer = ProfileSerializer(data=request.data, context={'request': request})
             if serializer.is_valid():
-                try:
-                    profile = serializer.save()
-                except IntegrityError:
-                    return Response(
-                        {"message": "A profile already exists for this user or a database constraint was violated."},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+                profile = serializer.save()
                 response_data = {
                     "id": profile.id,
                     "message": "Profile created successfully."
