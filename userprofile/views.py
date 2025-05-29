@@ -7,6 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Profile, VerificationStatus, VerificationAuditLog
 from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer
+from django.db import IntegrityError
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -300,7 +301,13 @@ class ProfileView(APIView):
                 )
             serializer = ProfileSerializer(data=request.data, context={'request': request})
             if serializer.is_valid():
-                profile = serializer.save()
+                try:
+                    profile = serializer.save()
+                except IntegrityError:
+                    return Response(
+                        {"message": "A profile already exists for this user or a database constraint was violated."},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
                 response_data = {
                     "id": profile.id,
                     "message": "Profile created successfully."
