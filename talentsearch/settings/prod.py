@@ -72,6 +72,7 @@ else:
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
@@ -87,7 +88,6 @@ REST_FRAMEWORK = {
         'auth': '10/minute',
         'create': '5/minute',
     },
-    # Disable throttling if Redis is not available
     'DEFAULT_THROTTLE_CLASSES': [] if not REDIS_URL else [
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
