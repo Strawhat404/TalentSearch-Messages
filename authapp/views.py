@@ -26,6 +26,8 @@ from django.test.client import RequestFactory
 import logging
 import uuid
 from django.db import transaction, IntegrityError
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
@@ -43,6 +45,7 @@ import time_machine
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
