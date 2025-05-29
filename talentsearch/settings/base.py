@@ -150,9 +150,8 @@ AUTH_USER_MODEL = 'authapp.User'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'authapp.authentication.CustomJWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
         'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
@@ -168,29 +167,7 @@ REST_FRAMEWORK = {
         'test': '1000/minute',
         'auth': '10/minute',
     },
-    'TOKEN_EXPIRE_MINUTES': 60,  # Default token expiration (in minutes) if not overridden
-}
-
-# JWT settings
-from datetime import timedelta
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=3600),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'AUTH_HEADER_NAME': 'HTTP_AUTHORIZATION',
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'TOKEN_TYPE_CLAIM': 'token_type',
-    'JTI_CLAIM': 'jti',
-    'TOKEN_USER_CLASS': 'authapp.models.User',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_BLACKLIST_ENABLED': True,
-    'TOKEN_BLACKLIST_CHECK_ON_AUTHENTICATION': True,
+    'TOKEN_EXPIRE_MINUTES': 60,  # Optional: can be removed if not used
 }
 
 # Session settings
@@ -271,15 +248,9 @@ if 'test' in sys.argv:
         'create': '1000/minute',  # Add create scope rate for tests
     }
     # Override JWT settings for tests
-    SIMPLE_JWT.update({
-        'ACCESS_TOKEN_LIFETIME': timedelta(seconds=1),
-        'REFRESH_TOKEN_LIFETIME': timedelta(seconds=2),
-        'ROTATE_REFRESH_TOKENS': True,
-        'BLACKLIST_AFTER_ROTATION': True,
-    })
-    # Only use JWT authentication for tests
     REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = [
-        'authapp.authentication.CustomJWTAuthentication',
+        'rest_framework.authentication.TokenAuthentication',
+        'rest_framework.authentication.SessionAuthentication',
     ]
 
 # Authentication settings

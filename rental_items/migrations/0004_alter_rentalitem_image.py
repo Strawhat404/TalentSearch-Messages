@@ -1,0 +1,30 @@
+import django.core.validators
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        (
+            "rental_items",
+            "0003_rentalitem_updated_at_alter_rentalitemimage_image_and_more",
+        ),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name="rentalitem",
+            name="image",
+            field=models.ImageField(
+                default="",
+                help_text="Main image for the rental item",
+                upload_to="rental_items/main/",
+                validators=[
+                    django.core.validators.FileExtensionValidator(
+                        allowed_extensions=["jpg", "jpeg", "png", "gif"]
+                    )
+                ],
+            ),
+            preserve_default=False,
+        ),
+    ]

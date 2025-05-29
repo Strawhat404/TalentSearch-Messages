@@ -26,6 +26,8 @@ from django.test.client import RequestFactory
 import logging
 import uuid
 from django.db import transaction, IntegrityError
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
@@ -43,6 +45,7 @@ import time_machine
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
@@ -63,7 +66,7 @@ class RegisterView(APIView):
                     'id': 123,
                     'email': 'user@example.com',
                     'name': 'John Doe',
-                    'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
+                    'token': 'tokenstring',
                 },
                 status_codes=['201']
             ),
@@ -75,23 +78,18 @@ class RegisterView(APIView):
         ]
     )
     def post(self, request):
-        """
-        Registers a new user and returns their details and authentication token.
-        """
         data = request.data.copy()
         if 'email' in data:
             data['email'] = data['email'].lower()
         serializer = UserSerializer(data=data)
         if serializer.is_valid():
             user = serializer.save()
-            refresh = RefreshToken.for_user(user)
+            token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'id': user.id,
                 'email': user.email.lower(),
                 'name': user.name,
-                'token': str(refresh.access_token),
-                'refresh': str(refresh),
-                'expires_in': 3600
+                'token': token.key,
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -109,7 +107,7 @@ class LoginView(APIView):
     @extend_schema(
         tags=['auth'],
         summary='User login',
-        description='Authenticate a user and return JWT tokens',
+        description='Authenticate a user and return DRF token',
         request=LoginSerializer,
         responses={
             200: OpenApiTypes.OBJECT,
@@ -121,9 +119,7 @@ class LoginView(APIView):
             OpenApiExample(
                 'Success Response',
                 value={
-                    'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                    'refresh': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...',
-                    'expires_in': 3600,
+                    'token': 'tokenstring',
                     'user': {
                         'id': 123,
                         'email': 'user@example.com',
@@ -145,98 +141,27 @@ class LoginView(APIView):
         ]
     )
     def post(self, request):
-        try:
-            serializer = LoginSerializer(data=request.data)
-            if not serializer.is_valid():
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-            email = serializer.validated_data['email'].lower()
-            password = serializer.validated_data['password']
-
-            # Check for brute force protection
-            if BruteForceProtection.is_locked_out(email):
-                logger.warning(f"Login attempt blocked - account locked for email: {email}")
+        serializer = LoginSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        email = serializer.validated_data['email'].lower()
+        password = serializer.validated_data['password']
+        user = authenticate(request, email=email, password=password)
+        if user is not None:
+            if not user.is_active:
                 return Response({
-                    "error": "Account temporarily locked. Please try again later."
-                }, status=status.HTTP_429_TOO_MANY_REQUESTS)
-
-            # Authenticate user
-            user = authenticate(request, email=email, password=password)
-            
-            if user is not None:
-                if not user.is_active:
-                    logger.warning(f"Login attempt for inactive account: {email}")
-                    return Response({
-                        "error": "Account is inactive."
-                    }, status=status.HTTP_401_UNAUTHORIZED)
-
-                # Reset brute force protection on successful login
-                BruteForceProtection.reset_attempts(email)
-
-                # Create JWT tokens
-                refresh = RefreshToken.for_user(user)
-                
-                # Get the actual token lifetime in seconds
-                token_lifetime = int(settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'].total_seconds())
-                
-                # Update last login and log security event
-                user.last_login = timezone.now()
-                user.save(update_fields=['last_login'])
-
-                # Log successful login
-                SecurityLog.objects.create(
-                    user=user,
-                    email=user.email,
-                    event_type='login',
-                    ip_address=request.META.get('REMOTE_ADDR'),
-                    user_agent=request.META.get('HTTP_USER_AGENT'),
-                    details={'success': True}
-                )
-
-                return Response({
-                    'token': str(refresh.access_token),
-                    'refresh': str(refresh),
-                    'expires_in': token_lifetime,  # Use actual token lifetime
-                    'user': {
-                        'id': user.id,
-                        'email': user.email.lower(),
-                        'name': user.name
-                    }
-                }, status=status.HTTP_200_OK)
-            else:
-                # Record failed attempt
-                BruteForceProtection.record_attempt(email)
-                
-                # Log failed login attempt with email
-                try:
-                    user = User.objects.get(email=email)
-                    SecurityLog.objects.create(
-                        user=user,
-                        email=email,  # Explicitly set the email
-                        event_type='login_failed',
-                        ip_address=request.META.get('REMOTE_ADDR'),
-                        user_agent=request.META.get('HTTP_USER_AGENT'),
-                        details={'reason': 'invalid_credentials'}
-                    )
-                except User.DoesNotExist:
-                    # For non-existent users, still log the attempt but without a user
-                    SecurityLog.objects.create(
-                        email=email,  # Only set the email
-                        event_type='login_failed',
-                        ip_address=request.META.get('REMOTE_ADDR'),
-                        user_agent=request.META.get('HTTP_USER_AGENT'),
-                        details={'reason': 'user_not_found'}
-                    )
-
-                return Response({
-                    "error": "Invalid credentials."
+                    "error": "Account is inactive."
                 }, status=status.HTTP_401_UNAUTHORIZED)
-
-        except Exception as e:
-            logger.error(f"Login error: {str(e)}", exc_info=True)
+            token, created = Token.objects.get_or_create(user=user)
             return Response({
-                "error": "An error occurred during login. Please try again."
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                'token': token.key,
+                'user': {
+                    'id': user.id,
+                    'email': user.email.lower(),
+                    'name': user.name
+                }
+            }, status=status.HTTP_200_OK)
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AdminLoginView(APIView):
@@ -648,48 +573,6 @@ class ChangePasswordView(APIView):
             {'message': 'Password changed successfully. Please login again.'}, 
             status=status.HTTP_200_OK
         )
-
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        # Get the user from the validated data
-        user = self.user
-        if user:
-            # Blacklist all outstanding tokens for this user
-            for token in OutstandingToken.objects.filter(user=user):
-                try:
-                    BlacklistedToken.objects.get_or_create(token=token)
-                except Exception:
-                    pass
-        return data
-
-    def get_token(self, user):
-        token = super().get_token(user)
-        # Add custom claims
-        token['email'] = user.email
-        token['name'] = user.name
-        token['last_password_change'] = user.last_password_change.timestamp() if user.last_password_change else None
-        return token
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
-
-    def post(self, request, *args, **kwargs):
-        response = super().post(request, *args, **kwargs)
-        if response.status_code == 200:
-            # Get user from request data
-            try:
-                user = User.objects.get(email=request.data['email'])
-                # Update last login time
-                user.last_login = timezone.now()
-                user.save()
-                if hasattr(request, 'session'):
-                    request.session['last_login'] = timezone.now().isoformat()
-                    if hasattr(request.session, 'save'):
-                        request.session.save()
-            except User.DoesNotExist:
-                pass
-        return response
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
