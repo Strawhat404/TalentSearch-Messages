@@ -1,10 +1,13 @@
 from django.db import models
-from django.core.validators import FileExtensionValidator, MinValueValidator, RegexValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, RegexValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 import re
 from datetime import date
 import bleach
+import os
+import json
+from django.conf import settings
 
 User = get_user_model()
 
@@ -25,10 +28,10 @@ def sanitize_string(value):
 class Profile(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    name = models.CharField(max_length=100, blank=False, null=False)
-    birthdate = models.DateField(blank=False, null=True)
-    profession = models.CharField(max_length=100, blank=False, null=False)
-    nationality = models.CharField(max_length=50, blank=False, null=False)
+    name = models.CharField(max_length=100)
+    birthdate = models.DateField(null=True, blank=True, help_text="Date of birth (required)")
+    profession = models.CharField(max_length=100)
+    nationality = models.CharField(max_length=50)
     location = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     availability_status = models.BooleanField(default=True)
@@ -49,22 +52,26 @@ class Profile(models.Model):
         if self.status:
             self.status = sanitize_string(self.status)
 
-        # Existing validation
-        if self.birthdate and self.birthdate > date.today():
-            raise ValidationError({
-                'birthdate': 'Birthdate cannot be in the future.'
-            })
+        # Existing validations
+        if self.birthdate:
+            if self.birthdate > date.today():
+                raise ValidationError({
+                    'birthdate': 'Birthdate cannot be in the future.'
+                })
+            # Calculate age
+            age = (date.today() - self.birthdate).days // 365
+            if age < 18:
+                raise ValidationError({
+                    'birthdate': 'Must be at least 18 years old.'
+                })
+            if age > 100:
+                raise ValidationError({
+                    'birthdate': 'Age cannot exceed 100 years.'
+                })
 
     def save(self, *args, **kwargs):
-        # Validate required fields
-        if not self.name or self.name.strip() == "":
-            raise ValueError("Name cannot be blank.")
         if not self.birthdate:
-            raise ValueError("Birthdate is required.")
-        if not self.profession or self.profession.strip() == "":
-            raise ValueError("Profession cannot be blank.")
-        if not self.nationality or self.nationality.strip() == "":
-            raise ValueError("Nationality cannot be blank.")
+            raise ValidationError("Date of birth is required.")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -152,7 +159,7 @@ class ProfessionalQualifications(models.Model):
     shift_preference = models.CharField(max_length=50, blank=True)
     willingness_to_relocate = models.CharField(max_length=50, blank=True)
     overtime_availability = models.CharField(max_length=50, blank=True)
-    travel_willingness = models.CharField(max_length=50, blank=True)
+    travel_willingness = models.BooleanField(default=False, help_text="Are you willing to travel?")
     software_proficiency = models.JSONField(default=list)
     typing_speed = models.IntegerField(null=True, blank=True)
     driving_skills = models.CharField(max_length=100, blank=True)
@@ -187,8 +194,6 @@ class ProfessionalQualifications(models.Model):
             self.willingness_to_relocate = sanitize_string(self.willingness_to_relocate)
         if self.overtime_availability:
             self.overtime_availability = sanitize_string(self.overtime_availability)
-        if self.travel_willingness:
-            self.travel_willingness = sanitize_string(self.travel_willingness)
         if self.driving_skills:
             self.driving_skills = sanitize_string(self.driving_skills)
         if self.role_title:
@@ -213,8 +218,20 @@ class ProfessionalQualifications(models.Model):
 
 class PhysicalAttributes(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='physical_attributes')
-    weight = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
-    height = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
+    weight = models.DecimalField(
+        max_digits=5, 
+        decimal_places=1, 
+        null=True,
+        blank=True,
+        help_text="Weight in kilograms (required)"
+    )
+    height = models.DecimalField(
+        max_digits=5, 
+        decimal_places=1, 
+        null=True,
+        blank=True,
+        help_text="Height in centimeters (required)"
+    )
     gender = models.CharField(max_length=20, blank=True)
     hair_color = models.CharField(max_length=50, blank=True)
     eye_color = models.CharField(max_length=50, blank=True)
@@ -241,6 +258,25 @@ class PhysicalAttributes(models.Model):
             self.facial_hair = sanitize_string(self.facial_hair)
         if self.physical_condition:
             self.physical_condition = sanitize_string(self.physical_condition)
+
+        # Existing validations
+        if self.height is not None:
+            if self.height < 100:  # Minimum height 100 cm
+                raise ValidationError({
+                    'height': 'Height must be at least 100 cm.'
+                })
+        if self.weight is not None:
+            if self.weight < 30:  # Minimum weight 30 kg
+                raise ValidationError({
+                    'weight': 'Weight must be at least 30 kg.'
+                })
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            raise ValidationError("Weight is required.")
+        if self.height is None:
+            raise ValidationError("Height is required.")
+        super().save(*args, **kwargs)
 
 class MedicalInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='medical_info')
@@ -301,52 +337,102 @@ class WorkExperience(models.Model):
             self.internship_experience = sanitize_string(self.internship_experience)
 
 class ContactInfo(models.Model):
+    HOUSING_STATUS_CHOICES = [
+        ('own', 'Own'),
+        ('rent', 'Rent'),
+        ('live_with_family', 'Live with Family'),
+        ('other', 'Other')
+    ]
+
+    DURATION_CHOICES = [
+        ('less_than_1', '<1 year'),
+        ('1_to_3', '1-3 years'),
+        ('3_to_5', '3-5 years'),
+        ('5_to_10', '5-10 years'),
+        ('more_than_10', '>10 years')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
-    address = models.CharField(max_length=200, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    region = models.CharField(max_length=100, blank=True)
-    postal_code = models.CharField(max_length=20, blank=True)
-    residence_type = models.CharField(max_length=50, blank=True)
-    residence_duration = models.CharField(max_length=50, blank=True)
-    housing_status = models.CharField(max_length=50, blank=True)
-    emergency_contact = models.CharField(max_length=100, blank=True)
+    address = models.CharField(max_length=200, help_text="Address (required)")
+    specific_area = models.CharField(max_length=200, help_text="Specific area (required)")
+    city = models.CharField(max_length=100, help_text="City (required)")
+    region = models.CharField(max_length=50, help_text="Region (required)")
+    country = models.CharField(max_length=2, help_text="Country (required)")
+    housing_status = models.CharField(
+        max_length=50,
+        choices=HOUSING_STATUS_CHOICES,
+        help_text="Housing status (required)"
+    )
+    residence_duration = models.CharField(
+        max_length=50,
+        choices=DURATION_CHOICES,
+        help_text="Duration of residence (required)"
+    )
+    emergency_contact = models.CharField(
+        max_length=100,
+        help_text="Emergency contact name (required)"
+    )
     emergency_phone = models.CharField(
         max_length=17,
-        blank=True,
-        validators=[RegexValidator(
-            regex=r'^\+?1?\d{9,15}$',
-            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-        )]
+        help_text="Emergency contact phone number starting with +251 followed by 9 digits (required)",
+        validators=[
+            RegexValidator(
+                regex=r'^\+251\d{9}$',
+                message="Phone number must start with +251 followed by exactly 9 digits."
+            )
+        ]
     )
 
     def clean(self):
-        # Sanitize string fields (skip postal_code and emergency_phone due to strict regex validation)
-        if self.address:
-            self.address = sanitize_string(self.address)
-        if self.city:
-            self.city = sanitize_string(self.city)
-        if self.region:
-            self.region = sanitize_string(self.region)
-        if self.residence_type:
-            self.residence_type = sanitize_string(self.residence_type)
-        if self.residence_duration:
-            self.residence_duration = sanitize_string(self.residence_duration)
-        if self.housing_status:
-            self.housing_status = sanitize_string(self.housing_status)
-        if self.emergency_contact:
-            self.emergency_contact = sanitize_string(self.emergency_contact)
+        # Validate city based on selected region
+        if self.region and self.city:
+            try:
+                location_data = LocationData.objects.get(region_id=self.region)
+                valid_cities = {city['id']: city['name'] for city in location_data.cities}
+                if self.city not in valid_cities:
+                    raise ValidationError({
+                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities.values())}'
+                    })
+            except LocationData.DoesNotExist:
+                raise ValidationError({
+                    'region': 'Invalid region selected.'
+                })
 
-        # Existing validation
-        if self.postal_code:
-            postal_pattern = r'^\d{4}$'
-            if not re.match(postal_pattern, self.postal_code.strip()):
+        # Validate country
+        if self.country:
+            try:
+                with open(os.path.join(settings.BASE_DIR, 'data', 'countries.json'), 'r') as f:
+                    countries_data = json.load(f)
+                    valid_countries = {country['id']: country['name'] for country in countries_data['countries']}
+                    if self.country not in valid_countries:
+                        raise ValidationError({
+                            'country': f'Invalid country selected. Please choose from: {", ".join(valid_countries.values())}'
+                        })
+            except (FileNotFoundError, json.JSONDecodeError):
                 raise ValidationError({
-                    'postal_code': 'Postal code must be exactly 4 digits (e.g., "1234").'
+                    'country': 'Error validating country. Please try again.'
                 })
-            if not self.city or not self.region:
-                raise ValidationError({
-                    'postal_code': 'City and region must be provided when postal code is set.'
-                })
+
+    def save(self, *args, **kwargs):
+        if not self.address:
+            raise ValidationError("Address is required.")
+        if not self.specific_area:
+            raise ValidationError("Specific area is required.")
+        if not self.city:
+            raise ValidationError("City is required.")
+        if not self.region:
+            raise ValidationError("Region is required.")
+        if not self.country:
+            raise ValidationError("Country is required.")
+        if not self.housing_status:
+            raise ValidationError("Housing status is required.")
+        if not self.residence_duration:
+            raise ValidationError("Duration of residence is required.")
+        if not self.emergency_contact:
+            raise ValidationError("Emergency contact name is required.")
+        if not self.emergency_phone:
+            raise ValidationError("Emergency contact phone is required.")
+        super().save(*args, **kwargs)
 
 class PersonalInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
@@ -355,6 +441,12 @@ class PersonalInfo(models.Model):
     personality_type = models.CharField(max_length=50, blank=True)
     work_preference = models.CharField(max_length=50, blank=True)
     hobbies = models.JSONField(default=list)
+    custom_hobby = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text="Custom hobby (required)"
+    )
     volunteer_experience = models.CharField(max_length=50, blank=True)
     company_culture_preference = models.CharField(max_length=100, blank=True)
     social_media_links = models.JSONField(default=dict)
@@ -378,6 +470,28 @@ class PersonalInfo(models.Model):
             self.volunteer_experience = sanitize_string(self.volunteer_experience)
         if self.company_culture_preference:
             self.company_culture_preference = sanitize_string(self.company_culture_preference)
+
+        # Existing validations
+        if self.custom_hobby:
+            # Validate hobby length
+            if len(self.custom_hobby.strip()) < 2:
+                raise ValidationError({
+                    'custom_hobby': 'Custom hobby must be at least 2 characters long.'
+                })
+            if len(self.custom_hobby.strip()) > 50:
+                raise ValidationError({
+                    'custom_hobby': 'Custom hobby cannot exceed 50 characters.'
+                })
+            # Check for duplicate hobbies
+            if self.custom_hobby.strip().lower() in [h.lower() for h in self.hobbies]:
+                raise ValidationError({
+                    'custom_hobby': 'This hobby already exists in your list.'
+                })
+
+    def save(self, *args, **kwargs):
+        if not self.custom_hobby:
+            raise ValidationError("Custom hobby is required.")
+        super().save(*args, **kwargs)
 
 class Media(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='media')
@@ -440,3 +554,15 @@ class VerificationAuditLog(models.Model):
 
     def __str__(self):
         return f"Verification Log for {self.profile.name} at {self.changed_at}"
+
+class LocationData(models.Model):
+    region_id = models.CharField(max_length=50, unique=True)
+    region_name = models.CharField(max_length=100)
+    cities = models.JSONField()
+
+    def __str__(self):
+        return self.region_name
+
+    class Meta:
+        verbose_name = 'Location Data'
+        verbose_name_plural = 'Location Data'
