@@ -90,16 +90,54 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid ID back image. Must be a valid image format (jpg, jpeg, png, gif).")
         return value
 
+class ActorCategorySerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+
 class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
+    actor_category = serializers.ChoiceField(
+        choices=ProfessionalQualifications.ACTOR_CATEGORY_CHOICES,
+        required=False
+    )
+    actor_category_details = serializers.SerializerMethodField()
+    model_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    model_categories_details = serializers.SerializerMethodField()
+    performer_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    performer_categories_details = serializers.SerializerMethodField()
+    influencer_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    influencer_categories_details = serializers.SerializerMethodField()
+    skills = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    skills_details = serializers.SerializerMethodField()
+    main_skill = serializers.CharField(required=False)
+    main_skill_details = serializers.SerializerMethodField()
+
     class Meta:
         model = ProfessionalQualifications
         fields = [
-            'experience_level', 'skills', 'work_authorization', 'industry_experience',
+            'experience_level', 'skills', 'skills_details', 'work_authorization', 'industry_experience',
             'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
             'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
             'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
             'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+            'actor_category', 'actor_category_details',
+            'model_categories', 'model_categories_details',
+            'performer_categories', 'performer_categories_details',
+            'influencer_categories', 'influencer_categories_details',
+            'main_skill', 'main_skill_details'
         ]
         extra_kwargs = {
             'travel_willingness': {'required': True}
@@ -219,6 +257,87 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
         if value is not None and value < 0:
             raise serializers.ValidationError("Maximum salary cannot be negative.")
         return value
+
+    def get_actor_category_details(self, obj):
+        if not obj.actor_category:
+            return None
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'actor_categories.json'), 'r') as f:
+                categories = json.load(f)['actor_categories']
+                for category in categories:
+                    if category['id'] == obj.actor_category:
+                        return category
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+        return None
+
+    def get_model_categories_details(self, obj):
+        if not obj.model_categories:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'model_categories.json'), 'r') as f:
+                categories = json.load(f)['model_categories']
+                return [cat for cat in categories if cat['id'] in obj.model_categories]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_performer_categories_details(self, obj):
+        if not obj.performer_categories:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'performer_categories.json'), 'r') as f:
+                categories = json.load(f)['performer_categories']
+                return [cat for cat in categories if cat['id'] in obj.performer_categories]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_influencer_categories_details(self, obj):
+        if not obj.influencer_categories:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'influencer_categories.json'), 'r') as f:
+                categories = json.load(f)['influencer_categories']
+                return [cat for cat in categories if cat['id'] in obj.influencer_categories]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_skills_details(self, obj):
+        if not obj.skills:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'skills.json'), 'r') as f:
+                skills = json.load(f)['skills']
+                return [skill for skill in skills if skill['id'] in obj.skills]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_main_skill_details(self, obj):
+        if not obj.main_skill:
+            return None
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'skills.json'), 'r') as f:
+                skills = json.load(f)['skills']
+                for skill in skills:
+                    if skill['id'] == obj.main_skill:
+                        return skill
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+        return None
+
+    def validate(self, data):
+        # Validate that main_skill is one of the selected skills
+        if data.get('main_skill') and data.get('skills'):
+            if data['main_skill'] not in data['skills']:
+                raise serializers.ValidationError({
+                    'main_skill': 'Main skill must be one of the selected skills'
+                })
+        return data
 
 class PhysicalAttributesSerializer(serializers.ModelSerializer):
     class Meta:

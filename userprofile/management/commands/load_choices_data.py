@@ -3,6 +3,7 @@ import os
 from django.core.management.base import BaseCommand
 from userprofile.models import LocationData, ChoiceData
 from django.db import transaction
+from django.conf import settings
 
 class Command(BaseCommand):
     help = 'Load all choice data (locations, languages, etc.) from JSON files'
@@ -77,7 +78,11 @@ class Command(BaseCommand):
             'company_cultures': 'company_cultures.json',
             'social_media_platforms': 'social_media_platforms.json',
             'tools': 'tools.json',
-            'awards': 'awards.json'
+            'awards': 'awards.json',
+            'model_categories': 'model_categories.json',
+            'performer_categories': 'performer_categories.json',
+            'influencer_categories': 'influencer_categories.json',
+            'actor_categories': 'actor_categories.json'
         }
 
         # Clear existing choice data
@@ -117,5 +122,15 @@ class Command(BaseCommand):
             else:
                 self.stdout.write(self.style.ERROR(f'Invalid data type: {data_type}'))
                 self.stdout.write('Available types: all, locations, choices')
+
+            # Print verification of loaded data
+            self.stdout.write('\nLoaded Categories:')
+            for choice_type in ['model_categories', 'performer_categories', 'influencer_categories', 'actor_categories']:
+                data = self.load_json_file(f'{choice_type}.json')
+                if data:
+                    self.stdout.write(f'\n{choice_type.replace("_", " ").title()}:')
+                    for item in data.get(choice_type, []):
+                        self.stdout.write(f"- {item['name']}: {item['description']}")
+
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'Error loading data: {str(e)}')) 

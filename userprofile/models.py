@@ -88,30 +88,39 @@ class Profile(models.Model):
         return None
 
 class IdentityVerification(models.Model):
+    ID_TYPE_CHOICES = [
+        ('kebele_id', 'Kebele ID'),
+        ('national_id', 'National ID'),
+        ('passport', 'Passport'),
+        ('driving_license', 'Driving License')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='identity_verification')
-    id_type = models.CharField(max_length=50, blank=True)
+    id_type = models.CharField(
+        max_length=50,
+        choices=ID_TYPE_CHOICES,
+        help_text="Type of identification document"
+    )
     id_number = models.CharField(max_length=50, blank=True)
     id_expiry_date = models.DateField(null=True, blank=True)
     id_front = models.ImageField(
         upload_to='id_fronts/',
-        null=True,
-        blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
+        help_text="Front photo of ID document"
     )
     id_back = models.ImageField(
         upload_to='id_backs/',
-        null=True,
-        blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
+        help_text="Back photo of ID document"
     )
     id_verified = models.BooleanField(default=False)
 
     def clean(self):
-        # Sanitize id_type (id_number is skipped due to strict regex validation)
+        # Sanitize id_type
         if self.id_type:
             self.id_type = sanitize_string(self.id_type)
 
-        # Existing validation
+        # Validate ID number based on type
         if self.id_type and self.id_number:
             if self.id_type == 'kebele_id':
                 if not self.id_number.strip():
@@ -128,7 +137,7 @@ class IdentityVerification(models.Model):
                     raise ValidationError({
                         'id_number': 'Passport must start with "E" or "EP" followed by 7-8 digits.'
                     })
-            elif self.id_type == 'drivers_license':
+            elif self.id_type == 'driving_license':
                 if not re.match(r'^[A-Za-z0-9]+$', self.id_number):
                     raise ValidationError({
                         'id_number': "Driver's License must contain only letters and numbers."
@@ -141,15 +150,57 @@ class IdentityVerification(models.Model):
             raise ValidationError({
                 'id_type': 'ID type must be specified when providing an ID number.'
             })
+
         if self.id_expiry_date and self.id_expiry_date < date.today():
             raise ValidationError({
                 'id_expiry_date': 'ID expiry date cannot be in the past.'
             })
 
+    def save(self, *args, **kwargs):
+        if not self.id_front:
+            raise ValidationError("Front photo of ID is required.")
+        if not self.id_back:
+            raise ValidationError("Back photo of ID is required.")
+        super().save(*args, **kwargs)
+
 class ProfessionalQualifications(models.Model):
+    ACTOR_CATEGORY_CHOICES = [
+        ('amateur', 'Amateur'),
+        ('professional', 'Professional'),
+        ('stage', 'Stage'),
+        ('screen', 'Screen')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='professional_qualifications')
+    actor_category = models.CharField(
+        max_length=50,
+        choices=ACTOR_CATEGORY_CHOICES,
+        blank=True,
+        help_text="Category of acting experience"
+    )
+    # New fields for multi-select categories
+    model_categories = models.JSONField(
+        default=list,
+        help_text="Selected model categories"
+    )
+    performer_categories = models.JSONField(
+        default=list,
+        help_text="Selected performer categories"
+    )
+    influencer_categories = models.JSONField(
+        default=list,
+        help_text="Selected influencer categories"
+    )
+    skills = models.JSONField(
+        default=list,
+        help_text="Selected skills"
+    )
+    main_skill = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Primary skill (required for stuntman)"
+    )
     experience_level = models.CharField(max_length=50, blank=True)
-    skills = models.JSONField(default=list)
     work_authorization = models.CharField(max_length=100, blank=True)
     industry_experience = models.CharField(max_length=100, blank=True)
     min_salary = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
@@ -178,6 +229,8 @@ class ProfessionalQualifications(models.Model):
 
     def clean(self):
         # Sanitize string fields
+        if self.actor_category:
+            self.actor_category = sanitize_string(self.actor_category)
         if self.experience_level:
             self.experience_level = sanitize_string(self.experience_level)
         if self.work_authorization:
@@ -209,12 +262,100 @@ class ProfessionalQualifications(models.Model):
         if self.motivation:
             self.motivation = sanitize_string(self.motivation)
 
+        # Validate that at least one professional qualification is provided
+        has_skills = bool(self.skills and len(self.skills) > 0)
+        has_software = bool(self.software_proficiency and len(self.software_proficiency) > 0)
+        has_equipment = bool(self.equipment_experience and len(self.equipment_experience) > 0)
+        has_role = bool(self.role_title and self.role_title.strip())
+        has_industry = bool(self.industry_experience and self.industry_experience.strip())
+        has_experience = bool(self.experience_level and self.experience_level.strip())
+
+        if not any([has_skills, has_software, has_equipment, has_role, has_industry, has_experience]):
+            raise ValidationError(
+                "At least one of the following must be provided: skills, software proficiency, "
+                "equipment experience, role title, industry experience, or experience level."
+            )
+
         # Existing validation
         if self.min_salary is not None and self.max_salary is not None:
             if self.min_salary > self.max_salary:
                 raise ValidationError({
                     'min_salary': 'Minimum salary cannot be greater than maximum salary.'
                 })
+
+        # Validate required fields for stuntman
+        if self.profile.profession == 'stuntman':
+            if not self.skills:
+                raise ValidationError({'skills': 'Skills are required for stuntman'})
+            if not self.main_skill:
+                raise ValidationError({'main_skill': 'Main skill is required for stuntman'})
+            
+            # Validate that main_skill is one of the selected skills
+            if self.main_skill and self.main_skill not in self.skills:
+                raise ValidationError({
+                    'main_skill': 'Main skill must be one of the selected skills'
+                })
+
+        # Validate that all selected categories exist in their respective JSON files
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'model_categories.json'), 'r') as f:
+                valid_model_categories = [cat['id'] for cat in json.load(f)['model_categories']]
+                for category in self.model_categories:
+                    if category not in valid_model_categories:
+                        raise ValidationError({
+                            'model_categories': f'Invalid model category: {category}'
+                        })
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'performer_categories.json'), 'r') as f:
+                valid_performer_categories = [cat['id'] for cat in json.load(f)['performer_categories']]
+                for category in self.performer_categories:
+                    if category not in valid_performer_categories:
+                        raise ValidationError({
+                            'performer_categories': f'Invalid performer category: {category}'
+                        })
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'influencer_categories.json'), 'r') as f:
+                valid_influencer_categories = [cat['id'] for cat in json.load(f)['influencer_categories']]
+                for category in self.influencer_categories:
+                    if category not in valid_influencer_categories:
+                        raise ValidationError({
+                            'influencer_categories': f'Invalid influencer category: {category}'
+                        })
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'skills.json'), 'r') as f:
+                valid_skills = [skill['id'] for skill in json.load(f)['skills']]
+                for skill in self.skills:
+                    if skill not in valid_skills:
+                        raise ValidationError({
+                            'skills': f'Invalid skill: {skill}'
+                        })
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    def save(self, *args, **kwargs):
+        # Validate that at least one professional qualification is provided
+        has_skills = bool(self.skills and len(self.skills) > 0)
+        has_software = bool(self.software_proficiency and len(self.software_proficiency) > 0)
+        has_equipment = bool(self.equipment_experience and len(self.equipment_experience) > 0)
+        has_role = bool(self.role_title and self.role_title.strip())
+        has_industry = bool(self.industry_experience and self.industry_experience.strip())
+        has_experience = bool(self.experience_level and self.experience_level.strip())
+
+        if not any([has_skills, has_software, has_equipment, has_role, has_industry, has_experience]):
+            raise ValidationError(
+                "At least one of the following must be provided: skills, software proficiency, "
+                "equipment experience, role title, industry experience, or experience level."
+            )
+        super().save(*args, **kwargs)
 
 class PhysicalAttributes(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='physical_attributes')
@@ -433,6 +574,9 @@ class ContactInfo(models.Model):
         if not self.emergency_phone:
             raise ValidationError("Emergency contact phone is required.")
         super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.profile.user.username}'s Contact Info"
 
 class PersonalInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
