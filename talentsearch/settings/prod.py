@@ -182,8 +182,10 @@ SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
-
 CORS_ALLOWED_ORIGINS = [
     "https://myfrontend.com",
-    # ...other allowed origins
+    "https://my-frontend.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
 ]
