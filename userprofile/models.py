@@ -171,7 +171,61 @@ class ProfessionalQualifications(models.Model):
         ('screen', 'Screen')
     ]
 
+    PROFESSION_CHOICES = [
+        ('actor', 'Actor'),
+        ('model', 'Model'),
+        ('performer', 'Performer'),
+        ('host', 'Host'),
+        ('influencer', 'Influencer'),
+        ('voice_over', 'Voice Over'),
+        ('cameraman', 'Cameraman'),
+        ('presenter', 'Presenter'),
+        ('stuntman', 'Stuntman')
+    ]
+
+    EXPERIENCE_LEVEL_CHOICES = [
+        ('entry', 'Entry'),
+        ('mid_level', 'Mid-Level'),
+        ('senior', 'Senior')
+    ]
+
+    YEARS_CHOICES = [
+        ('0_1', '0-1'),
+        ('1_3', '1-3'),
+        ('3_5', '3-5'),
+        ('5_plus', '5+')
+    ]
+
+    AVAILABILITY_CHOICES = [
+        ('part_time', 'Part-Time'),
+        ('full_time', 'Full-Time'),
+        ('contract', 'Contract'),
+        ('freelance', 'Freelance')
+    ]
+
+    EMPLOYMENT_STATUS_CHOICES = [
+        ('unemployed', 'Unemployed'),
+        ('employed', 'Employed'),
+        ('freelancer', 'Freelancer')
+    ]
+
+    WORK_LOCATION_CHOICES = [
+        ('hybrid', 'Hybrid'),
+        ('onsite', 'Onsite'),
+        ('remote', 'Remote')
+    ]
+
+    SHIFT_CHOICES = [
+        ('day', 'Day'),
+        ('night', 'Night'),
+        ('rotational', 'Rotational')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='professional_qualifications')
+    professions = models.JSONField(
+        default=list,
+        help_text="Selected professions (minimum 1 required)"
+    )
     actor_category = models.CharField(
         max_length=50,
         choices=ACTOR_CATEGORY_CHOICES,
@@ -195,19 +249,49 @@ class ProfessionalQualifications(models.Model):
         default=list,
         help_text="Selected skills"
     )
+    skill_description = models.TextField(
+        blank=True,
+        help_text="Detailed description of skills (required for Stuntman)"
+    )
+    video_url = models.URLField(
+        blank=True,
+        help_text="URL to showcase video (required for Stuntman)"
+    )
     main_skill = models.CharField(
         max_length=50,
         blank=True,
         help_text="Primary skill (required for stuntman)"
     )
-    experience_level = models.CharField(max_length=50, blank=True)
-    work_authorization = models.CharField(max_length=100, blank=True)
-    industry_experience = models.CharField(max_length=100, blank=True)
-    min_salary = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
-    max_salary = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
-    availability = models.CharField(max_length=50, blank=True)
-    preferred_work_location = models.CharField(max_length=50, blank=True)
-    shift_preference = models.CharField(max_length=50, blank=True)
+    experience_level = models.CharField(
+        max_length=50,
+        choices=EXPERIENCE_LEVEL_CHOICES,
+        help_text="Experience level (required)"
+    )
+    years_of_experience = models.CharField(
+        max_length=50,
+        choices=YEARS_CHOICES,
+        help_text="Years of experience (required)"
+    )
+    availability = models.CharField(
+        max_length=50,
+        choices=AVAILABILITY_CHOICES,
+        help_text="Availability (required)"
+    )
+    employment_status = models.CharField(
+        max_length=50,
+        choices=EMPLOYMENT_STATUS_CHOICES,
+        help_text="Employment status (required)"
+    )
+    preferred_work_location = models.CharField(
+        max_length=50,
+        choices=WORK_LOCATION_CHOICES,
+        help_text="Preferred work location (required)"
+    )
+    shift_preference = models.CharField(
+        max_length=50,
+        choices=SHIFT_CHOICES,
+        help_text="Shift preference (required)"
+    )
     willingness_to_relocate = models.CharField(max_length=50, blank=True)
     overtime_availability = models.CharField(max_length=50, blank=True)
     travel_willingness = models.BooleanField(default=False, help_text="Are you willing to travel?")
@@ -231,14 +315,18 @@ class ProfessionalQualifications(models.Model):
         # Sanitize string fields
         if self.actor_category:
             self.actor_category = sanitize_string(self.actor_category)
+        if self.skill_description:
+            self.skill_description = sanitize_string(self.skill_description)
+        if self.main_skill:
+            self.main_skill = sanitize_string(self.main_skill)
         if self.experience_level:
             self.experience_level = sanitize_string(self.experience_level)
-        if self.work_authorization:
-            self.work_authorization = sanitize_string(self.work_authorization)
-        if self.industry_experience:
-            self.industry_experience = sanitize_string(self.industry_experience)
+        if self.years_of_experience:
+            self.years_of_experience = sanitize_string(self.years_of_experience)
         if self.availability:
             self.availability = sanitize_string(self.availability)
+        if self.employment_status:
+            self.employment_status = sanitize_string(self.employment_status)
         if self.preferred_work_location:
             self.preferred_work_location = sanitize_string(self.preferred_work_location)
         if self.shift_preference:
@@ -262,6 +350,20 @@ class ProfessionalQualifications(models.Model):
         if self.motivation:
             self.motivation = sanitize_string(self.motivation)
 
+        # Validate that at least one profession is selected
+        if not self.professions or len(self.professions) < 1:
+            raise ValidationError({
+                'professions': 'At least one profession must be selected.'
+            })
+
+        # Validate that all selected professions are valid
+        valid_professions = [choice[0] for choice in self.PROFESSION_CHOICES]
+        for profession in self.professions:
+            if profession not in valid_professions:
+                raise ValidationError({
+                    'professions': f'Invalid profession selected: {profession}'
+                })
+
         # Validate that at least one professional qualification is provided
         has_skills = bool(self.skills and len(self.skills) > 0)
         has_software = bool(self.software_proficiency and len(self.software_proficiency) > 0)
@@ -276,24 +378,37 @@ class ProfessionalQualifications(models.Model):
                 "equipment experience, role title, industry experience, or experience level."
             )
 
+        # Validate required experience fields
+        if not self.experience_level:
+            raise ValidationError({
+                'experience_level': 'Experience level is required.'
+            })
+        if not self.years_of_experience:
+            raise ValidationError({
+                'years_of_experience': 'Years of experience is required.'
+            })
+        if not self.availability:
+            raise ValidationError({
+                'availability': 'Availability is required.'
+            })
+        if not self.employment_status:
+            raise ValidationError({
+                'employment_status': 'Employment status is required.'
+            })
+        if not self.preferred_work_location:
+            raise ValidationError({
+                'preferred_work_location': 'Preferred work location is required.'
+            })
+        if not self.shift_preference:
+            raise ValidationError({
+                'shift_preference': 'Shift preference is required.'
+            })
+
         # Existing validation
         if self.min_salary is not None and self.max_salary is not None:
             if self.min_salary > self.max_salary:
                 raise ValidationError({
                     'min_salary': 'Minimum salary cannot be greater than maximum salary.'
-                })
-
-        # Validate required fields for stuntman
-        if self.profile.profession == 'stuntman':
-            if not self.skills:
-                raise ValidationError({'skills': 'Skills are required for stuntman'})
-            if not self.main_skill:
-                raise ValidationError({'main_skill': 'Main skill is required for stuntman'})
-            
-            # Validate that main_skill is one of the selected skills
-            if self.main_skill and self.main_skill not in self.skills:
-                raise ValidationError({
-                    'main_skill': 'Main skill must be one of the selected skills'
                 })
 
         # Validate that all selected categories exist in their respective JSON files
