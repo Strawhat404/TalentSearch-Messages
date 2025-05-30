@@ -1,7 +1,7 @@
 import json
 import os
 from django.core.management.base import BaseCommand
-from userprofile.models import LocationData, ChoiceData
+from userprofile.models import LocationData, ChoiceData, ProfessionalChoices
 from django.db import transaction
 from django.conf import settings
 
@@ -12,7 +12,7 @@ class Command(BaseCommand):
         parser.add_argument(
             '--type',
             type=str,
-            help='Type of data to load (locations, choices, all)',
+            help='Type of data to load (locations, choices, professional, all)',
             default='all'
         )
         parser.add_argument(
@@ -98,6 +98,25 @@ class Command(BaseCommand):
                 )
                 self.stdout.write(self.style.SUCCESS(f'Successfully loaded {choice_type} data'))
 
+    @transaction.atomic
+    def load_professional_choices(self):
+        self.stdout.write('Loading professional choices...')
+        data = self.load_json_file('professional_choices.json')
+        if not data:
+            self.stdout.write(self.style.ERROR('Failed to load professional choices data'))
+            return
+        # Clear existing professional choices
+        ProfessionalChoices.objects.all().delete()
+        # Create new professional choices
+        ProfessionalChoices.objects.create(
+            company_sizes=data['company_sizes'],
+            industries=data['industries'],
+            leadership_styles=data['leadership_styles'],
+            communication_styles=data['communication_styles'],
+            motivations=data['motivations']
+        )
+        self.stdout.write(self.style.SUCCESS('Successfully loaded professional choices'))
+
     def handle(self, *args, **options):
         data_type = options['type'].lower()
         force = options['force']
@@ -110,18 +129,24 @@ class Command(BaseCommand):
             if data_type in ['all', 'choices'] and ChoiceData.objects.exists():
                 self.stdout.write(self.style.WARNING('Choice data already exists. Use --force to reload.'))
                 return
+            if data_type in ['all', 'professional'] and ProfessionalChoices.objects.exists():
+                self.stdout.write(self.style.WARNING('Professional choices already exist. Use --force to reload.'))
+                return
 
         try:
             if data_type == 'all':
                 self.load_locations()
                 self.load_choices()
+                self.load_professional_choices()
             elif data_type == 'locations':
                 self.load_locations()
             elif data_type == 'choices':
                 self.load_choices()
+            elif data_type == 'professional':
+                self.load_professional_choices()
             else:
                 self.stdout.write(self.style.ERROR(f'Invalid data type: {data_type}'))
-                self.stdout.write('Available types: all, locations, choices')
+                self.stdout.write('Available types: all, locations, choices, professional')
 
             # Print verification of loaded data
             self.stdout.write('\nLoaded Categories:')

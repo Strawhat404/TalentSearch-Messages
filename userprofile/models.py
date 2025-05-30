@@ -221,6 +221,11 @@ class ProfessionalQualifications(models.Model):
         ('rotational', 'Rotational')
     ]
 
+    WORK_AUTHORIZATION_CHOICES = [
+        ('authorized', 'Authorized'),
+        ('unauthorized', 'Unauthorized')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='professional_qualifications')
     professions = models.JSONField(
         default=list,
@@ -292,24 +297,57 @@ class ProfessionalQualifications(models.Model):
         choices=SHIFT_CHOICES,
         help_text="Shift preference (required)"
     )
-    willingness_to_relocate = models.CharField(max_length=50, blank=True)
-    overtime_availability = models.CharField(max_length=50, blank=True)
-    travel_willingness = models.BooleanField(default=False, help_text="Are you willing to travel?")
+    willingness_to_relocate = models.BooleanField(default=False)
+    overtime_availability = models.BooleanField(default=False)
+    travel_willingness = models.BooleanField(default=False)
     software_proficiency = models.JSONField(default=list)
     typing_speed = models.IntegerField(null=True, blank=True)
-    driving_skills = models.CharField(max_length=100, blank=True)
+    driving_skills = models.BooleanField(default=False)
     equipment_experience = models.JSONField(default=list)
-    role_title = models.CharField(max_length=100, blank=True)
+    role_title = models.CharField(max_length=100)
     portfolio_url = models.URLField(blank=True, null=True)
-    union_membership = models.CharField(max_length=100, blank=True)
-    reference = models.JSONField(default=list)
+    union_membership = models.BooleanField(default=False)
+    reference = models.TextField(blank=True, null=True)
     available_start_date = models.DateField(null=True, blank=True)
-    preferred_company_size = models.CharField(max_length=50, blank=True)
-    preferred_industry = models.JSONField(default=list)
-    leadership_style = models.CharField(max_length=50, blank=True)
-    communication_style = models.CharField(max_length=50, blank=True)
-    motivation = models.CharField(max_length=100, blank=True)
+    preferred_company_size = models.CharField(max_length=50, choices=COMPANY_SIZE_CHOICES)
+    preferred_industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
+    leadership_style = models.CharField(max_length=50, choices=LEADERSHIP_STYLE_CHOICES)
+    communication_style = models.CharField(max_length=50, choices=COMMUNICATION_STYLE_CHOICES)
+    motivation = models.CharField(max_length=50, choices=MOTIVATION_CHOICES)
     has_driving_license = models.BooleanField(default=False)
+    work_authorization = models.CharField(max_length=50, choices=WORK_AUTHORIZATION_CHOICES)
+
+    # New and updated fields
+    skill_videos_url = models.JSONField(
+        default=list,
+        help_text="URLs of skill videos (optional)"
+    )
+    experience_description = models.TextField(
+        blank=True,
+        help_text="Detailed description of experience (optional)"
+    )
+    industry_experience = models.TextField(
+        blank=True,
+        help_text="Description of industry experience (optional)"
+    )
+    previous_employers = models.JSONField(
+        default=list,
+        help_text="List of previous employers (optional)"
+    )
+    training_workshops = models.JSONField(
+        default=list,
+        help_text="List of training and workshops (optional)"
+    )
+    certifications = models.JSONField(
+        default=list,
+        help_text="List of certifications (optional)"
+    )
+    min_salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    max_salary = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    video_links = models.JSONField(
+        default=list,
+        help_text="Video links (required for Voice Over)"
+    )
 
     def clean(self):
         # Sanitize string fields
@@ -404,7 +442,27 @@ class ProfessionalQualifications(models.Model):
                 'shift_preference': 'Shift preference is required.'
             })
 
-        # Existing validation
+        # Sanitize new fields
+        if self.experience_description:
+            self.experience_description = sanitize_string(self.experience_description)
+        if self.industry_experience:
+            self.industry_experience = sanitize_string(self.industry_experience)
+        if self.union_membership:
+            self.union_membership = sanitize_string(self.union_membership)
+
+        # Validate portfolio URL for Cameraman
+        if 'cameraman' in self.professions and not self.portfolio_url:
+            raise ValidationError({
+                'portfolio_url': 'Portfolio URL is required for Cameraman'
+            })
+
+        # Validate video links for Voice Over
+        if 'voice_over' in self.professions and not self.video_links:
+            raise ValidationError({
+                'video_links': 'Video links are required for Voice Over'
+            })
+
+        # Validate salary range
         if self.min_salary is not None and self.max_salary is not None:
             if self.min_salary > self.max_salary:
                 raise ValidationError({
@@ -694,6 +752,18 @@ class ContactInfo(models.Model):
         return f"{self.profile.user.username}'s Contact Info"
 
 class PersonalInfo(models.Model):
+    SOCIAL_MEDIA_CHOICES = [
+        ('instagram', 'Instagram'),
+        ('facebook', 'Facebook'),
+        ('youtube', 'YouTube'),
+        ('tiktok', 'TikTok'),
+        ('twitter', 'Twitter'),
+        ('linkedin', 'LinkedIn'),
+        ('snapchat', 'Snapchat'),
+        ('pinterest', 'Pinterest'),
+        ('other', 'Other')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
     marital_status = models.CharField(max_length=50, blank=True)
     ethnicity = models.CharField(max_length=50, blank=True)
@@ -708,8 +778,14 @@ class PersonalInfo(models.Model):
     )
     volunteer_experience = models.CharField(max_length=50, blank=True)
     company_culture_preference = models.CharField(max_length=100, blank=True)
-    social_media_links = models.JSONField(default=dict)
-    social_media_handles = models.JSONField(default=list)
+    social_media = models.JSONField(
+        default=list,
+        help_text="List of social media accounts with usernames and followers"
+    )
+    other_social_media = models.JSONField(
+        default=list,
+        help_text="List of other social media platforms not in the predefined list"
+    )
     language_proficiency = models.JSONField(default=list)
     special_skills = models.JSONField(default=list)
     tools_experience = models.JSONField(default=list)
@@ -729,8 +805,6 @@ class PersonalInfo(models.Model):
             self.volunteer_experience = sanitize_string(self.volunteer_experience)
         if self.company_culture_preference:
             self.company_culture_preference = sanitize_string(self.company_culture_preference)
-
-        # Existing validations
         if self.custom_hobby:
             # Validate hobby length
             if len(self.custom_hobby.strip()) < 2:
@@ -747,7 +821,59 @@ class PersonalInfo(models.Model):
                     'custom_hobby': 'This hobby already exists in your list.'
                 })
 
+        # Validate social media data
+        if not self.social_media and not self.other_social_media:
+            raise ValidationError({
+                'social_media': 'At least one social media account is required.'
+            })
+
+        # Validate social media structure
+        for platform in self.social_media:
+            if not isinstance(platform, dict):
+                raise ValidationError({
+                    'social_media': 'Invalid social media data structure.'
+                })
+            
+            required_fields = ['platform', 'username', 'followers']
+            for field in required_fields:
+                if field not in platform:
+                    raise ValidationError({
+                        'social_media': f'Missing required field: {field}'
+                    })
+            
+            if platform['platform'] not in [choice[0] for choice in self.SOCIAL_MEDIA_CHOICES]:
+                raise ValidationError({
+                    'social_media': f'Invalid platform: {platform["platform"]}'
+                })
+            
+            if not isinstance(platform['followers'], (int, str)) or not str(platform['followers']).isdigit():
+                raise ValidationError({
+                    'social_media': 'Followers must be a number'
+                })
+
+        # Validate other social media structure
+        for platform in self.other_social_media:
+            if not isinstance(platform, dict):
+                raise ValidationError({
+                    'other_social_media': 'Invalid social media data structure.'
+                })
+            
+            required_fields = ['platform_name', 'username', 'followers']
+            for field in required_fields:
+                if field not in platform:
+                    raise ValidationError({
+                        'other_social_media': f'Missing required field: {field}'
+                    })
+            
+            if not isinstance(platform['followers'], (int, str)) or not str(platform['followers']).isdigit():
+                raise ValidationError({
+                    'other_social_media': 'Followers must be a number'
+                })
+
     def save(self, *args, **kwargs):
+        # Ensure at least one social media account exists
+        if not self.social_media and not self.other_social_media:
+            raise ValidationError("At least one social media account is required.")
         if not self.custom_hobby:
             raise ValidationError("Custom hobby is required.")
         super().save(*args, **kwargs)

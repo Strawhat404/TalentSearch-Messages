@@ -85,12 +85,13 @@ class ProfessionalQualificationsForm(forms.ModelForm):
     class Meta:
         model = ProfessionalQualifications
         fields = [
-            'experience_level', 'skills', 'work_authorization', 'industry_experience',
+            'experience_level', 'skills', 'industry_experience',
             'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
             'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
             'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
             'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+            'work_authorization'
         ]
 
     def __init__(self, *args, **kwargs):
@@ -190,12 +191,13 @@ class ProfessionalQualificationsInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'experience_level', 'skills', 'work_authorization', 'industry_experience',
+        'experience_level', 'skills', 'industry_experience',
         'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
         'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
         'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
         'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-        'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+        'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+        'work_authorization'
     ]
 
 class PhysicalAttributesInline(admin.StackedInline):
