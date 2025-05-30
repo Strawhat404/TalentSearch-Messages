@@ -66,7 +66,8 @@ class RegisterView(APIView):
                 'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
                 'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
                 'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
-                'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring')
+                'access': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
+                'refresh': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...')
             })),
             400: openapi.Response(description="Error", schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={
                 'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid input')
@@ -77,14 +78,17 @@ class RegisterView(APIView):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        token, created = Token.objects.get_or_create(user=user)
+        
+        # Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        
         return Response({
             'id': user.id,
             'email': user.email.lower(),
             'name': user.name,
-            'token': token.key,
+            'access': str(refresh.access_token),
+            'refresh': str(refresh)
         }, status=status.HTTP_201_CREATED)
-
 
 class LoginRateThrottle(UserRateThrottle):
     rate = '1000/minute'  # or higher for testing
@@ -92,87 +96,20 @@ class LoginRateThrottle(UserRateThrottle):
 class AnonLoginRateThrottle(AnonRateThrottle):
     rate = '100/minute'  # 3 attempts per minute for anonymous users
 
-class LoginView(APIView):
-    throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
-    permission_classes = [AllowAny]
-
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            required=['email', 'password'],
-            properties={
-                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
-                'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='Test@1234'),
-            },
-        ),
-        responses={
-            200: openapi.Response(
-                description="Success",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring'),
-                        'user': openapi.Schema(
-                            type=openapi.TYPE_OBJECT,
-                            properties={
-                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
-                                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
-                                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe')
-                            }
-                        )
-                    }
-                )
-            ),
-            400: openapi.Response(
-                description="Error",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid credentials')
-                    }
-                )
-            ),
-            401: openapi.Response(
-                description="Inactive",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Account is inactive.')
-                    }
-                )
-            ),
-            429: openapi.Response(
-                description="Locked",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Account temporarily locked. Please try again later')
-                    }
-                )
-            )
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        data = super().validate(attrs)
+        # Add extra responses here
+        data['user'] = {
+            'id': self.user.id,
+            'email': self.user.email.lower(),
+            'name': self.user.name
         }
-    )
-    def post(self, request):
-        serializer = LoginSerializer(data=request.data)
-        if not serializer.is_valid():
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        email = serializer.validated_data['email'].lower()
-        password = serializer.validated_data['password']
-        user = authenticate(request, email=email, password=password)
-        if user is not None:
-            if not user.is_active:
-                return Response({"error": "Account is inactive."}, status=status.HTTP_401_UNAUTHORIZED)
-            token, created = Token.objects.get_or_create(user=user)
-            return Response({
-                'token': token.key,
-                'user': {
-                    'id': user.id,
-                    'email': user.email.lower(),
-                    'name': user.name
-                }
-            }, status=status.HTTP_200_OK)
-        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+        return data
 
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
 
 class AdminLoginView(APIView):
     throttle_classes = [AuthRateThrottle]
@@ -197,7 +134,8 @@ class AdminLoginView(APIView):
                         'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='admin@example.com'),
                         'name': openapi.Schema(type=openapi.TYPE_STRING, example='Admin User'),
                         'role': openapi.Schema(type=openapi.TYPE_STRING, example='admin'),
-                        'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring')
+                        'access': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
+                        'refresh': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...')
                     }
                 )
             ),
@@ -221,6 +159,7 @@ class AdminLoginView(APIView):
             )
         }
     )
+    
     def post(self, request):
         serializer = AdminLoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -228,14 +167,15 @@ class AdminLoginView(APIView):
             password = serializer.validated_data['password']
             user = authenticate(request, email=email, password=password)
             if user and user.is_staff:
-                token, _ = Token.objects.get_or_create(user=user)
+                refresh = RefreshToken.for_user(user)
                 login(request, user)
                 return Response({
                     'id': user.id,
                     'email': user.email,
                     'name': user.name,
                     'role': 'admin',
-                    'token': token.key
+                    'access': str(refresh.access_token),
+                    'refresh': str(refresh)
                 }, status=status.HTTP_200_OK)
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -514,9 +454,42 @@ class ChangePasswordView(APIView):
 
 class LogoutView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
 
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Successfully logged out')
+                    }
+                )
+            ),
+            401: openapi.Response(
+                description="Unauthorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid token')
+                    }
+                )
+            )
+        }
+    )
     def post(self, request):
         try:
+            refresh_token = request.data.get('refresh')
+            if not refresh_token:
+                return Response(
+                    {'error': 'Refresh token is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+            
             # Log the logout
             SecurityLog.objects.create(
                 user=request.user,
@@ -524,16 +497,13 @@ class LogoutView(APIView):
                 ip_address=request.META.get('REMOTE_ADDR'),
                 user_agent=request.META.get('HTTP_USER_AGENT')
             )
-
-            return Response({
-                "message": "Successfully logged out."
-            }, status=status.HTTP_200_OK)
-
+            
+            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
         except Exception as e:
-            logger.error(f"Logout error: {str(e)}", exc_info=True)
-            return Response({
-                "error": "An error occurred during logout."
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class RotateAPIKeyView(APIView):
     """
@@ -584,54 +554,55 @@ class RotateAPIKeyView(APIView):
         }, status=status.HTTP_200_OK)
 
 class LogoutAllDevicesView(APIView):
-    """
-    View for logging out from all devices.
-    Invalidates all tokens for the user and logs the action.
-    """
     permission_classes = [IsAuthenticated]
-    throttle_classes = [AuthRateThrottle]
+    throttle_classes = [UserRateThrottle]
 
     @swagger_auto_schema(
-        tags=['auth'],
-        summary='Logout from all devices',
-        description='Logout from all devices by invalidating all tokens',
         responses={
             200: openapi.Response(
                 description="Success",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Successfully logged out from all devices. 3 sessions terminated.')
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Successfully logged out from all devices')
                     }
                 )
             ),
-            401: openapi.Response(description="Unauthorized"),
-        },
+            401: openapi.Response(
+                description="Unauthorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid token')
+                    }
+                )
+            )
+        }
     )
     def post(self, request):
-        """Logout from all devices by invalidating all tokens."""
-        # Get all tokens for the user
-        tokens = Token.objects.filter(user=request.user)
-        token_count = tokens.count()
-        
-        # Delete all tokens
-        tokens.delete()
-        
-        # Also blacklist any JWT tokens
-        OutstandingToken.objects.filter(user_id=request.user.id).delete()
-        
-        # Log the action
-        SecurityLog.objects.create(
-            user=request.user,
-            event_type='security_alert',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT', ''),
-            details={'action': 'logout_all_devices', 'tokens_invalidated': token_count}
-        )
-        
-        return Response({
-            'message': f'Successfully logged out from all devices. {token_count} sessions terminated.'
-        }, status=status.HTTP_200_OK)
+        try:
+            # Blacklist all outstanding tokens for this user
+            tokens = OutstandingToken.objects.filter(user_id=request.user.id)
+            for token in tokens:
+                BlacklistedToken.objects.get_or_create(token=token)
+            
+            # Log the logout all devices
+            SecurityLog.objects.create(
+                user=request.user,
+                event_type='logout_all_devices',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
+            
+            return Response(
+                {'message': 'Successfully logged out from all devices'},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class AccountRecoveryView(APIView):
     """
