@@ -8,7 +8,6 @@ import bleach
 import os
 import json
 from django.conf import settings
-from PIL import Image
 
 User = get_user_model()
 
@@ -56,9 +55,9 @@ class Profile(models.Model):
         # Existing validations
         if self.birthdate:
             if self.birthdate > date.today():
-            raise ValidationError({
-                'birthdate': 'Birthdate cannot be in the future.'
-            })
+                raise ValidationError({
+                    'birthdate': 'Birthdate cannot be in the future.'
+                })
             # Calculate age
             age = (date.today() - self.birthdate).days // 365
             if age < 18:
@@ -68,7 +67,7 @@ class Profile(models.Model):
             if age > 100:
                 raise ValidationError({
                     'birthdate': 'Age cannot exceed 100 years.'
-            })
+                })
 
     def save(self, *args, **kwargs):
         if not self.birthdate:
@@ -310,31 +309,11 @@ class ProfessionalQualifications(models.Model):
     union_membership = models.BooleanField(default=False)
     reference = models.TextField(blank=True, null=True)
     available_start_date = models.DateField(null=True, blank=True)
-    preferred_company_size = models.CharField(
-        max_length=50,
-        choices=get_company_size_choices,
-        help_text="Preferred company size"
-    )
-    preferred_industry = models.CharField(
-        max_length=50,
-        choices=get_industry_choices,
-        help_text="Preferred industry"
-    )
-    leadership_style = models.CharField(
-        max_length=50,
-        choices=get_leadership_style_choices,
-        help_text="Leadership style"
-    )
-    communication_style = models.CharField(
-        max_length=50,
-        choices=get_communication_style_choices,
-        help_text="Communication style"
-    )
-    motivation = models.CharField(
-        max_length=50,
-        choices=get_motivation_choices,
-        help_text="Motivation"
-    )
+    preferred_company_size = models.CharField(max_length=50, choices=COMPANY_SIZE_CHOICES)
+    preferred_industry = models.CharField(max_length=50, choices=INDUSTRY_CHOICES)
+    leadership_style = models.CharField(max_length=50, choices=LEADERSHIP_STYLE_CHOICES)
+    communication_style = models.CharField(max_length=50, choices=COMMUNICATION_STYLE_CHOICES)
+    motivation = models.CharField(max_length=50, choices=MOTIVATION_CHOICES)
     has_driving_license = models.BooleanField(default=False)
     work_authorization = models.CharField(max_length=50, choices=WORK_AUTHORIZATION_CHOICES)
 
@@ -400,10 +379,14 @@ class ProfessionalQualifications(models.Model):
             self.role_title = sanitize_string(self.role_title)
         if self.union_membership:
             self.union_membership = sanitize_string(self.union_membership)
-        if self.experience_description:
-            self.experience_description = sanitize_string(self.experience_description)
-        if self.industry_experience:
-            self.industry_experience = sanitize_string(self.industry_experience)
+        if self.preferred_company_size:
+            self.preferred_company_size = sanitize_string(self.preferred_company_size)
+        if self.leadership_style:
+            self.leadership_style = sanitize_string(self.leadership_style)
+        if self.communication_style:
+            self.communication_style = sanitize_string(self.communication_style)
+        if self.motivation:
+            self.motivation = sanitize_string(self.motivation)
 
         # Validate that at least one profession is selected
         if not self.professions or len(self.professions) < 1:
@@ -458,6 +441,14 @@ class ProfessionalQualifications(models.Model):
             raise ValidationError({
                 'shift_preference': 'Shift preference is required.'
             })
+
+        # Sanitize new fields
+        if self.experience_description:
+            self.experience_description = sanitize_string(self.experience_description)
+        if self.industry_experience:
+            self.industry_experience = sanitize_string(self.industry_experience)
+        if self.union_membership:
+            self.union_membership = sanitize_string(self.union_membership)
 
         # Validate portfolio URL for Cameraman
         if 'cameraman' in self.professions and not self.portfolio_url:
@@ -538,47 +529,6 @@ class ProfessionalQualifications(models.Model):
                 "equipment experience, role title, industry experience, or experience level."
             )
         super().save(*args, **kwargs)
-
-    # Get choices from ProfessionalChoices model
-    @classmethod
-    def get_company_size_choices(cls):
-        try:
-            choices = ProfessionalChoices.objects.first()
-            return [(item['id'], item['name']) for item in choices.company_sizes] if choices else []
-        except:
-            return []
-
-    @classmethod
-    def get_industry_choices(cls):
-        try:
-            choices = ProfessionalChoices.objects.first()
-            return [(item['id'], item['name']) for item in choices.industries] if choices else []
-        except:
-            return []
-
-    @classmethod
-    def get_leadership_style_choices(cls):
-        try:
-            choices = ProfessionalChoices.objects.first()
-            return [(item['id'], item['name']) for item in choices.leadership_styles] if choices else []
-        except:
-            return []
-
-    @classmethod
-    def get_communication_style_choices(cls):
-        try:
-            choices = ProfessionalChoices.objects.first()
-            return [(item['id'], item['name']) for item in choices.communication_styles] if choices else []
-        except:
-            return []
-
-    @classmethod
-    def get_motivation_choices(cls):
-        try:
-            choices = ProfessionalChoices.objects.first()
-            return [(item['id'], item['name']) for item in choices.motivations] if choices else []
-        except:
-            return []
 
 class PhysicalAttributes(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='physical_attributes')
@@ -938,44 +888,10 @@ class Media(models.Model):
     )
     photo = models.ImageField(
         upload_to='profile_photos/',
-        validators=[
-            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
-            MinValueValidator(800, message="Image width must be at least 800 pixels"),
-            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
-        ],
-        help_text="Professional headshot (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
+        null=True,
+        blank=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
     )
-
-    def clean(self):
-        if self.photo:
-            # Validate image dimensions
-            img = Image.open(self.photo)
-            width, height = img.size
-            
-            # Check aspect ratio (should be close to 3:4 for professional headshots)
-            aspect_ratio = width / height
-            if not (0.6 <= aspect_ratio <= 0.8):  # Allow some flexibility
-                raise ValidationError({
-                    'photo': 'Image aspect ratio should be approximately 3:4 for professional headshots.'
-                })
-            
-            # Check file size (max 5MB)
-            if self.photo.size > 5 * 1024 * 1024:
-                raise ValidationError({
-                    'photo': 'Image file size must not exceed 5MB.'
-                })
-            
-            # Check image quality
-            if img.format == 'JPEG':
-                quality = img.info.get('quality', 0)
-                if quality < 80:
-                    raise ValidationError({
-                        'photo': 'Image quality must be at least 80% for professional headshots.'
-                    })
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
 
 class VerificationStatus(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='verification_status')
