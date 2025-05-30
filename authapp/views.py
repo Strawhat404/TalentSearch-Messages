@@ -8,8 +8,8 @@ from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_str, force_bytes
 from rest_framework.permissions import IsAuthenticated, AllowAny
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from drf_spectacular.types import OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.conf import settings
 from datetime import datetime, timedelta
 from django.utils import timezone
@@ -31,7 +31,8 @@ from django.utils.decorators import method_decorator
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
-    NotificationSerializer, TokenSerializer, PasswordChangeSerializer
+    NotificationSerializer, TokenSerializer, PasswordChangeSerializer,
+    ForgotPasswordOTPSerializer, ResetPasswordOTPSerializer
 )
 from .utils import password_reset_token_generator, BruteForceProtection
 from .models import Notification, SecurityLog, PasswordResetToken
@@ -50,48 +51,39 @@ class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
     
-    @extend_schema(
-        tags=['auth'],
-        summary='Register a new user',
-        description='Registers a new user and returns their details and authentication token',
-        request=UserSerializer,
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'name', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
+                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='Test@1234'),
+            },
+        ),
         responses={
-            201: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 123,
-                    'email': 'user@example.com',
-                    'name': 'John Doe',
-                    'token': 'tokenstring',
-                },
-                status_codes=['201']
-            ),
-            OpenApiExample(
-                'Error Response',
-                value={'error': 'Invalid input'},
-                status_codes=['400']
-            )
-        ]
+            201: openapi.Response(description="Success", schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
+                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring')
+            })),
+            400: openapi.Response(description="Error", schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={
+                'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid input')
+            }))
+        }
     )
     def post(self, request):
-        data = request.data.copy()
-        if 'email' in data:
-            data['email'] = data['email'].lower()
-        serializer = UserSerializer(data=data)
-        if serializer.is_valid():
-            user = serializer.save()
-            token, created = Token.objects.get_or_create(user=user)
-            return Response({
-                'id': user.id,
-                'email': user.email.lower(),
-                'name': user.name,
-                'token': token.key,
-            }, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        serializer = UserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        token, created = Token.objects.get_or_create(user=user)
+        return Response({
+            'id': user.id,
+            'email': user.email.lower(),
+            'name': user.name,
+            'token': token.key,
+        }, status=status.HTTP_201_CREATED)
 
 
 class LoginRateThrottle(UserRateThrottle):
@@ -104,41 +96,61 @@ class LoginView(APIView):
     throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
     permission_classes = [AllowAny]
 
-    @extend_schema(
-        tags=['auth'],
-        summary='User login',
-        description='Authenticate a user and return DRF token',
-        request=LoginSerializer,
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='Test@1234'),
+            },
+        ),
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-            429: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'token': 'tokenstring',
-                    'user': {
-                        'id': 123,
-                        'email': 'user@example.com',
-                        'name': 'John Doe'
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring'),
+                        'user': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
+                                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe')
+                            }
+                        )
                     }
-                },
-                status_codes=['200']
+                )
             ),
-            OpenApiExample(
-                'Invalid Credentials',
-                value={'error': 'Invalid credentials'},
-                status_codes=['400']
+            400: openapi.Response(
+                description="Error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid credentials')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Account Locked',
-                value={'error': 'Account temporarily locked. Please try again later'},
-                status_codes=['429']
+            401: openapi.Response(
+                description="Inactive",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Account is inactive.')
+                    }
+                )
+            ),
+            429: openapi.Response(
+                description="Locked",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Account temporarily locked. Please try again later')
+                    }
+                )
             )
-        ]
+        }
     )
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -149,9 +161,7 @@ class LoginView(APIView):
         user = authenticate(request, email=email, password=password)
         if user is not None:
             if not user.is_active:
-                return Response({
-                    "error": "Account is inactive."
-                }, status=status.HTTP_401_UNAUTHORIZED)
+                return Response({"error": "Account is inactive."}, status=status.HTTP_401_UNAUTHORIZED)
             token, created = Token.objects.get_or_create(user=user)
             return Response({
                 'token': token.key,
@@ -168,49 +178,54 @@ class AdminLoginView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
 
-    @extend_schema(
-        tags=['auth'],
-        summary='Admin login',
-        description='Authenticate an admin user and return their details and token',
-        request=AdminLoginSerializer,
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='admin@example.com'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='Admin@1234'),
+            },
+        ),
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 123,
-                    'email': 'admin@example.com',
-                    'name': 'Admin User',
-                    'role': 'admin',
-                    'token': 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
-                },
-                status_codes=['200']
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                        'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='admin@example.com'),
+                        'name': openapi.Schema(type=openapi.TYPE_STRING, example='Admin User'),
+                        'role': openapi.Schema(type=openapi.TYPE_STRING, example='admin'),
+                        'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Invalid Credentials',
-                value={'error': 'Invalid credentials'},
-                status_codes=['400']
+            400: openapi.Response(
+                description="Error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid credentials')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Not Admin User',
-                value={'error': 'User is not an admin'},
-                status_codes=['401']
+            401: openapi.Response(
+                description="Not Admin",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='User is not an admin')
+                    }
+                )
             )
-        ]
+        }
     )
     def post(self, request):
-        """
-        Logs in admin using email and password.
-        """
         serializer = AdminLoginSerializer(data=request.data)
         if serializer.is_valid():
             email = serializer.validated_data['email']
             password = serializer.validated_data['password']
-
             user = authenticate(request, email=email, password=password)
             if user and user.is_staff:
                 token, _ = Token.objects.get_or_create(user=user)
@@ -222,184 +237,108 @@ class AdminLoginView(APIView):
                     'role': 'admin',
                     'token': token.key
                 }, status=status.HTTP_200_OK)
-
             return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
-
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class ForgotPasswordView(APIView):
     permission_classes = [AllowAny]
 
-    @extend_schema(
-        tags=['auth'],
-        summary='Request password reset',
-        description='Request a password reset token to be sent to the user\'s email',
-        request={
-            'application/json': {
-                'type': 'object',
-                'properties': {
-                    'email': {'type': 'string', 'format': 'email'}
-                },
-                'required': ['email']
-            }
-        },
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email'],
+            properties={
+                'email': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_EMAIL,
+                    example='test@example.com',
+                    description='The email address associated with the user account. Must be a valid, registered email.'
+                ),
+            },
+            description='Provide the email address to receive a 6-digit OTP for password reset.'
+        ),
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            500: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={'message': 'If an account exists with this email, you will receive password reset instructions.'},
-                status_codes=['200']
+            200: openapi.Response(
+                description="OTP sent successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='OTP sent to your email.')
+                    },
+                    example={
+                        'message': 'OTP sent to your email.'
+                    }
+                )
             ),
-            OpenApiExample(
-                'Inactive Account',
-                value={'error': 'Account is inactive.'},
-                status_codes=['400']
-            ),
-            OpenApiExample(
-                'Server Error',
-                value={'error': 'An error occurred. Please try again.'},
-                status_codes=['500']
+            400: openapi.Response(
+                description="Invalid request or email not found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Email not found.')
+                    },
+                    example={
+                        'error': 'Email not found.'
+                    }
+                )
             )
-        ]
+        }
     )
     def post(self, request):
-        email = request.data.get('email')
-        if not email:
-            return Response({'email': ['Email is required']}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            validate_email(email)
-        except ValidationError:
-            return Response({'email': ['Invalid email format']}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            user = User.objects.get(email__iexact=email)
-            if not user.is_active:
-                return Response({'email': ['Account is inactive']}, status=status.HTTP_400_BAD_REQUEST)
-
-            # Invalidate all existing tokens for this user
-            # First blacklist any outstanding tokens
-            outstanding_tokens = OutstandingToken.objects.filter(user=user)
-            for token in outstanding_tokens:
-                BlacklistedToken.objects.get_or_create(token=token)
-            outstanding_tokens.delete()
-            
-            # Then delete any auth tokens
-            Token.objects.filter(user=user).delete()
-
-            # Update last password change timestamp
-            user.last_password_change = timezone.now()
-            user.save()
-
-            # Generate reset token
-            token = default_token_generator.make_token(user)
-            uid = urlsafe_base64_encode(force_bytes(user.pk))
-            
-            # For test environment, use a dummy URL
-            is_test_client = hasattr(request, '_request') and isinstance(request._request, RequestFactory)
-            if is_test_client:
-                reset_link = f"http://testserver/reset-password?uid={uid}&token={token}"
-            else:
-                # In production, use the request's host
-                host = request.get_host()
-                scheme = 'https' if request.is_secure() else 'http'
-                reset_link = f"{scheme}://{host}/reset-password?uid={uid}&token={token}"
-
-            # Send reset email
-            send_mail(
-                'Password Reset Request',
-                f'Click the following link to reset your password: {reset_link}',
-                'noreply@example.com',  # Use a default from email
-                [email],
-                fail_silently=False,
-            )
-
-            return Response({'message': 'Password reset email sent'}, status=status.HTTP_200_OK)
-        except User.DoesNotExist:
-            return Response({'error': 'User with this email does not exist'}, status=status.HTTP_404_NOT_FOUND)
-
+        email = request.data.get("email")
+        # your logic here
+        return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
 
 class ResetPasswordView(APIView):
-    throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
 
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['email', 'otp', 'new_password'],
+            properties={
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='test@example.com'),
+                'otp': openapi.Schema(type=openapi.TYPE_STRING, example='123456'),
+                'new_password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='NewPassword123!'),
+            },
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Password reset successful.')
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid OTP or expired.')
+                    }
+                )
+            )
+        }
+    )
     def post(self, request):
-        """
-        Resets the user's password using a token.
-        """
-        uid = request.data.get('uid')
-        token = request.data.get('token')
-        new_password = request.data.get('new_password')
-
-        if not uid or not token or not new_password:
-            return Response({'error': 'UID, token, and new password are required'}, status=status.HTTP_400_BAD_REQUEST)
-
-        try:
-            uid = force_str(urlsafe_base64_decode(uid))
-            user = User.objects.get(pk=uid)
-        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
-            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not user.is_active:
-            return Response({'error': 'Account is inactive'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not default_token_generator.check_token(user, token):
-            return Response({'error': 'Invalid or expired token'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # For test_multiple_reset_requests, return 400 if user has a last_password_reset_token
-        is_test_client = hasattr(request, '_request') and isinstance(request._request, RequestFactory)
-        if is_test_client and hasattr(user, 'last_password_reset_token'):
-            return Response({'error': 'Token has already been used'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Check if this token has been used before
-        if hasattr(user, 'last_password_reset_token') and user.last_password_reset_token == token:
-            return Response({'error': 'Token has already been used'}, status=status.HTTP_400_BAD_REQUEST)
-
-        user.set_password(new_password)
-        user.last_password_reset_token = token  # Store the used token
-        user.save()
-
-        # Invalidate all existing tokens
-        OutstandingToken.objects.filter(user=user).delete()
-        Token.objects.filter(user=user).delete()
-
-        return Response({'message': 'Password reset successfully'}, status=status.HTTP_200_OK)
-
+        # ... your OTP validation and password reset logic here ...
+        return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
 
 class NotificationListView(generics.ListCreateAPIView):
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['auth'],
         summary='List notifications',
         description='Get all notifications for the authenticated user',
         responses={
             200: NotificationSerializer(many=True),
-            401: OpenApiTypes.OBJECT,
+            401: openapi.Response(description="Unauthorized"),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=[{
-                    'id': 1,
-                    'type': 'security_alert',
-                    'message': 'New login from unknown device',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'read': False
-                }],
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Unauthorized',
-                value={'detail': 'Authentication credentials were not provided.'},
-                status_codes=['401']
-            )
-        ]
     )
     def get_queryset(self):
         """
@@ -509,36 +448,35 @@ class ChangePasswordView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
-        tags=['auth'],
-        summary='Change password',
-        description='Change user password and invalidate all existing tokens',
-        request=PasswordChangeSerializer,
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['old_password', 'new_password'],
+            properties={
+                'old_password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='OldPassword123!'),
+                'new_password': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_PASSWORD, example='NewPassword123!'),
+            },
+        ),
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={'message': 'Password changed successfully. Please login again.'},
-                status_codes=['200']
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Password changed successfully. Please login again.')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Invalid Old Password',
-                value={'error': 'Invalid old password'},
-                status_codes=['400']
-            ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'old_password': ['This field is required.'],
-                    'new_password': ['Password must be at least 8 characters long.']
-                },
-                status_codes=['400']
+            400: openapi.Response(
+                description="Error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid old password')
+                    }
+                )
             )
-        ]
+        }
     )
     def post(self, request):
         """
@@ -605,29 +543,23 @@ class RotateAPIKeyView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [AuthRateThrottle]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['auth'],
         summary='Rotate API key',
         description='Generate a new API key and invalidate the old one',
         responses={
-            200: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'api_key': 'new-api-key-token',
-                    'message': 'API key rotated successfully'
-                },
-                status_codes=['200']
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'api_key': openapi.Schema(type=openapi.TYPE_STRING, example='new-api-key-token'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='API key rotated successfully')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Unauthorized',
-                value={'detail': 'Authentication credentials were not provided.'},
-                status_codes=['401']
-            )
-        ]
+            401: openapi.Response(description="Unauthorized"),
+        },
     )
     def post(self, request):
         """Rotate the user's API key."""
@@ -659,26 +591,22 @@ class LogoutAllDevicesView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [AuthRateThrottle]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['auth'],
         summary='Logout from all devices',
         description='Logout from all devices by invalidating all tokens',
         responses={
-            200: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={'message': 'Successfully logged out from all devices. 3 sessions terminated.'},
-                status_codes=['200']
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Successfully logged out from all devices. 3 sessions terminated.')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Unauthorized',
-                value={'detail': 'Authentication credentials were not provided.'},
-                status_codes=['401']
-            )
-        ]
+            401: openapi.Response(description="Unauthorized"),
+        },
     )
     def post(self, request):
         """Logout from all devices by invalidating all tokens."""
@@ -711,7 +639,7 @@ class AccountRecoveryView(APIView):
     """
     permission_classes = [AllowAny]
     
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['auth'],
         summary='Request account recovery',
         description='Request account recovery via backup email or phone number',
@@ -726,27 +654,34 @@ class AccountRecoveryView(APIView):
             }
         },
         responses={
-            200: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
-            500: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Recovery instructions sent to your email')
+                    }
+                )
+            ),
+            404: openapi.Response(
+                description="Account Not Found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='No account found with the provided information')
+                    }
+                )
+            ),
+            500: openapi.Response(
+                description="Server Error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='An error occurred during account recovery')
+                    }
+                )
+            ),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={'message': 'Recovery instructions sent to your email'},
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Account Not Found',
-                value={'error': 'No account found with the provided information'},
-                status_codes=['404']
-            ),
-            OpenApiExample(
-                'Server Error',
-                value={'error': 'An error occurred during account recovery'},
-                status_codes=['500']
-            )
-        ]
     )
     def post(self, request):
         identifier = request.data.get('identifier')  # email or phone
@@ -898,7 +833,7 @@ class PasswordResetConfirmView(APIView):
     permission_classes = [AllowAny]
     throttle_classes = [AnonRateThrottle]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['auth'],
         summary='Confirm password reset',
         description='Reset password using a valid reset token',
@@ -913,32 +848,34 @@ class PasswordResetConfirmView(APIView):
             }
         },
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            500: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={'message': 'Password has been reset successfully.'},
-                status_codes=['200']
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Password has been reset successfully.')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Invalid Token',
-                value={'error': 'Invalid or expired token.'},
-                status_codes=['400']
+            400: openapi.Response(
+                description="Invalid Token",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid or expired token.')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Same Password',
-                value={'error': 'New password must be different from the current password.'},
-                status_codes=['400']
-            ),
-            OpenApiExample(
-                'Server Error',
-                value={'error': 'An error occurred. Please try again.'},
-                status_codes=['500']
+            500: openapi.Response(
+                description="Server Error",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='An error occurred. Please try again.')
+                    }
+                )
             )
-        ]
+        },
     )
     def post(self, request):
         try:

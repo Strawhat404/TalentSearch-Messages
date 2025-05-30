@@ -290,3 +290,13 @@ class PasswordChangeSerializer(serializers.Serializer):
         if data['old_password'] == data['new_password']:
             raise serializers.ValidationError("New password must be different from the old password.")
         return data
+
+
+class ForgotPasswordOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ResetPasswordOTPSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    otp = serializers.CharField(max_length=6)
+    new_password = serializers.CharField()

@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'drf_yasg',
-    'drf_spectacular',
     'taggit',
     'corsheaders',
     'django_filters',
@@ -125,11 +124,12 @@ CACHES = {
 
 # Email settings
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = env("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+EMAIL_HOST = env('EMAIL_HOST', default='smtp.gmail.com')
+EMAIL_PORT = env('EMAIL_PORT', default=587)
+EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
+EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='dev@example.com')
+EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='dev_password')
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='dev@example.com')
 
 # Static & Media
 STATIC_URL = '/static/'
@@ -153,7 +153,6 @@ REST_FRAMEWORK = {
         'rest_framework.authentication.TokenAuthentication',
         'rest_framework.authentication.SessionAuthentication',
     ],
-    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
@@ -182,38 +181,6 @@ CSRF_COOKIE_HTTPONLY = True
 # Password reset settings
 PASSWORD_RESET_TIMEOUT = 86400  # 24 hours in seconds
 PASSWORD_RESET_TOKEN_TIMEOUT = 86400  # 24 hours in seconds
-
-# API Schema
-SPECTACULAR_SETTINGS = {
-    'TITLE': 'TalentSearch API',
-    'DESCRIPTION': 'API documentation for TalentSearch platform',
-    'VERSION': '1.0.0',
-    'SERVE_INCLUDE_SCHEMA': False,
-    'COMPONENT_SPLIT_REQUEST': True,
-    'SWAGGER_UI_SETTINGS': {
-        'deepLinking': True,
-        'persistAuthorization': True,
-        'displayOperationId': True,
-        'filter': True,
-        'tagsSorter': 'alpha',
-        'operationsSorter': 'alpha',
-    },
-    'TAGS': [
-        {'name': 'auth', 'description': 'Authentication operations'},
-        {'name': 'messages', 'description': 'Messaging system operations'},
-        {'name': 'news', 'description': 'News management operations'},
-        {'name': 'adverts', 'description': 'Advertisement management operations'},
-    ],
-    'SECURITY': [{'Token': []}],
-    'SECURITY_DEFINITIONS': {
-        'Token': {
-            'type': 'apiKey',
-            'name': 'Authorization',
-            'in': 'header',
-            'description': 'Token-based authentication. Format: Token <your_token>'
-        }
-    },
-}
 
 # Time and language
 LANGUAGE_CODE = 'en-us'

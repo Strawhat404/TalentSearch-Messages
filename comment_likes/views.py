@@ -3,7 +3,8 @@ from rest_framework import viewsets, status, permissions
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.db.models import Q
-from drf_spectacular.utils import extend_schema, OpenApiParameter
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from .models import CommentReaction
 from .serializers import CommentReactionSerializer, CommentReactionCreateSerializer
 
@@ -30,6 +31,9 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
     )
 
     def get_queryset(self):
+        # Add this check to avoid errors during schema generation
+        if getattr(self, 'swagger_fake_view', False):
+            return CommentReaction.objects.none()
         queryset = super().get_queryset()
         comment_id = self.request.query_params.get('comment_id')
         user_id = self.request.query_params.get('user_id')
@@ -53,22 +57,16 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
             return CommentReactionCreateSerializer
         return CommentReactionSerializer
 
-    @extend_schema(
-        parameters=[
-            OpenApiParameter(
-                name='comment_id',
-                type=str,
-                description='Filter reactions by comment ID'
+    @swagger_auto_schema(
+        manual_parameters=[
+            openapi.Parameter(
+                'comment_id', openapi.IN_QUERY, description='Filter reactions by comment ID', type=openapi.TYPE_STRING
             ),
-            OpenApiParameter(
-                name='user_id',
-                type=str,
-                description='Filter reactions by user ID'
+            openapi.Parameter(
+                'user_id', openapi.IN_QUERY, description='Filter reactions by user ID', type=openapi.TYPE_STRING
             ),
-            OpenApiParameter(
-                name='is_dislike',
-                type=bool,
-                description='Filter by reaction type (True for dislikes, False for likes)'
+            openapi.Parameter(
+                'is_dislike', openapi.IN_QUERY, description='Filter by reaction type (True for dislikes, False for likes)', type=openapi.TYPE_BOOLEAN
             ),
         ],
         responses={200: CommentReactionSerializer(many=True)}
@@ -76,8 +74,8 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
-        request=CommentReactionCreateSerializer,
+    @swagger_auto_schema(
+        request_body=CommentReactionCreateSerializer,
         responses={201: CommentReactionSerializer}
     )
     def create(self, request, *args, **kwargs):
@@ -94,8 +92,8 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
             headers=headers
         )
 
-    @extend_schema(
-        request=CommentReactionCreateSerializer,
+    @swagger_auto_schema(
+        request_body=CommentReactionCreateSerializer,
         responses={200: CommentReactionSerializer}
     )
     def update(self, request, *args, **kwargs):
@@ -119,8 +117,8 @@ class CommentReactionViewSet(viewsets.ModelViewSet):
             status=status.HTTP_200_OK
         )
 
-    @extend_schema(
-        request=CommentReactionCreateSerializer,
+    @swagger_auto_schema(
+        request_body=CommentReactionCreateSerializer,
         responses={200: CommentReactionSerializer}
     )
     @action(detail=False, methods=['post'])

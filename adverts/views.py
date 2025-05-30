@@ -3,21 +3,18 @@ from rest_framework.response import Response
 from .models import Advert
 from .serializers import AdvertSerializer
 from talentsearch.throttles import CreateRateThrottle
-from drf_spectacular.utils import extend_schema, OpenApiTypes, OpenApiExample
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 
 class AdvertView(APIView):
     permission_classes = [IsAuthenticated]
-    @extend_schema(
-        tags=['adverts'],
-        summary='List or create advertisements',
-        description='Get all advertisements or create a new one',
-        request=AdvertSerializer,
+    @swagger_auto_schema(
+        operation_summary='List advertisements',
+        operation_description='Get all advertisements',
         responses={
             200: AdvertSerializer(many=True),
-            201: AdvertSerializer,
-            400: OpenApiTypes.OBJECT,
         }
     )
     def get(self, request):
@@ -25,14 +22,22 @@ class AdvertView(APIView):
         serializer = AdvertSerializer(adverts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    @extend_schema(
-        tags=['adverts'],
-        summary='Create advertisement',
-        description='Create a new advertisement',
-        request=AdvertSerializer,
+    @swagger_auto_schema(
+        operation_summary='Create advertisement',
+        operation_description='Create a new advertisement',
+        request_body=AdvertSerializer,
         responses={
-            201: AdvertSerializer,
-            400: OpenApiTypes.OBJECT,
+            201: openapi.Response(
+                description="Advert created successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_STRING, example='uuid'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Advert created successfully.')
+                    }
+                )
+            ),
+            400: openapi.Response(description="Validation Error")
         }
     )
     def post(self, request):
@@ -64,72 +69,36 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     lookup_field = "id"
     throttle_classes = [CreateRateThrottle]
 
-    @extend_schema(
-        tags=['adverts'],
-        summary='Get advertisement',
-        description='Get a specific advertisement by ID',
+    @swagger_auto_schema(
+        operation_summary='Get advertisement',
+        operation_description='Get a specific advertisement by ID',
         responses={
-            200: AdvertSerializer,
-            404: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 'uuid',
-                    'title': 'Advertisement Title',
-                    'description': 'Advertisement description',
-                    'price': 100.00,
-                    'location': 'Location',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'updated_at': '2024-03-20T10:00:00Z'
-                },
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Not Found',
-                value={'error': 'Advertisement not found'},
-                status_codes=['404']
-            )
-        ]
+            200: AdvertSerializer(),
+            404: openapi.Response(description="Not Found")
+        }
     )
     def retrieve(self, request, *args, **kwargs):
         return super().retrieve(request, *args, **kwargs)
 
-    @extend_schema(
-        tags=['adverts'],
-        summary='Update advertisement',
-        description='Update an existing advertisement',
-        request=AdvertSerializer,
+    @swagger_auto_schema(
+        operation_summary='Update advertisement',
+        operation_description='Update an existing advertisement',
+        request_body=AdvertSerializer,
         responses={
-            200: AdvertSerializer,
-            400: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 'uuid',
-                    'title': 'Updated Title',
-                    'description': 'Updated description',
-                    'price': 150.00,
-                    'location': 'Updated location',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'updated_at': '2024-03-20T10:05:00Z'
-                },
-                status_codes=['200']
+            200: openapi.Response(
+                description="Advert updated successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_STRING, example='uuid'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Advert updated successfully.')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'title': ['This field is required.'],
-                    'price': ['Must be greater than 0.']
-                },
-                status_codes=['400']
-            )
-        ]
+            400: openapi.Response(description="Validation Error"),
+            403: openapi.Response(description="Permission Denied"),
+            404: openapi.Response(description="Not Found")
+        }
     )
     def update(self, request, *args, **kwargs):
         response = super().update(request, *args, **kwargs)
@@ -139,27 +108,22 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
         }
         return response
 
-    @extend_schema(
-        tags=['adverts'],
-        summary='Delete advertisement',
-        description='Delete an advertisement',
+    @swagger_auto_schema(
+        operation_summary='Delete advertisement',
+        operation_description='Delete an advertisement',
         responses={
-            204: None,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=None,
-                status_codes=['204']
+            200: openapi.Response(
+                description="Advert deleted successfully.",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Advert deleted successfully.')
+                    }
+                )
             ),
-            OpenApiExample(
-                'Permission Denied',
-                value={'detail': 'You do not have permission to perform this action.'},
-                status_codes=['403']
-            )
-        ]
+            403: openapi.Response(description="Permission Denied"),
+            404: openapi.Response(description="Not Found")
+        }
     )
     def destroy(self, request, *args, **kwargs):
         super().destroy(request, *args, **kwargs)
