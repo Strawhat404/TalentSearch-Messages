@@ -945,33 +945,70 @@ class Media(models.Model):
         ],
         help_text="Professional headshot (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
     )
+    natural_photo_1 = models.ImageField(
+        upload_to='natural_photos/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
+            MinValueValidator(800, message="Image width must be at least 800 pixels"),
+            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+        ],
+        help_text="First natural photo (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
+    )
+    natural_photo_2 = models.ImageField(
+        upload_to='natural_photos/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
+            MinValueValidator(800, message="Image width must be at least 800 pixels"),
+            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+        ],
+        help_text="Second natural photo (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
+    )
 
     def clean(self):
+        # Validate headshot
         if self.photo:
-            # Validate image dimensions
-            img = Image.open(self.photo)
-            width, height = img.size
+            self._validate_image(self.photo, 'photo')
+        
+        # Validate natural photos
+        if self.natural_photo_1:
+            self._validate_image(self.natural_photo_1, 'natural_photo_1')
+        else:
+            raise ValidationError({
+                'natural_photo_1': 'First natural photo is required.'
+            })
             
-            # Check aspect ratio (should be close to 3:4 for professional headshots)
-            aspect_ratio = width / height
-            if not (0.6 <= aspect_ratio <= 0.8):  # Allow some flexibility
+        if self.natural_photo_2:
+            self._validate_image(self.natural_photo_2, 'natural_photo_2')
+        else:
+            raise ValidationError({
+                'natural_photo_2': 'Second natural photo is required.'
+            })
+
+    def _validate_image(self, image, field_name):
+        # Validate image dimensions
+        img = Image.open(image)
+        width, height = img.size
+        
+        # Check aspect ratio (should be close to 3:4 for professional photos)
+        aspect_ratio = width / height
+        if not (0.6 <= aspect_ratio <= 0.8):  # Allow some flexibility
+            raise ValidationError({
+                field_name: 'Image aspect ratio should be approximately 3:4.'
+            })
+        
+        # Check file size (max 5MB)
+        if image.size > 5 * 1024 * 1024:
+            raise ValidationError({
+                field_name: 'Image file size must not exceed 5MB.'
+            })
+        
+        # Check image quality
+        if img.format == 'JPEG':
+            quality = img.info.get('quality', 0)
+            if quality < 80:
                 raise ValidationError({
-                    'photo': 'Image aspect ratio should be approximately 3:4 for professional headshots.'
+                    field_name: 'Image quality must be at least 80%.'
                 })
-            
-            # Check file size (max 5MB)
-            if self.photo.size > 5 * 1024 * 1024:
-                raise ValidationError({
-                    'photo': 'Image file size must not exceed 5MB.'
-                })
-            
-            # Check image quality
-            if img.format == 'JPEG':
-                quality = img.info.get('quality', 0)
-                if quality < 80:
-                    raise ValidationError({
-                        'photo': 'Image quality must be at least 80% for professional headshots.'
-                    })
 
     def save(self, *args, **kwargs):
         self.clean()
