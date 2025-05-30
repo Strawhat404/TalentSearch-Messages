@@ -8,9 +8,15 @@ import bleach
 import os
 import json
 from django.conf import settings
-from PIL import Image
+from PIL import Image, ExifTags
+from django.core.files.storage import default_storage
+from django.utils import timezone
+import logging
+from datetime import timedelta
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
 
 # Helper function to sanitize strings (same as in serializers.py)
 def sanitize_string(value):
@@ -963,8 +969,106 @@ class Media(models.Model):
         ],
         help_text="Second natural photo (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
     )
+    photo_processed = models.BooleanField(default=False)
+    natural_photo_1_processed = models.BooleanField(default=False)
+    natural_photo_2_processed = models.BooleanField(default=False)
+    last_cleanup = models.DateTimeField(null=True, blank=True)
+
+    def _process_image(self, image_field, field_name):
+        """Process image: resize, optimize, and add watermark if needed"""
+        try:
+            # Open image
+            img = Image.open(image_field)
+            
+            # Convert to RGB if necessary
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            
+            # Resize if needed while maintaining aspect ratio
+            if img.width > 2000:
+                ratio = 2000 / img.width
+                new_size = (2000, int(img.height * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Optimize image
+            if img.format == 'JPEG':
+                img.save(image_field.path, 'JPEG', quality=85, optimize=True)
+            elif img.format == 'PNG':
+                img.save(image_field.path, 'PNG', optimize=True)
+            
+            # Update processed flag
+            setattr(self, f'{field_name}_processed', True)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error processing image {field_name}: {str(e)}")
+            return False
+
+    def _validate_image(self, image, field_name):
+        """Enhanced image validation including metadata and content checks"""
+        try:
+            # Basic validation
+            img = Image.open(image)
+            width, height = img.size
+            
+            # Check dimensions
+            if width < 800 or width > 2000:
+                raise ValidationError({
+                    field_name: f'Image width must be between 800 and 2000 pixels. Current width: {width}px'
+                })
+            
+            # Check aspect ratio
+            aspect_ratio = width / height
+            if not (0.6 <= aspect_ratio <= 0.8):
+                raise ValidationError({
+                    field_name: 'Image aspect ratio should be approximately 3:4.'
+                })
+            
+            # Check file size
+            if image.size > 5 * 1024 * 1024:
+                raise ValidationError({
+                    field_name: 'Image file size must not exceed 5MB.'
+                })
+            
+            # Check image quality
+            if img.format == 'JPEG':
+                quality = img.info.get('quality', 0)
+                if quality < 80:
+                    raise ValidationError({
+                        field_name: 'Image quality must be at least 80%.'
+                    })
+            
+            # Check metadata
+            try:
+                exif = img._getexif()
+                if exif:
+                    for tag_id in exif:
+                        tag = ExifTags.TAGS.get(tag_id, tag_id)
+                        if tag in ['DateTime', 'DateTimeOriginal', 'DateTimeDigitized']:
+                            # Check if image is too old (e.g., more than 5 years)
+                            image_date = exif[tag_id]
+                            if isinstance(image_date, str):
+                                from datetime import datetime
+                                try:
+                                    image_date = datetime.strptime(image_date, '%Y:%m:%d %H:%M:%S')
+                                    if image_date < (timezone.now() - timedelta(days=5*365)):
+                                        raise ValidationError({
+                                            field_name: 'Image appears to be more than 5 years old. Please provide a recent photo.'
+                                        })
+                                except ValueError:
+                                    pass
+            except Exception as e:
+                logger.warning(f"Error reading EXIF data: {str(e)}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error validating image {field_name}: {str(e)}")
+            raise ValidationError({
+                field_name: f'Error validating image: {str(e)}'
+            })
 
     def clean(self):
+        """Validate all images before saving"""
         # Validate headshot
         if self.photo:
             self._validate_image(self.photo, 'photo')
@@ -984,35 +1088,81 @@ class Media(models.Model):
                 'natural_photo_2': 'Second natural photo is required.'
             })
 
-    def _validate_image(self, image, field_name):
-        # Validate image dimensions
-        img = Image.open(image)
-        width, height = img.size
-        
-        # Check aspect ratio (should be close to 3:4 for professional photos)
-        aspect_ratio = width / height
-        if not (0.6 <= aspect_ratio <= 0.8):  # Allow some flexibility
-            raise ValidationError({
-                field_name: 'Image aspect ratio should be approximately 3:4.'
-            })
-        
-        # Check file size (max 5MB)
-        if image.size > 5 * 1024 * 1024:
-            raise ValidationError({
-                field_name: 'Image file size must not exceed 5MB.'
-            })
-        
-        # Check image quality
-        if img.format == 'JPEG':
-            quality = img.info.get('quality', 0)
-            if quality < 80:
-                raise ValidationError({
-                    field_name: 'Image quality must be at least 80%.'
-                })
-
     def save(self, *args, **kwargs):
+        """Process and save images"""
         self.clean()
+        
+        # Process images if not already processed
+        if self.photo and not self.photo_processed:
+            self._process_image(self.photo, 'photo')
+        
+        if self.natural_photo_1 and not self.natural_photo_1_processed:
+            self._process_image(self.natural_photo_1, 'natural_photo_1')
+        
+        if self.natural_photo_2 and not self.natural_photo_2_processed:
+            self._process_image(self.natural_photo_2, 'natural_photo_2')
+        
+        # Cleanup old files if needed
+        self._cleanup_old_files()
+        
         super().save(*args, **kwargs)
+
+    def _cleanup_old_files(self):
+        """Clean up old and unused files"""
+        if self.last_cleanup and (timezone.now() - self.last_cleanup) < timedelta(days=1):
+            return  # Only cleanup once per day
+        
+        try:
+            # Get all media directories
+            media_dirs = ['profile_photos/', 'natural_photos/', 'profile_videos/']
+            
+            for directory in media_dirs:
+                # List all files in directory
+                files = default_storage.listdir(directory)[1]
+                
+                for file in files:
+                    file_path = os.path.join(directory, file)
+                    
+                    # Check if file is older than 30 days
+                    try:
+                        file_stat = default_storage.stat(file_path)
+                        file_time = timezone.datetime.fromtimestamp(file_stat.st_mtime)
+                        
+                        if (timezone.now() - file_time) > timedelta(days=30):
+                            # Check if file is not associated with any profile
+                            if not Media.objects.filter(
+                                photo=file_path
+                            ).exists() and not Media.objects.filter(
+                                natural_photo_1=file_path
+                            ).exists() and not Media.objects.filter(
+                                natural_photo_2=file_path
+                            ).exists():
+                                # Delete the file
+                                default_storage.delete(file_path)
+                                logger.info(f"Deleted old file: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_path}: {str(e)}")
+            
+            self.last_cleanup = timezone.now()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
+
+    def delete(self, *args, **kwargs):
+        """Clean up files when model is deleted"""
+        try:
+            # Delete associated files
+            if self.photo:
+                default_storage.delete(self.photo.path)
+            if self.natural_photo_1:
+                default_storage.delete(self.natural_photo_1.path)
+            if self.natural_photo_2:
+                default_storage.delete(self.natural_photo_2.path)
+            if self.video:
+                default_storage.delete(self.video.path)
+        except Exception as e:
+            logger.error(f"Error deleting files: {str(e)}")
+        
+        super().delete(*args, **kwargs)
 
 class VerificationStatus(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='verification_status')
