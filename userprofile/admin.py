@@ -152,14 +152,14 @@ class ContactInfoForm(forms.ModelForm):
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'city', 'region', 'postal_code', 'residence_type',
-            'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+            'address', 'specific_area', 'city', 'region', 'country',
+            'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields:
-            self.fields[field].required = False
+            self.fields[field].required = True
 
 class PersonalInfoForm(forms.ModelForm):
     class Meta:
@@ -242,8 +242,8 @@ class ContactInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'address', 'city', 'region', 'postal_code', 'residence_type',
-        'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+        'address', 'specific_area', 'city', 'region', 'country',
+        'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
     ]
 
 class PersonalInfoInline(admin.StackedInline):
