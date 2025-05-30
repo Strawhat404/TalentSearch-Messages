@@ -218,10 +218,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
 
-# For development only (optional)
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-
 # Test Settings
 if 'test' in sys.argv:
     REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {

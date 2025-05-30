@@ -221,16 +221,20 @@ class PhysicalAttributes(models.Model):
     weight = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
-        null=True,
-        blank=True,
-        help_text="Weight in kilograms (required)"
+        help_text="Weight in kilograms (required)",
+        validators=[
+            MinValueValidator(30, message="Weight must be at least 30 kg"),
+            MaxValueValidator(500, message="Weight cannot exceed 500 kg")
+        ]
     )
     height = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
-        null=True,
-        blank=True,
-        help_text="Height in centimeters (required)"
+        help_text="Height in centimeters (required)",
+        validators=[
+            MinValueValidator(100, message="Height must be at least 100 cm"),
+            MaxValueValidator(300, message="Height cannot exceed 300 cm")
+        ]
     )
     gender = models.CharField(max_length=20, blank=True)
     hair_color = models.CharField(max_length=50, blank=True)
@@ -259,23 +263,8 @@ class PhysicalAttributes(models.Model):
         if self.physical_condition:
             self.physical_condition = sanitize_string(self.physical_condition)
 
-        # Existing validations
-        if self.height is not None:
-            if self.height < 100:  # Minimum height 100 cm
-                raise ValidationError({
-                    'height': 'Height must be at least 100 cm.'
-                })
-        if self.weight is not None:
-            if self.weight < 30:  # Minimum weight 30 kg
-                raise ValidationError({
-                    'weight': 'Weight must be at least 30 kg.'
-                })
-
     def save(self, *args, **kwargs):
-        if self.weight is None:
-            raise ValidationError("Weight is required.")
-        if self.height is None:
-            raise ValidationError("Height is required.")
+        self.full_clean()  # This will call clean() and validate all fields
         super().save(*args, **kwargs)
 
 class MedicalInfo(models.Model):

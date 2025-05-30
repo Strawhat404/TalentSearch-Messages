@@ -182,5 +182,8 @@ SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
-# New FRONTEND_URL setting
-FRONTEND_URL = "https://talentsearch-messages-uokp.onrender.com"
+
+CORS_ALLOWED_ORIGINS = [
+    "https://myfrontend.com",
+    # ...other allowed origins
+]
