@@ -7,6 +7,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Profile, VerificationStatus, VerificationAuditLog
 from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer
+import os
+import json
+from django.conf import settings
 from django.db import IntegrityError
 
 class ProfileView(APIView):
@@ -636,3 +639,42 @@ class VerificationAuditLogView(APIView):
                 {"message": f"An error occurred: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+class ChoiceDataView(APIView):
+    """
+    View to serve choice data for various fields
+    """
+    def get(self, request):
+        data_dir = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
+        response_data = {}
+        
+        # Load countries
+        with open(os.path.join(data_dir, 'countries.json'), 'r') as f:
+            response_data['countries'] = json.load(f)['countries']
+        
+        # Load languages
+        with open(os.path.join(data_dir, 'languages.json'), 'r') as f:
+            response_data['languages'] = json.load(f)['languages']
+        
+        # Load physical attributes
+        with open(os.path.join(data_dir, 'physical_attributes.json'), 'r') as f:
+            physical_data = json.load(f)
+            response_data.update({
+                'hair_colors': physical_data['hair_colors'],
+                'eye_colors': physical_data['eye_colors'],
+                'skin_tones': physical_data['skin_tones'],
+                'body_types': physical_data['body_types'],
+                'genders': physical_data['genders']
+            })
+        
+        # Load personal info
+        with open(os.path.join(data_dir, 'personal_info.json'), 'r') as f:
+            personal_data = json.load(f)
+            response_data.update({
+                'marital_statuses': personal_data['marital_statuses'],
+                'hobbies': personal_data['hobbies'],
+                'medical_conditions': personal_data['medical_conditions'],
+                'medicine_types': personal_data['medicine_types']
+            })
+        
+        return Response(response_data)
