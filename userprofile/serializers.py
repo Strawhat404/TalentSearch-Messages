@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
-    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog
+    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog, LocationData
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -10,6 +10,8 @@ import re
 import magic
 from datetime import date
 import bleach
+import json
+from django.conf import settings
 
 # Helper function to sanitize strings
 def sanitize_string(value):
@@ -99,6 +101,9 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
             'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
             'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
         ]
+        extra_kwargs = {
+            'travel_willingness': {'required': True}
+        }
 
     def validate_experience_level(self, value):
         if value:
@@ -150,13 +155,6 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
         return value
 
     def validate_overtime_availability(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_travel_willingness(self, value):
         if value:
             value = sanitize_string(value)
             if not value.strip():
@@ -382,61 +380,83 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
         return value
 
 class ContactInfoSerializer(serializers.ModelSerializer):
+    region_choices = serializers.SerializerMethodField()
+    city_choices = serializers.SerializerMethodField()
+    country_choices = serializers.SerializerMethodField()
+
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'city', 'region', 'postal_code', 'residence_type',
-            'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+            'address', 'specific_area', 'city', 'region', 'country',
+            'housing_status', 'residence_duration', 'emergency_contact',
+            'emergency_phone', 'region_choices', 'city_choices', 'country_choices'
         ]
+        extra_kwargs = {
+            'address': {'required': True},
+            'specific_area': {'required': True},
+            'city': {'required': True},
+            'region': {'required': True},
+            'country': {'required': True},
+            'housing_status': {'required': True},
+            'residence_duration': {'required': True},
+            'emergency_contact': {'required': True},
+            'emergency_phone': {'required': True}
+        }
 
-    def validate_address(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def get_region_choices(self, obj):
+        regions = LocationData.objects.all()
+        return [{'id': region.region_id, 'name': region.region_name} for region in regions]
 
-    def validate_city(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def get_city_choices(self, obj):
+        if obj and obj.region:
+            try:
+                location_data = LocationData.objects.get(region_id=obj.region)
+                return location_data.cities
+            except LocationData.DoesNotExist:
+                return []
+        return []
 
-    def validate_region(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def get_country_choices(self, obj):
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'data', 'countries.json'), 'r') as f:
+                countries_data = json.load(f)
+                return countries_data['countries']
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
-    def validate_residence_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        region = data.get('region')
+        city = data.get('city')
+        country = data.get('country')
 
-    def validate_residence_duration(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        if region and city:
+            try:
+                location_data = LocationData.objects.get(region_id=region)
+                valid_cities = {city['id']: city['name'] for city in location_data.cities}
+                if city not in valid_cities:
+                    raise serializers.ValidationError({
+                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities.values())}'
+                    })
+            except LocationData.DoesNotExist:
+                raise serializers.ValidationError({
+                    'region': 'Invalid region selected.'
+                })
 
-    def validate_housing_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        if country:
+            try:
+                with open(os.path.join(settings.BASE_DIR, 'data', 'countries.json'), 'r') as f:
+                    countries_data = json.load(f)
+                    valid_countries = {country['id']: country['name'] for country in countries_data['countries']}
+                    if country not in valid_countries:
+                        raise serializers.ValidationError({
+                            'country': f'Invalid country selected. Please choose from: {", ".join(valid_countries.values())}'
+                        })
+            except (FileNotFoundError, json.JSONDecodeError):
+                raise serializers.ValidationError({
+                    'country': 'Error validating country. Please try again.'
+                })
 
-    def validate_emergency_contact(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        return data
 
 class PersonalInfoSerializer(serializers.ModelSerializer):
     class Meta:
