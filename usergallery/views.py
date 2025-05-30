@@ -6,7 +6,8 @@ from .serializers import GalleryItemSerializer
 from django.core.exceptions import ObjectDoesNotExist
 from rest_framework.parsers import MultiPartParser
 import os
-from drf_spectacular.utils import extend_schema, OpenApiExample, OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 class GalleryItemListCreateView(APIView):
     """
@@ -93,34 +94,14 @@ class GalleryItemDetailView(APIView):
     """
     parser_classes = [MultiPartParser]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['user_gallery'],
         summary='Get gallery item',
         description='Get a specific gallery item by ID',
         responses={
             200: GalleryItemSerializer,
-            404: OpenApiTypes.OBJECT,
+            404: openapi.Response(description='Gallery item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 1,
-                    'profile_id': 'profile_uuid',
-                    'item_url': 'item_url',
-                    'item_type': 'image',
-                    'description': 'Item description',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'updated_at': '2024-03-20T10:00:00Z'
-                },
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Not Found',
-                value={'error': 'Gallery item not found'},
-                status_codes=['404']
-            )
-        ]
     )
     def get(self, request, id):
         """
@@ -152,40 +133,17 @@ class GalleryItemDetailView(APIView):
         except ObjectDoesNotExist:
             return Response({"message": "Gallery item not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['user_gallery'],
         summary='Update gallery item',
         description='Update a gallery item',
         request=GalleryItemSerializer,
         responses={
             200: GalleryItemSerializer,
-            400: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            400: openapi.Response(description='Validation error'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Gallery item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 1,
-                    'profile_id': 'profile_uuid',
-                    'item_url': 'updated_item_url',
-                    'item_type': 'image',
-                    'description': 'Updated description',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'updated_at': '2024-03-20T10:05:00Z'
-                },
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'item_type': ['Invalid item type.'],
-                    'description': ['This field is required.']
-                },
-                status_codes=['400']
-            )
-        ]
     )
     def put(self, request, id):
         """
@@ -212,27 +170,15 @@ class GalleryItemDetailView(APIView):
         except ObjectDoesNotExist:
             return Response({"message": "Gallery item not found."}, status=status.HTTP_404_NOT_FOUND)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['user_gallery'],
         summary='Delete gallery item',
         description='Delete a gallery item',
         responses={
             204: None,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Gallery item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=None,
-                status_codes=['204']
-            ),
-            OpenApiExample(
-                'Permission Denied',
-                value={'detail': 'You do not have permission to perform this action.'},
-                status_codes=['403']
-            )
-        ]
     )
     def delete(self, request, id):
         """

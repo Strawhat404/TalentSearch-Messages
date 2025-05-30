@@ -1,11 +1,9 @@
 from django.urls import path
 from .views import (
     RegisterView, LoginView, AdminLoginView, ForgotPasswordView, ResetPasswordView,
-    NotificationListView, ChangePasswordView, LogoutView, CustomTokenObtainPairView,
-    RotateAPIKeyView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView,
+    NotificationListView, ChangePasswordView, LogoutView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView,
     PasswordResetRequestView, PasswordResetConfirmView
 )
-from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework.authtoken.views import obtain_auth_token
 
 urlpatterns = [
@@ -27,9 +25,6 @@ urlpatterns = [
     path('account-recovery/', AccountRecoveryView.as_view(), name='account-recovery'),
     path('notifications/', NotificationListView.as_view(), name='notifications'),
     
-    # Token Management
-    path('token/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('token/rotate/', RotateAPIKeyView.as_view(), name='rotate-api-key'),
+    # Token Management (DRF Token only)
     path('api-token-auth/', obtain_auth_token, name='api_token_auth'),
 ]

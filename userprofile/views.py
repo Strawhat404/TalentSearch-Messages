@@ -1,7 +1,8 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Profile, VerificationStatus, VerificationAuditLog
@@ -9,108 +10,146 @@ from .serializers import ProfileSerializer, VerificationStatusSerializer, Verifi
 import os
 import json
 from django.conf import settings
+from django.db import IntegrityError
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['profile'],
-        summary="Create user profile",
-        description="Create a new user profile with required and optional fields.",
-        request={
-            'multipart/form-data': {
-                'type': 'object',
-                'properties': {
-                    'name': {'type': 'string', 'description': 'User\'s full name', 'example': 'John Doe'},
-                    'profession': {'type': 'string', 'description': 'User\'s profession',
-                                   'example': 'Software Engineer'},
-                    'photo': {'type': 'string', 'format': 'binary',
-                              'description': 'Profile photo (jpg, jpeg, png, gif, max 5MB)'},
-                    'video': {'type': 'string', 'format': 'binary',
-                              'description': 'Profile video (mp4, avi, mov, mkv, max 50MB)'},
-                    'birthdate': {'type': 'string', 'format': 'date', 'description': 'Date of birth (YYYY-MM-DD)',
-                                  'example': '1990-01-01'},
-                    'location': {'type': 'string', 'description': 'Current location', 'example': 'Addis Ababa'},
-                    'gender': {'type': 'string', 'description': 'Gender', 'example': 'Male'},
-                    'nationality': {'type': 'string', 'description': 'Nationality', 'example': 'Ethiopian'},
-                    'education_level': {'type': 'string', 'description': 'Highest education level',
-                                        'example': "Bachelor's"},
-                    'experience_level': {'type': 'string', 'description': 'Professional experience level',
-                                         'example': 'Senior'},
-                    'skills': {'type': 'array', 'items': {'type': 'string'}, 'description': 'List of skills',
-                               'example': ['Python', 'Django']},
-                    'languages': {'type': 'array', 'items': {'type': 'string'}, 'description': 'List of languages',
-                                  'example': ['English', 'Amharic']},
-                    'min_salary': {'type': 'integer', 'description': 'Minimum expected salary', 'example': 50000},
-                    'max_salary': {'type': 'integer', 'description': 'Maximum expected salary', 'example': 100000},
-                    'identity_verification[id_type]': {'type': 'string',
-                                                       'enum': ['national_id', 'passport', 'drivers_license',
-                                                                'kebele_id'], 'description': 'Type of ID',
-                                                       'example': 'national_id'},
-                    'identity_verification[id_number]': {'type': 'string', 'description': 'ID number',
-                                                         'example': '123456789012'},
-                    'identity_verification[id_expiry_date]': {'type': 'string', 'format': 'date',
-                                                              'description': 'ID expiration date',
-                                                              'example': '2030-01-01'},
-                    'identity_verification[id_front]': {'type': 'string', 'format': 'binary',
-                                                        'description': 'Front side of ID (max 5MB)'},
-                    'identity_verification[id_back]': {'type': 'string', 'format': 'binary',
-                                                       'description': 'Back side of ID (max 5MB)'},
-                    'emergency_contact': {'type': 'string', 'description': 'Emergency contact name',
-                                          'example': 'Jane Doe'},
-                    'emergency_phone': {'type': 'string', 'description': 'Emergency contact phone',
-                                        'example': '+251911223344'},
-                    'social_media_links': {'type': 'object', 'description': 'Social media URLs',
-                                           'example': {'twitter': 'https://twitter.com/johndoe'}},
-                    'preferred_work_location': {'type': 'string', 'description': 'Preferred work location',
-                                                'example': 'Remote'},
-                    'shift_preference': {'type': 'string', 'description': 'Preferred work shift', 'example': 'Day'},
-                    'willingness_to_relocate': {'type': 'string', 'description': 'Willingness to relocate',
-                                                'example': 'Yes'},
-                    'overtime_availability': {'type': 'string', 'description': 'Overtime availability',
-                                              'example': 'Yes'},
-                    'travel_willingness': {'type': 'string', 'description': 'Willingness to travel', 'example': 'Yes'},
-                },
-                'required': ['name', 'profession']
-            }
-        },
+        summary="Get user profile",
+        description="Retrieve the authenticated user's profile.",
         responses={
-            201: ProfileSerializer,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-        },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 1,
-                    'name': 'John Doe',
-                    'email': 'john@example.com',
-                    'profession': 'Software Engineer',
-                    'location': 'Addis Ababa',
-                    'photo': 'http://example.com/media/profile_photos/john.jpg',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'verified': False
-                },
-                status_codes=['201']
+            200: openapi.Response(
+                description="Profile retrieved successfully",
+                schema=ProfileSerializer,
+                examples={
+                    'application/json': {
+                        "id": 3,
+                        "name": "mak",
+                        "email": "makdatse@gmail.com",
+                        "birthdate": "2001-05-16",
+                        "profession": "actor",
+                        "nationality": "ethiopian",
+                        "age": 24,
+                        "location": "",
+                        "created_at": "2025-05-27T05:37:38.297856Z",
+                        "availability_status": True,
+                        "verified": False,
+                        "flagged": False,
+                        "status": "",
+                        "identity_verification": {
+                            "id_type": None,
+                            "id_number": None,
+                            "id_expiry_date": None,
+                            "id_front": None,
+                            "id_back": None
+                        },
+                        "professional_qualifications": {
+                            "experience_level": None,
+                            "skills": [],
+                            "work_authorization": None,
+                            "industry_experience": None,
+                            "min_salary": None,
+                            "max_salary": None,
+                            "availability": None,
+                            "preferred_work_location": None,
+                            "shift_preference": None,
+                            "willingness_to_relocate": None,
+                            "overtime_availability": None,
+                            "travel_willingness": None,
+                            "software_proficiency": [],
+                            "typing_speed": None,
+                            "driving_skills": None,
+                            "equipment_experience": [],
+                            "role_title": None,
+                            "portfolio_url": None,
+                            "union_membership": None,
+                            "reference": [],
+                            "available_start_date": None,
+                            "preferred_company_size": None,
+                            "preferred_industry": [],
+                            "leadership_style": None,
+                            "communication_style": None,
+                            "motivation": None,
+                            "has_driving_license": False
+                        },
+                        "physical_attributes": {
+                            "weight": None,
+                            "height": None,
+                            "gender": None,
+                            "hair_color": None,
+                            "eye_color": None,
+                            "body_type": None,
+                            "skin_tone": None,
+                            "facial_hair": None,
+                            "tattoos_visible": False,
+                            "piercings_visible": False,
+                            "physical_condition": None
+                        },
+                        "medical_info": {
+                            "health_conditions": [],
+                            "medications": [],
+                            "disability_status": None,
+                            "disability_type": None
+                        },
+                        "education": {
+                            "education_level": None,
+                            "degree_type": None,
+                            "field_of_study": None,
+                            "graduation_year": None,
+                            "gpa": None,
+                            "institution_name": None,
+                            "scholarships": [],
+                            "academic_achievements": [],
+                            "certifications": [],
+                            "online_courses": []
+                        },
+                        "work_experience": {
+                            "years_of_experience": None,
+                            "employment_status": None,
+                            "previous_employers": [],
+                            "projects": [],
+                            "training": [],
+                            "internship_experience": None
+                        },
+                        "contact_info": {
+                            "address": None,
+                            "city": None,
+                            "region": None,
+                            "postal_code": None,
+                            "residence_type": None,
+                            "residence_duration": None,
+                            "housing_status": None,
+                            "emergency_contact": None,
+                            "emergency_phone": None
+                        },
+                        "personal_info": {
+                            "marital_status": None,
+                            "ethnicity": None,
+                            "personality_type": None,
+                            "work_preference": None,
+                            "hobbies": [],
+                            "volunteer_experience": None,
+                            "company_culture_preference": None,
+                            "social_media_links": {},
+                            "social_media_handles": [],
+                            "language_proficiency": [],
+                            "special_skills": [],
+                            "tools_experience": [],
+                            "award_recognitions": []
+                        },
+                        "media": {
+                            "video": None,
+                            "photo": None
+                        }
+                    }
+                }
             ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'name': ['This field is required.'],
-                    'profession': ['This field is required.'],
-                    'photo': ['File size must not exceed 5MB.'],
-                    'identity_verification[id_number]': ['Invalid ID number format for the selected ID type.']
-                },
-                status_codes=['400']
-            ),
-            OpenApiExample(
-                'Unauthorized',
-                value={'detail': 'Authentication credentials were not provided.'},
-                status_codes=['401']
-            )
-        ]
+            404: openapi.Response(description="Profile not found"),
+            401: openapi.Response(description="Unauthorized"),
+        }
     )
     def get(self, request):
         try:
@@ -120,6 +159,142 @@ class ProfileView(APIView):
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        tags=['profile'],
+        summary="Create user profile",
+        description="Create a new user profile with required and optional fields.",
+        request_body=ProfileSerializer,
+        responses={
+            201: openapi.Response(
+                description="Profile created successfully",
+                schema=ProfileSerializer,
+                examples={
+                    'application/json': {
+                        "id": 3,
+                        "name": "mak",
+                        "email": "makdatse@gmail.com",
+                        "birthdate": "2001-05-16",
+                        "profession": "actor",
+                        "nationality": "ethiopian",
+                        "age": 24,
+                        "location": "",
+                        "created_at": "2025-05-27T05:37:38.297856Z",
+                        "availability_status": True,
+                        "verified": False,
+                        "flagged": False,
+                        "status": "",
+                        "identity_verification": {
+                            "id_type": None,
+                            "id_number": None,
+                            "id_expiry_date": None,
+                            "id_front": None,
+                            "id_back": None
+                        },
+                        "professional_qualifications": {
+                            "experience_level": None,
+                            "skills": [],
+                            "work_authorization": None,
+                            "industry_experience": None,
+                            "min_salary": None,
+                            "max_salary": None,
+                            "availability": None,
+                            "preferred_work_location": None,
+                            "shift_preference": None,
+                            "willingness_to_relocate": None,
+                            "overtime_availability": None,
+                            "travel_willingness": None,
+                            "software_proficiency": [],
+                            "typing_speed": None,
+                            "driving_skills": None,
+                            "equipment_experience": [],
+                            "role_title": None,
+                            "portfolio_url": None,
+                            "union_membership": None,
+                            "reference": [],
+                            "available_start_date": None,
+                            "preferred_company_size": None,
+                            "preferred_industry": [],
+                            "leadership_style": None,
+                            "communication_style": None,
+                            "motivation": None,
+                            "has_driving_license": False
+                        },
+                        "physical_attributes": {
+                            "weight": None,
+                            "height": None,
+                            "gender": None,
+                            "hair_color": None,
+                            "eye_color": None,
+                            "body_type": None,
+                            "skin_tone": None,
+                            "facial_hair": None,
+                            "tattoos_visible": False,
+                            "piercings_visible": False,
+                            "physical_condition": None
+                        },
+                        "medical_info": {
+                            "health_conditions": [],
+                            "medications": [],
+                            "disability_status": None,
+                            "disability_type": None
+                        },
+                        "education": {
+                            "education_level": None,
+                            "degree_type": None,
+                            "field_of_study": None,
+                            "graduation_year": None,
+                            "gpa": None,
+                            "institution_name": None,
+                            "scholarships": [],
+                            "academic_achievements": [],
+                            "certifications": [],
+                            "online_courses": []
+                        },
+                        "work_experience": {
+                            "years_of_experience": None,
+                            "employment_status": None,
+                            "previous_employers": [],
+                            "projects": [],
+                            "training": [],
+                            "internship_experience": None
+                        },
+                        "contact_info": {
+                            "address": None,
+                            "city": None,
+                            "region": None,
+                            "postal_code": None,
+                            "residence_type": None,
+                            "residence_duration": None,
+                            "housing_status": None,
+                            "emergency_contact": None,
+                            "emergency_phone": None
+                        },
+                        "personal_info": {
+                            "marital_status": None,
+                            "ethnicity": None,
+                            "personality_type": None,
+                            "work_preference": None,
+                            "hobbies": [],
+                            "volunteer_experience": None,
+                            "company_culture_preference": None,
+                            "social_media_links": {},
+                            "social_media_handles": [],
+                            "language_proficiency": [],
+                            "special_skills": [],
+                            "tools_experience": [],
+                            "award_recognitions": []
+                        },
+                        "media": {
+                            "video": None,
+                            "photo": None
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(description="Validation error"),
+            401: openapi.Response(description="Unauthorized"),
+        }
+    )
     def post(self, request):
         try:
             if Profile.objects.filter(user=request.user).exists():
@@ -142,6 +317,143 @@ class ProfileView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @swagger_auto_schema(
+        tags=['profile'],
+        summary="Update user profile",
+        description="Update the authenticated user's profile.",
+        request_body=ProfileSerializer,
+        responses={
+            200: openapi.Response(
+                description="Profile updated successfully",
+                schema=ProfileSerializer,
+                examples={
+                    'application/json': {
+                        "id": 3,
+                        "name": "mak",
+                        "email": "makdatse@gmail.com",
+                        "birthdate": "2001-05-16",
+                        "profession": "actor",
+                        "nationality": "ethiopian",
+                        "age": 24,
+                        "location": "",
+                        "created_at": "2025-05-27T05:37:38.297856Z",
+                        "availability_status": True,
+                        "verified": False,
+                        "flagged": False,
+                        "status": "",
+                        "identity_verification": {
+                            "id_type": None,
+                            "id_number": None,
+                            "id_expiry_date": None,
+                            "id_front": None,
+                            "id_back": None
+                        },
+                        "professional_qualifications": {
+                            "experience_level": None,
+                            "skills": [],
+                            "work_authorization": None,
+                            "industry_experience": None,
+                            "min_salary": None,
+                            "max_salary": None,
+                            "availability": None,
+                            "preferred_work_location": None,
+                            "shift_preference": None,
+                            "willingness_to_relocate": None,
+                            "overtime_availability": None,
+                            "travel_willingness": None,
+                            "software_proficiency": [],
+                            "typing_speed": None,
+                            "driving_skills": None,
+                            "equipment_experience": [],
+                            "role_title": None,
+                            "portfolio_url": None,
+                            "union_membership": None,
+                            "reference": [],
+                            "available_start_date": None,
+                            "preferred_company_size": None,
+                            "preferred_industry": [],
+                            "leadership_style": None,
+                            "communication_style": None,
+                            "motivation": None,
+                            "has_driving_license": False
+                        },
+                        "physical_attributes": {
+                            "weight": None,
+                            "height": None,
+                            "gender": None,
+                            "hair_color": None,
+                            "eye_color": None,
+                            "body_type": None,
+                            "skin_tone": None,
+                            "facial_hair": None,
+                            "tattoos_visible": False,
+                            "piercings_visible": False,
+                            "physical_condition": None
+                        },
+                        "medical_info": {
+                            "health_conditions": [],
+                            "medications": [],
+                            "disability_status": None,
+                            "disability_type": None
+                        },
+                        "education": {
+                            "education_level": None,
+                            "degree_type": None,
+                            "field_of_study": None,
+                            "graduation_year": None,
+                            "gpa": None,
+                            "institution_name": None,
+                            "scholarships": [],
+                            "academic_achievements": [],
+                            "certifications": [],
+                            "online_courses": []
+                        },
+                        "work_experience": {
+                            "years_of_experience": None,
+                            "employment_status": None,
+                            "previous_employers": [],
+                            "projects": [],
+                            "training": [],
+                            "internship_experience": None
+                        },
+                        "contact_info": {
+                            "address": None,
+                            "city": None,
+                            "region": None,
+                            "postal_code": None,
+                            "residence_type": None,
+                            "residence_duration": None,
+                            "housing_status": None,
+                            "emergency_contact": None,
+                            "emergency_phone": None
+                        },
+                        "personal_info": {
+                            "marital_status": None,
+                            "ethnicity": None,
+                            "personality_type": None,
+                            "work_preference": None,
+                            "hobbies": [],
+                            "volunteer_experience": None,
+                            "company_culture_preference": None,
+                            "social_media_links": {},
+                            "social_media_handles": [],
+                            "language_proficiency": [],
+                            "special_skills": [],
+                            "tools_experience": [],
+                            "award_recognitions": []
+                        },
+                        "media": {
+                            "video": None,
+                            "photo": None
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(description="Validation error"),
+            401: openapi.Response(description="Unauthorized"),
+            404: openapi.Response(description="Profile not found"),
+        }
+    )
     def put(self, request):
         try:
             profile = Profile.objects.get(user=request.user)
@@ -162,6 +474,29 @@ class ProfileView(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+    @swagger_auto_schema(
+        tags=['profile'],
+        summary="Delete user profile",
+        description="Delete the authenticated user's profile.",
+        responses={
+            200: openapi.Response(
+                description="Profile deleted successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING, example="Profile deleted successfully.")
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        "message": "Profile deleted successfully."
+                    }
+                }
+            ),
+            404: openapi.Response(description="Profile not found"),
+            401: openapi.Response(description="Unauthorized"),
+        }
+    )
     def delete(self, request):
         try:
             profile = Profile.objects.get(user=request.user)
@@ -176,7 +511,7 @@ class VerificationView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['verification'],
         summary="Verify a profile",
         description="Verify a user profile with proper documentation and notes.",
@@ -192,11 +527,14 @@ class VerificationView(APIView):
             }
         },
         responses={
-            200: OpenApiTypes.OBJECT,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Profile verified successfully",
+                schema=VerificationStatusSerializer
+            ),
+            400: openapi.Response(description="Validation error"),
+            401: openapi.Response(description="Unauthorized"),
+            403: openapi.Response(description="Permission denied"),
+            404: openapi.Response(description="Profile not found"),
         }
     )
     def post(self, request, profile_id):
@@ -262,14 +600,17 @@ class VerificationView(APIView):
 class VerificationAuditLogView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['verification'],
         summary="Get verification audit logs",
         description="Get the audit logs for profile verifications.",
         responses={
-            200: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
-            403: OpenApiTypes.OBJECT,
+            200: openapi.Response(
+                description="Audit logs retrieved successfully",
+                schema=VerificationAuditLogSerializer(many=True)
+            ),
+            401: openapi.Response(description="Unauthorized"),
+            403: openapi.Response(description="Permission denied"),
         }
     )
     def get(self, request, profile_id):
