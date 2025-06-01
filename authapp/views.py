@@ -86,9 +86,9 @@ class RegisterView(APIView):
         
         return Response({
             'id': user.id,
-            'username': getattr(user, 'username', None),
+            'username': user.username,
             'name': user.name,
-            'phone_number': getattr(user, 'phone_number', None),
+            'phone_number': user.phone_number,
             'email': user.email.lower(),
             'access': str(refresh.access_token),
             'refresh': str(refresh)

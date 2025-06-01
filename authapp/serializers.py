@@ -16,11 +16,13 @@ class UserSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = User
-        fields = ['id', 'email', 'name', 'password']
+        fields = ['id', 'username', 'name', 'phone_number', 'email', 'password']
         extra_kwargs = {
-            'password': {'write_only': True},
-            'name': {'min_length': 2, 'max_length': 255},
-            'email': {'required': True}
+            'username': {'required': True},
+            'name': {'required': True, 'min_length': 2, 'max_length': 255},
+            'phone_number': {'required': True},
+            'email': {'required': True},
+            'password': {'write_only': True, 'required': True},
         }
 
     def to_internal_value(self, data):
