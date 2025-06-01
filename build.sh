@@ -77,6 +77,8 @@ if ! python manage.py migrate --noinput; then
     exit 1
 fi
 
+python manage.py createsuperuser_if_not_exists
+
 # Verify migrations after running them
 echo "Migration status after running migrations:"
 python manage.py showmigrations --list
