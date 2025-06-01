@@ -173,7 +173,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailBackend',  # Custom email backend
-    'django.contrib.auth.backends.ModelBackend',  # Fallback
 ]
 
 # Session settings
