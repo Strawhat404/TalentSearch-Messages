@@ -236,5 +236,4 @@ if 'test' in sys.argv:
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailBackend',
-    'django.contrib.auth.backends.ModelBackend',
 ]

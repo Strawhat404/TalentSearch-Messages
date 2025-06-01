@@ -64,8 +64,10 @@ class RegisterView(APIView):
         responses={
             201: openapi.Response(description="Success", schema=openapi.Schema(type=openapi.TYPE_OBJECT, properties={
                 'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
-                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
+                'username': openapi.Schema(type=openapi.TYPE_STRING, example='JohnDoe'),
                 'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                'phone_number': openapi.Schema(type=openapi.TYPE_STRING, example='1234567890'),
+                'email': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_EMAIL, example='user@example.com'),
                 'access': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
                 'refresh': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...')
             })),
@@ -84,8 +86,10 @@ class RegisterView(APIView):
         
         return Response({
             'id': user.id,
-            'email': user.email.lower(),
+            'username': getattr(user, 'username', None),
             'name': user.name,
+            'phone_number': getattr(user, 'phone_number', None),
+            'email': user.email.lower(),
             'access': str(refresh.access_token),
             'refresh': str(refresh)
         }, status=status.HTTP_201_CREATED)

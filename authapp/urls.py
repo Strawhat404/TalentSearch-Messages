@@ -12,7 +12,7 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     # Core Authentication
     path('register/', RegisterView.as_view(), name='register'),
-    path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('login/', CustomTokenObtainPairView.as_view(), name='login'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
     path('admin/login/', AdminLoginView.as_view(), name='admin-login'),
