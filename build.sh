@@ -72,12 +72,11 @@ if ! python manage.py migrate authapp --noinput; then
     exit 1
 fi
 
-if ! python manage.py migrate --noinput; then
+if ! python manage.py migrate --fake-initial; then
     echo "Error: General migrations failed"
     exit 1
 fi
 
-python manage.py createsuperuser_if_not_exists
 
 # Verify migrations after running them
 echo "Migration status after running migrations:"
