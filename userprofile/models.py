@@ -221,7 +221,9 @@ class PhysicalAttributes(models.Model):
     weight = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
-        help_text="Weight in kilograms (required)",
+        help_text="Weight in kilograms",
+        null=True,
+        blank=True,
         validators=[
             MinValueValidator(30, message="Weight must be at least 30 kg"),
             MaxValueValidator(500, message="Weight cannot exceed 500 kg")
@@ -230,7 +232,9 @@ class PhysicalAttributes(models.Model):
     height = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
-        help_text="Height in centimeters (required)",
+        help_text="Height in centimeters",
+        null=True,
+        blank=True,
         validators=[
             MinValueValidator(100, message="Height must be at least 100 cm"),
             MaxValueValidator(300, message="Height cannot exceed 300 cm")

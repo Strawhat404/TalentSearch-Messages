@@ -24,6 +24,7 @@ class UserSerializer(serializers.ModelSerializer):
             'email': {'required': True},
             'password': {'write_only': True, 'required': True},
         }
+        read_only_fields = ['id']
 
     def to_internal_value(self, data):
         # Check for admin privilege fields in the raw input
