@@ -62,9 +62,9 @@ class Profile(models.Model):
         # Existing validations
         if self.birthdate:
             if self.birthdate > date.today():
-            raise ValidationError({
-                'birthdate': 'Birthdate cannot be in the future.'
-            })
+                raise ValidationError({
+                    'birthdate': 'Birthdate cannot be in the future.'
+                })
             # Calculate age
             age = (date.today() - self.birthdate).days // 365
             if age < 18:
@@ -74,7 +74,7 @@ class Profile(models.Model):
             if age > 100:
                 raise ValidationError({
                     'birthdate': 'Age cannot exceed 100 years.'
-            })
+                })
 
     def save(self, *args, **kwargs):
         if not self.birthdate:
@@ -318,27 +318,22 @@ class ProfessionalQualifications(models.Model):
     available_start_date = models.DateField(null=True, blank=True)
     preferred_company_size = models.CharField(
         max_length=50,
-        choices=get_company_size_choices,
         help_text="Preferred company size"
     )
     preferred_industry = models.CharField(
         max_length=50,
-        choices=get_industry_choices,
         help_text="Preferred industry"
     )
     leadership_style = models.CharField(
         max_length=50,
-        choices=get_leadership_style_choices,
         help_text="Leadership style"
     )
     communication_style = models.CharField(
         max_length=50,
-        choices=get_communication_style_choices,
         help_text="Communication style"
     )
     motivation = models.CharField(
         max_length=50,
-        choices=get_motivation_choices,
         help_text="Motivation"
     )
     has_driving_license = models.BooleanField(default=False)
