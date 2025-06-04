@@ -167,8 +167,8 @@ class PersonalInfoForm(forms.ModelForm):
         model = PersonalInfo
         fields = [
             'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-            'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
+            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media',
+            'other_social_media', 'language_proficiency', 'special_skills', 'tools_experience',
             'award_recognitions'
         ]
 

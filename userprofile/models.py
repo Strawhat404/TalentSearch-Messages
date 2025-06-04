@@ -113,12 +113,16 @@ class IdentityVerification(models.Model):
     id_front = models.ImageField(
         upload_to='id_fronts/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Front photo of ID document"
+        help_text="Front photo of ID document",
+        blank=True,
+        null=True
     )
     id_back = models.ImageField(
         upload_to='id_backs/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Back photo of ID document"
+        help_text="Back photo of ID document",
+        blank=True,
+        null=True
     )
     id_verified = models.BooleanField(default=False)
 
@@ -282,6 +286,8 @@ class ProfessionalQualifications(models.Model):
     years_of_experience = models.CharField(
         max_length=50,
         choices=YEARS_CHOICES,
+        blank=True,
+        null=True,
         help_text="Years of experience (required)"
     )
     availability = models.CharField(
@@ -292,6 +298,8 @@ class ProfessionalQualifications(models.Model):
     employment_status = models.CharField(
         max_length=50,
         choices=EMPLOYMENT_STATUS_CHOICES,
+        blank=True,
+        null=True,
         help_text="Employment status (required)"
     )
     preferred_work_location = models.CharField(
@@ -719,10 +727,10 @@ class ContactInfo(models.Model):
 
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
     address = models.CharField(max_length=200, help_text="Address (required)")
-    specific_area = models.CharField(max_length=200, help_text="Specific area (required)")
+    specific_area = models.CharField(max_length=200, help_text="Specific area (required)", blank=True, null=True)
     city = models.CharField(max_length=100, help_text="City (required)")
     region = models.CharField(max_length=50, help_text="Region (required)")
-    country = models.CharField(max_length=2, help_text="Country (required)")
+    country = models.CharField(max_length=2, help_text="Country (required)", default='ET')
     housing_status = models.CharField(
         max_length=50,
         choices=HOUSING_STATUS_CHOICES,
@@ -735,17 +743,15 @@ class ContactInfo(models.Model):
     )
     emergency_contact = models.CharField(
         max_length=100,
-        help_text="Emergency contact name (required)"
+        help_text="Emergency contact name (required)",
+        blank=True,
+        null=True
     )
     emergency_phone = models.CharField(
-        max_length=17,
-        help_text="Emergency contact phone number starting with +251 followed by 9 digits (required)",
-        validators=[
-            RegexValidator(
-                regex=r'^\+251\d{9}$',
-                message="Phone number must start with +251 followed by exactly 9 digits."
-            )
-        ]
+        max_length=20,
+        help_text="Emergency contact phone number (required)",
+        blank=True,
+        null=True
     )
 
     def clean(self):
@@ -781,22 +787,12 @@ class ContactInfo(models.Model):
     def save(self, *args, **kwargs):
         if not self.address:
             raise ValidationError("Address is required.")
-        if not self.specific_area:
-            raise ValidationError("Specific area is required.")
-        if not self.city:
-            raise ValidationError("City is required.")
-        if not self.region:
-            raise ValidationError("Region is required.")
-        if not self.country:
-            raise ValidationError("Country is required.")
         if not self.housing_status:
             raise ValidationError("Housing status is required.")
         if not self.residence_duration:
             raise ValidationError("Duration of residence is required.")
-        if not self.emergency_contact:
-            raise ValidationError("Emergency contact name is required.")
-        if not self.emergency_phone:
-            raise ValidationError("Emergency contact phone is required.")
+        if not self.emergency_contact and not self.emergency_phone:
+            raise ValidationError("At least one emergency contact must be provided.")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -944,10 +940,14 @@ class Media(models.Model):
             MinValueValidator(800, message="Image width must be at least 800 pixels"),
             MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
         ],
-        help_text="Professional headshot (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
+        help_text="Professional headshot (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width.",
+        blank=True,
+        null=True
     )
     natural_photo_1 = models.ImageField(
         upload_to='natural_photos/',
+        null=True,
+        blank=True,
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             MinValueValidator(800, message="Image width must be at least 800 pixels"),
@@ -957,10 +957,12 @@ class Media(models.Model):
     )
     natural_photo_2 = models.ImageField(
         upload_to='natural_photos/',
+        null=True,
+        blank=True,
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             MinValueValidator(800, message="Image width must be at least 800 pixels"),
-            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+            MaxValueValidator(2000, message="Image width must not exceed 2000px width")
         ],
         help_text="Second natural photo (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
     )
