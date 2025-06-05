@@ -590,6 +590,11 @@ class ProfessionalQualifications(models.Model):
             return []
 
 class PhysicalAttributes(models.Model):
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='physical_attributes')
     weight = models.DecimalField(
         max_digits=5, 
@@ -605,11 +610,27 @@ class PhysicalAttributes(models.Model):
         blank=True,
         help_text="Height in centimeters (required)"
     )
-    gender = models.CharField(max_length=20, blank=True)
-    hair_color = models.CharField(max_length=50, blank=True)
-    eye_color = models.CharField(max_length=50, blank=True)
-    body_type = models.CharField(max_length=50, blank=True)
-    skin_tone = models.CharField(max_length=50, blank=True)
+    gender = models.CharField(
+        max_length=20,
+        choices=GENDER_CHOICES,
+        help_text="Gender (required)"
+    )
+    hair_color = models.CharField(
+        max_length=50,
+        help_text="Hair color (required)"
+    )
+    eye_color = models.CharField(
+        max_length=50,
+        help_text="Eye color (required)"
+    )
+    body_type = models.CharField(
+        max_length=50,
+        help_text="Body type (required)"
+    )
+    skin_tone = models.CharField(
+        max_length=50,
+        help_text="Skin tone (required)"
+    )
     facial_hair = models.CharField(max_length=50, blank=True)
     tattoos_visible = models.BooleanField(default=False)
     piercings_visible = models.BooleanField(default=False)
@@ -649,12 +670,36 @@ class PhysicalAttributes(models.Model):
             raise ValidationError("Weight is required.")
         if self.height is None:
             raise ValidationError("Height is required.")
+        if not self.gender:
+            raise ValidationError("Gender is required.")
+        if not self.hair_color:
+            raise ValidationError("Hair color is required.")
+        if not self.eye_color:
+            raise ValidationError("Eye color is required.")
+        if not self.body_type:
+            raise ValidationError("Body type is required.")
+        if not self.skin_tone:
+            raise ValidationError("Skin tone is required.")
         super().save(*args, **kwargs)
 
 class MedicalInfo(models.Model):
+    MEDICINE_TYPE_CHOICES = [
+        ('none', 'None'),
+        ('prescription', 'Prescription'),
+        ('over_the_counter', 'Over-the-counter'),
+        ('supplements', 'Supplements'),
+        ('other', 'Other')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='medical_info')
-    health_conditions = models.JSONField(default=list)
-    medications = models.JSONField(default=list)
+    health_conditions = models.JSONField(
+        default=list,
+        help_text="List of health conditions (required)"
+    )
+    medications = models.JSONField(
+        default=list,
+        help_text="List of medications (required)"
+    )
     disability_status = models.CharField(max_length=50, blank=True)
     disability_type = models.CharField(max_length=50, blank=True, default="None")
 
@@ -664,6 +709,13 @@ class MedicalInfo(models.Model):
             self.disability_status = sanitize_string(self.disability_status)
         if self.disability_type:
             self.disability_type = sanitize_string(self.disability_type)
+
+    def save(self, *args, **kwargs):
+        if not self.health_conditions:
+            raise ValidationError("At least one health condition is required.")
+        if not self.medications:
+            raise ValidationError("At least one medication type is required.")
+        super().save(*args, **kwargs)
 
 class Education(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='education')
@@ -811,12 +863,28 @@ class PersonalInfo(models.Model):
         ('other', 'Other')
     ]
 
+    MARITAL_STATUS_CHOICES = [
+        ('single', 'Single'),
+        ('married', 'Married'),
+        ('divorced', 'Divorced'),
+        ('widowed', 'Widowed'),
+        ('other', 'Other'),
+        ('none', 'None')
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
-    marital_status = models.CharField(max_length=50, blank=True)
+    marital_status = models.CharField(
+        max_length=50,
+        choices=MARITAL_STATUS_CHOICES,
+        help_text="Marital status (required)"
+    )
     ethnicity = models.CharField(max_length=50, blank=True)
     personality_type = models.CharField(max_length=50, blank=True)
     work_preference = models.CharField(max_length=50, blank=True)
-    hobbies = models.JSONField(default=list)
+    hobbies = models.JSONField(
+        default=list,
+        help_text="List of hobbies (required)"
+    )
     custom_hobby = models.CharField(
         max_length=100,
         null=True,
@@ -833,7 +901,10 @@ class PersonalInfo(models.Model):
         default=list,
         help_text="List of other social media platforms not in the predefined list"
     )
-    language_proficiency = models.JSONField(default=list)
+    language_proficiency = models.JSONField(
+        default=list,
+        help_text="List of languages and proficiency levels (required)"
+    )
     special_skills = models.JSONField(default=list)
     tools_experience = models.JSONField(default=list)
     award_recognitions = models.JSONField(default=list)
@@ -874,55 +945,16 @@ class PersonalInfo(models.Model):
                 'social_media': 'At least one social media account is required.'
             })
 
-        # Validate social media structure
-        for platform in self.social_media:
-            if not isinstance(platform, dict):
-                raise ValidationError({
-                    'social_media': 'Invalid social media data structure.'
-                })
-            
-            required_fields = ['platform', 'username', 'followers']
-            for field in required_fields:
-                if field not in platform:
-                    raise ValidationError({
-                        'social_media': f'Missing required field: {field}'
-                    })
-            
-            if platform['platform'] not in [choice[0] for choice in self.SOCIAL_MEDIA_CHOICES]:
-                raise ValidationError({
-                    'social_media': f'Invalid platform: {platform["platform"]}'
-                })
-            
-            if not isinstance(platform['followers'], (int, str)) or not str(platform['followers']).isdigit():
-                raise ValidationError({
-                    'social_media': 'Followers must be a number'
-                })
-
-        # Validate other social media structure
-        for platform in self.other_social_media:
-            if not isinstance(platform, dict):
-                raise ValidationError({
-                    'other_social_media': 'Invalid social media data structure.'
-                })
-            
-            required_fields = ['platform_name', 'username', 'followers']
-            for field in required_fields:
-                if field not in platform:
-                    raise ValidationError({
-                        'other_social_media': f'Missing required field: {field}'
-                    })
-            
-            if not isinstance(platform['followers'], (int, str)) or not str(platform['followers']).isdigit():
-                raise ValidationError({
-                    'other_social_media': 'Followers must be a number'
-                })
-
     def save(self, *args, **kwargs):
         # Ensure at least one social media account exists
         if not self.social_media and not self.other_social_media:
             raise ValidationError("At least one social media account is required.")
         if not self.custom_hobby:
             raise ValidationError("Custom hobby is required.")
+        if not self.marital_status:
+            raise ValidationError("Marital status is required.")
+        if not self.language_proficiency:
+            raise ValidationError("At least one language proficiency is required.")
         super().save(*args, **kwargs)
 
 class Media(models.Model):
