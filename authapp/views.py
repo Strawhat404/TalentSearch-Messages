@@ -35,13 +35,15 @@ from .serializers import (
     ForgotPasswordOTPSerializer, ResetPasswordOTPSerializer
 )
 from .utils import password_reset_token_generator, BruteForceProtection
-from .models import Notification, SecurityLog, PasswordResetToken
+from .models import Notification, SecurityLog, PasswordResetToken, PasswordResetOTP
 from talentsearch.throttles import AuthRateThrottle
 from django.contrib.auth import get_user_model
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.contrib.auth.tokens import default_token_generator
 import time_machine
+import random
+import re
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -230,7 +232,28 @@ class ForgotPasswordView(APIView):
     )
     def post(self, request):
         email = request.data.get("email")
-        # your logic here
+        if not email:
+            return Response({"error": "Email is required"}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "User with this email does not exist"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Generate 6-digit OTP
+        otp = f"{random.randint(100000, 999999)}"
+
+        # Save OTP to DB
+        PasswordResetOTP.objects.create(user=user, otp=otp)
+
+        # Send OTP via email
+        send_mail(
+            "Your Password Reset Code",
+            f"Your OTP code is: {otp}",
+            settings.DEFAULT_FROM_EMAIL,
+            [user.email],
+            fail_silently=False,
+        )
+
         return Response({"message": "OTP sent to your email."}, status=status.HTTP_200_OK)
 
 class ResetPasswordView(APIView):
@@ -268,7 +291,44 @@ class ResetPasswordView(APIView):
         }
     )
     def post(self, request):
-        # ... your OTP validation and password reset logic here ...
+        email = request.data.get("email")
+        otp = request.data.get("otp")
+        new_password = request.data.get("new_password")
+
+        if not all([email, otp, new_password]):
+            return Response({"error": "All fields are required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Password strength check
+        if not is_strong_password(new_password):
+            return Response({
+                "error": "Password must be at least 8 characters and include uppercase, lowercase, number, and special character."
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"error": "Invalid email or OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Find unused, recent OTP
+        otp_obj = PasswordResetOTP.objects.filter(
+            user=user, otp=otp, is_used=False
+        ).order_by('-created_at').first()
+
+        if not otp_obj:
+            return Response({"error": "Invalid or expired OTP"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Optionally: Check if OTP is expired (e.g., valid for 10 minutes)
+        if (timezone.now() - otp_obj.created_at).total_seconds() > 600:
+            return Response({"error": "OTP expired"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Mark OTP as used
+        otp_obj.is_used = True
+        otp_obj.save()
+
+        # Set new password
+        user.set_password(new_password)
+        user.save()
+
         return Response({"message": "Password reset successful."}, status=status.HTTP_200_OK)
 
 class NotificationListView(generics.ListCreateAPIView):
@@ -324,7 +384,7 @@ class TokenAuthenticationMiddleware:
                 jti = token_obj['jti']
                 if BlacklistedToken.objects.filter(token__jti=jti).exists():
                     print('DEBUG: Token is blacklisted', file=sys.stderr)
-                    return JsonResponse({'error': 'Token is invalid'}, status=status.HTTP_401_UNAUTHORIZED)
+                    return JsonResponse({'error': 'Token is invalid or blacklisted'}, status=status.HTTP_401_UNAUTHORIZED)
                 try:
                     # Accessing 'exp' will raise if expired
                     _ = token_obj['exp']
@@ -461,6 +521,14 @@ class LogoutView(APIView):
     throttle_classes = [UserRateThrottle]
 
     @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['refresh'],
+            properties={
+                'refresh': openapi.Schema(type=openapi.TYPE_STRING, description='Refresh token to blacklist'),
+                'access': openapi.Schema(type=openapi.TYPE_STRING, description='Access token to blacklist (optional)')
+            }
+        ),
         responses={
             200: openapi.Response(
                 description="Success",
@@ -468,6 +536,15 @@ class LogoutView(APIView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         'message': openapi.Schema(type=openapi.TYPE_STRING, example='Successfully logged out')
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Refresh token is required')
                     }
                 )
             ),
@@ -483,31 +560,52 @@ class LogoutView(APIView):
         }
     )
     def post(self, request):
-        try:
-            refresh_token = request.data.get('refresh')
-            if not refresh_token:
-                return Response(
-                    {'error': 'Refresh token is required'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-            
-            # Log the logout
-            SecurityLog.objects.create(
-                user=request.user,
-                event_type='logout',
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT')
-            )
-            
-            return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
-        except Exception as e:
+        from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
+        from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
+
+        refresh_token = request.data.get('refresh')
+        access_token = request.data.get('access')
+
+        if not refresh_token:
             return Response(
-                {'error': str(e)},
+                {'error': 'Refresh token is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
+
+        # Blacklist refresh token
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception:
+            return Response(
+                {'error': 'Invalid refresh token'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Optionally blacklist access token if provided
+        if access_token:
+            try:
+                access = AccessToken(access_token)
+                jti = access['jti']
+                outstanding = OutstandingToken.objects.filter(jti=jti).first()
+                if outstanding:
+                    BlacklistedToken.objects.get_or_create(token=outstanding)
+            except Exception:
+                pass  # Ignore access token errors, since refresh is the main one
+
+        # Clear session if exists
+        if hasattr(request, 'session'):
+            request.session.flush()
+
+        # Log the logout
+        SecurityLog.objects.create(
+            user=request.user,
+            event_type='logout',
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT')
+        )
+
+        return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
 
 class RotateAPIKeyView(APIView):
     """
@@ -904,3 +1002,13 @@ class PasswordResetConfirmView(APIView):
             return Response({
                 "error": "An error occurred. Please try again."
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def is_strong_password(password):
+    # At least 8 characters, one uppercase, one lowercase, one digit, one special char
+    if (len(password) < 8 or
+        not re.search(r'[A-Z]', password) or
+        not re.search(r'[a-z]', password) or
+        not re.search(r'\d', password) or
+        not re.search(r'[^\w\s]', password)):
+        return False
+    return True
