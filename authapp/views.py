@@ -111,7 +111,8 @@ class LoginView(APIView):
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
-                        'token': openapi.Schema(type=openapi.TYPE_STRING, example='tokenstring'),
+                        'access': openapi.Schema(type=openapi.TYPE_STRING, example='jwt_access_token'),
+                        'refresh': openapi.Schema(type=openapi.TYPE_STRING, example='jwt_refresh_token'),
                         'user': openapi.Schema(
                             type=openapi.TYPE_OBJECT,
                             properties={
@@ -162,9 +163,14 @@ class LoginView(APIView):
         if user is not None:
             if not user.is_active:
                 return Response({"error": "Account is inactive."}, status=status.HTTP_401_UNAUTHORIZED)
-            token, created = Token.objects.get_or_create(user=user)
+            
+            # Generate JWT tokens
+            refresh = RefreshToken.for_user(user)
+            access = refresh.access_token
+            
             return Response({
-                'token': token.key,
+                'access': str(access),
+                'refresh': str(refresh),
                 'user': {
                     'id': user.id,
                     'email': user.email.lower(),
