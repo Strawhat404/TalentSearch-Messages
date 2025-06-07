@@ -96,10 +96,7 @@ class ActorCategorySerializer(serializers.Serializer):
     description = serializers.CharField()
 
 class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
-    actor_category = serializers.ChoiceField(
-        choices=ProfessionalQualifications.ACTOR_CATEGORY_CHOICES,
-        required=False
-    )
+    actor_category = serializers.CharField(required=False)
     actor_category_details = serializers.SerializerMethodField()
     model_categories = serializers.ListField(
         child=serializers.CharField(),
