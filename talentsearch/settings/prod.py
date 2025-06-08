@@ -9,6 +9,7 @@ import os
 import logging
 from django.conf import settings
 from datetime import timedelta
+from .storage import WhiteNoiseMediaStorage
 
 # Print ALLOWED_HOSTS for debugging
 try:
@@ -39,7 +40,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
-WHITENOISE_ROOT = STATIC_ROOT
+WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
 WHITENOISE_INDEX_FILE = True
 
 # Cache configuration with fallback
@@ -187,3 +188,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",
     "http://localhost:5175",
 ]
+
+# Add these settings after the WhiteNoise configuration
+DEFAULT_FILE_STORAGE = 'talentsearch.storage.WhiteNoiseMediaStorage'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
