@@ -9,7 +9,7 @@ import os
 import logging
 from django.conf import settings
 from datetime import timedelta
-from .storage import WhiteNoiseMediaStorage
+from talentsearch.storage import WhiteNoiseMediaStorage
 
 # Print ALLOWED_HOSTS for debugging
 try:
