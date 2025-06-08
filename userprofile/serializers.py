@@ -124,7 +124,7 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfessionalQualifications
         fields = [
-            'experience_level', 'skills', 'skills_details', 'work_authorization', 'industry_experience',
+            'experience_level', 'skills', 'skills_details', 'work_authorization',
             'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
             'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
             'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
@@ -148,13 +148,6 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
         return value
 
     def validate_work_authorization(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_industry_experience(self, value):
         if value:
             value = sanitize_string(value)
             if not value.strip():
@@ -579,9 +572,9 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
         model = PersonalInfo
         fields = [
             'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-            'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-            'award_recognitions'
+            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media',
+            'other_social_media', 'language_proficiency', 'special_skills', 'tools_experience',
+            'award_recognitions', 'custom_hobby'
         ]
 
     def validate_marital_status(self, value):
@@ -626,17 +619,29 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
                 return ""
         return value
 
-    def validate_social_media_links(self, value):
-        sanitized_value = {}
-        for platform, url in value.items():
-            if url:
-                sanitized_url = sanitize_string(url)
-                if not (sanitized_url.startswith('http://') or sanitized_url.startswith('https://')):
-                    raise serializers.ValidationError({platform: "Invalid URL. Must start with http:// or https://"})
-                sanitized_value[platform] = sanitized_url
-            else:
-                sanitized_value[platform] = url
-        return sanitized_value
+    def validate_social_media(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Social media must be a list of accounts.")
+        for account in value:
+            if not isinstance(account, dict):
+                raise serializers.ValidationError("Each social media account must be a dictionary.")
+            if 'platform' not in account or 'username' not in account:
+                raise serializers.ValidationError("Each social media account must have 'platform' and 'username' fields.")
+            if 'followers' not in account:
+                account['followers'] = 0
+        return value
+
+    def validate_other_social_media(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Other social media must be a list of accounts.")
+        for account in value:
+            if not isinstance(account, dict):
+                raise serializers.ValidationError("Each social media account must be a dictionary.")
+            if 'platform' not in account or 'username' not in account:
+                raise serializers.ValidationError("Each social media account must have 'platform' and 'username' fields.")
+            if 'followers' not in account:
+                account['followers'] = 0
+        return value
 
 class MediaSerializer(serializers.ModelSerializer):
     class Meta:

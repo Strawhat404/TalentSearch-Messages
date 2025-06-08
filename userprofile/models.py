@@ -198,6 +198,20 @@ class ProfessionalQualifications(models.Model):
         default=list,
         help_text="Selected influencer categories"
     )
+    min_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Minimum expected salary"
+    )
+    max_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Maximum expected salary"
+    )
     skills = models.JSONField(
         default=list,
         help_text="Selected skills"
