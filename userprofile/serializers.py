@@ -519,9 +519,11 @@ class ContactInfoSerializer(serializers.ModelSerializer):
 
         if region and city:
             try:
-                location_data = LocationData.objects.get(region_id=region)
-                valid_cities = {city['id']: city['name'] for city in location_data.cities}
-                if city not in valid_cities:
+                # Case-insensitive region lookup
+                location_data = LocationData.objects.get(region_id__iexact=region)
+                # Case-insensitive city validation
+                valid_cities = {city['id'].lower(): city['name'] for city in location_data.cities}
+                if city.lower() not in valid_cities:
                     raise serializers.ValidationError({
                         'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities.values())}'
                     })
@@ -534,8 +536,8 @@ class ContactInfoSerializer(serializers.ModelSerializer):
             try:
                 with open(os.path.join(settings.BASE_DIR, 'data', 'countries.json'), 'r') as f:
                     countries_data = json.load(f)
-                    valid_countries = {country['id']: country['name'] for country in countries_data['countries']}
-                    if country not in valid_countries:
+                    valid_countries = {country['id'].lower(): country['name'] for country in countries_data['countries']}
+                    if country.lower() not in valid_countries:
                         raise serializers.ValidationError({
                             'country': f'Invalid country selected. Please choose from: {", ".join(valid_countries.values())}'
                         })
