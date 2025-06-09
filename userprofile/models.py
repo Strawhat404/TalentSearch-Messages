@@ -563,35 +563,35 @@ class ContactInfo(models.Model):
     )
 
     def clean(self):
-        # Validate city based on selected region
-        if self.region and self.city:
-            region_choices = RegionChoices.objects.first()
-            if region_choices:
-                region = next((r for r in region_choices.choices if r['code'] == self.region), None)
-                if region:
-                    valid_cities = [city['code'] for city in region['cities']]
-                if self.city not in valid_cities:
+        # Validate region first
+        if self.region:
+            # Case-insensitive region lookup
+            location_data = LocationData.objects.filter(region_id__iexact=self.region).first()
+            if not location_data:
+                raise ValidationError({'region': 'Invalid region selected.'})
+            
+            # If region is valid, validate city
+            if self.city:
+                # Case-insensitive city validation
+                valid_cities = [city['id'].lower() for city in location_data.cities]
+                if self.city.lower() not in valid_cities:
                     raise ValidationError({
-                            'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities)}'
+                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities)}'
                     })
-                else:
-                    raise ValidationError({'region': 'Invalid region selected.'})
 
         # Validate housing status
         housing_status_choices = HousingStatusChoices.objects.first()
         if housing_status_choices:
-            valid_statuses = [choice['code'] for choice in housing_status_choices.choices]
-            if self.housing_status not in valid_statuses:
+            valid_statuses = [choice['code'].lower() for choice in housing_status_choices.choices]
+            if self.housing_status.lower() not in valid_statuses:
                 raise ValidationError({'housing_status': f'Invalid housing status. Choose from: {", ".join(valid_statuses)}'})
 
         # Validate duration
         duration_choices = DurationChoices.objects.first()
         if duration_choices:
-            valid_durations = [choice['code'] for choice in duration_choices.choices]
-            if self.residence_duration not in valid_durations:
+            valid_durations = [choice['code'].lower() for choice in duration_choices.choices]
+            if self.residence_duration.lower() not in valid_durations:
                 raise ValidationError({'residence_duration': f'Invalid duration. Choose from: {", ".join(valid_durations)}'})
-
-        # Validate country (if you have a countries.json, similar logic can be added)
 
     def save(self, *args, **kwargs):
         if not self.address:
@@ -993,6 +993,19 @@ class LocationData(models.Model):
     class Meta:
         verbose_name = 'Location Data'
         verbose_name_plural = 'Location Data'
+
+class ChoiceData(models.Model):
+    choice_type = models.CharField(max_length=50, unique=True)
+    choices = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.choice_type} Choices"
+
+    class Meta:
+        verbose_name = 'Choice Data'
+        verbose_name_plural = 'Choice Data'
 
 class ProfessionalChoices(models.Model):
     company_sizes = models.JSONField(default=list)
