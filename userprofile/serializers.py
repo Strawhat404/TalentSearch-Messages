@@ -506,7 +506,7 @@ class ContactInfoSerializer(serializers.ModelSerializer):
 
     def get_country_choices(self, obj):
         try:
-            with open(os.path.join(settings.BASE_DIR, 'data', 'countries.json'), 'r') as f:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
                 countries_data = json.load(f)
                 return countries_data['countries']
         except (FileNotFoundError, json.JSONDecodeError):
@@ -534,7 +534,7 @@ class ContactInfoSerializer(serializers.ModelSerializer):
 
         if country:
             try:
-                with open(os.path.join(settings.BASE_DIR, 'data', 'countries.json'), 'r') as f:
+                with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
                     countries_data = json.load(f)
                     valid_countries = {country['id'].lower(): country['name'] for country in countries_data['countries']}
                     if country.lower() not in valid_countries:

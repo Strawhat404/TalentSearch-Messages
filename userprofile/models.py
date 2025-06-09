@@ -18,6 +18,21 @@ User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
+# Choice Constants
+HOUSING_STATUS_CHOICES = [
+    ('owned', 'Owned'),
+    ('rented', 'Rented'),
+    ('living_with_family', 'Living with Family'),
+    ('other', 'Other')
+]
+
+RESIDENCE_DURATION_CHOICES = [
+    ('less_than_1_year', 'Less than 1 year'),
+    ('1_to_3_years', '1 to 3 years'),
+    ('3_to_5_years', '3 to 5 years'),
+    ('more_than_5_years', 'More than 5 years')
+]
+
 # Helper function to sanitize strings (same as in serializers.py)
 def sanitize_string(value):
     if not value:
@@ -536,76 +551,70 @@ class WorkExperience(models.Model):
 
 class ContactInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
-    address = models.CharField(max_length=200, help_text="Address (required)")
-    specific_area = models.CharField(max_length=200, help_text="Specific area (required)", blank=True, null=True)
-    city = models.CharField(max_length=100, help_text="City (required)")
-    region = models.CharField(max_length=50, help_text="Region (required)")
-    country = models.CharField(max_length=2, help_text="Country (required)", default='ET')
-    housing_status = models.CharField(
-        max_length=50,
-        help_text="Housing status (required)"
-    )
-    residence_duration = models.CharField(
-        max_length=50,
-        help_text="Duration of residence (required)"
-    )
-    emergency_contact = models.CharField(
-        max_length=100,
-        help_text="Emergency contact name (required)",
-        blank=True,
-        null=True
-    )
-    emergency_phone = models.CharField(
-        max_length=20,
-        help_text="Emergency contact phone number (required)",
-        blank=True,
-        null=True
-    )
-
-    def clean(self):
-        # Validate region first
-        if self.region:
-            # Case-insensitive region lookup
-            location_data = LocationData.objects.filter(region_id__iexact=self.region).first()
-            if not location_data:
-                raise ValidationError({'region': 'Invalid region selected.'})
-            
-            # If region is valid, validate city
-            if self.city:
-                # Case-insensitive city validation
-                valid_cities = [city['id'].lower() for city in location_data.cities]
-                if self.city.lower() not in valid_cities:
-                    raise ValidationError({
-                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities)}'
-                    })
-
-        # Validate housing status
-        housing_status_choices = HousingStatusChoices.objects.first()
-        if housing_status_choices:
-            valid_statuses = [choice['code'].lower() for choice in housing_status_choices.choices]
-            if self.housing_status.lower() not in valid_statuses:
-                raise ValidationError({'housing_status': f'Invalid housing status. Choose from: {", ".join(valid_statuses)}'})
-
-        # Validate duration
-        duration_choices = DurationChoices.objects.first()
-        if duration_choices:
-            valid_durations = [choice['code'].lower() for choice in duration_choices.choices]
-            if self.residence_duration.lower() not in valid_durations:
-                raise ValidationError({'residence_duration': f'Invalid duration. Choose from: {", ".join(valid_durations)}'})
-
-    def save(self, *args, **kwargs):
-        if not self.address:
-            raise ValidationError("Address is required.")
-        if not self.housing_status:
-            raise ValidationError("Housing status is required.")
-        if not self.residence_duration:
-            raise ValidationError("Duration of residence is required.")
-        if not self.emergency_contact and not self.emergency_phone:
-            raise ValidationError("At least one emergency contact must be provided.")
-        super().save(*args, **kwargs)
+    address = models.CharField(max_length=255)
+    specific_area = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    region = models.CharField(max_length=100)
+    country = models.CharField(max_length=2)
+    housing_status = models.CharField(max_length=50, choices=HOUSING_STATUS_CHOICES)
+    residence_duration = models.CharField(max_length=50, choices=RESIDENCE_DURATION_CHOICES)
+    emergency_contact = models.CharField(max_length=100)
+    emergency_phone = models.CharField(max_length=20)
 
     def __str__(self):
         return f"{self.profile.user.username}'s Contact Info"
+
+    def get_country_choices(self):
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
+                countries_data = json.load(f)
+                return countries_data['countries']
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def clean(self):
+        if self.region and self.city:
+            try:
+                # Case-insensitive region lookup
+                location_data = LocationData.objects.get(region_id__iexact=self.region)
+                # Case-insensitive city validation
+                valid_cities = {city['id'].lower(): city['name'] for city in location_data.cities}
+                if self.city.lower() not in valid_cities:
+                    raise ValidationError({
+                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities.values())}'
+                    })
+            except LocationData.DoesNotExist:
+                raise ValidationError({
+                    'region': 'Invalid region selected.'
+                })
+
+        if self.country:
+            try:
+                with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
+                    countries_data = json.load(f)
+                    valid_countries = {country['id'].lower(): country['name'] for country in countries_data['countries']}
+                    if self.country.lower() not in valid_countries:
+                        raise ValidationError({
+                            'country': f'Invalid country selected. Please choose from: {", ".join(valid_countries.values())}'
+                        })
+            except (FileNotFoundError, json.JSONDecodeError):
+                raise ValidationError({
+                    'country': 'Error validating country. Please try again.'
+                })
+
+        if self.housing_status:
+            valid_statuses = {status[0].lower(): status[1] for status in HOUSING_STATUS_CHOICES}
+            if self.housing_status.lower() not in valid_statuses:
+                raise ValidationError({
+                    'housing_status': f'Invalid housing status. Please choose from: {", ".join(valid_statuses.values())}'
+                })
+
+        if self.residence_duration:
+            valid_durations = {duration[0].lower(): duration[1] for duration in RESIDENCE_DURATION_CHOICES}
+            if self.residence_duration.lower() not in valid_durations:
+                raise ValidationError({
+                    'residence_duration': f'Invalid residence duration. Please choose from: {", ".join(valid_durations.values())}'
+                })
 
 class PersonalInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
@@ -991,8 +1000,8 @@ class LocationData(models.Model):
         return self.region_name
 
     class Meta:
-        verbose_name = 'Location Data'
-        verbose_name_plural = 'Location Data'
+        verbose_name = "Location Data"
+        verbose_name_plural = "Location Data"
 
 class ChoiceData(models.Model):
     choice_type = models.CharField(max_length=50, unique=True)
@@ -1044,14 +1053,6 @@ class HousingStatusChoices(models.Model):
 
     def __str__(self):
         return "Housing Status Choices"
-
-class RegionChoices(models.Model):
-    choices = models.JSONField(default=list)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return "Region Choices"
 
 class DurationChoices(models.Model):
     choices = models.JSONField(default=list)
