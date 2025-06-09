@@ -120,25 +120,12 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
     skills_details = serializers.SerializerMethodField()
     main_skill = serializers.CharField(required=False)
     main_skill_details = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ProfessionalQualifications
-        fields = [
-            'experience_level', 'skills', 'skills_details', 'work_authorization',
-            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
-            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
-            'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
-            'actor_category', 'actor_category_details',
-            'model_categories', 'model_categories_details',
-            'performer_categories', 'performer_categories_details',
-            'influencer_categories', 'influencer_categories_details',
-            'main_skill', 'main_skill_details'
-        ]
-        extra_kwargs = {
-            'travel_willingness': {'required': True}
-        }
+    willingness_to_relocate = serializers.BooleanField(required=False)
+    overtime_availability = serializers.BooleanField(required=False)
+    travel_willingness = serializers.BooleanField(required=False)
+    driving_skills = serializers.BooleanField(required=False)
+    union_membership = serializers.BooleanField(required=False)
+    has_driving_license = serializers.BooleanField(required=False)
 
     def validate_experience_level(self, value):
         if value:
@@ -175,35 +162,7 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
                 return ""
         return value
 
-    def validate_willingness_to_relocate(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_overtime_availability(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_driving_skills(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
     def validate_role_title(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_union_membership(self, value):
         if value:
             value = sanitize_string(value)
             if not value.strip():
@@ -328,6 +287,26 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
                     'main_skill': 'Main skill must be one of the selected skills'
                 })
         return data
+
+    class Meta:
+        model = ProfessionalQualifications
+        fields = [
+            'professions',
+            'experience_level', 'skills', 'skills_details', 'work_authorization',
+            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
+            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
+            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
+            'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
+            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+            'actor_category', 'actor_category_details',
+            'model_categories', 'model_categories_details',
+            'performer_categories', 'performer_categories_details',
+            'influencer_categories', 'influencer_categories_details',
+            'main_skill', 'main_skill_details'
+        ]
+        extra_kwargs = {
+            'travel_willingness': {'required': True}
+        }
 
 class PhysicalAttributesSerializer(serializers.ModelSerializer):
     class Meta:

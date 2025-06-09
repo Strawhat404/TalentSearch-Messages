@@ -507,6 +507,163 @@ class ProfileView(APIView):
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
+    @swagger_auto_schema(
+        tags=['profile'],
+        summary="Update user profile",
+        description="Update the authenticated user's profile.",
+        request_body=ProfileSerializer,
+        responses={
+            200: openapi.Response(
+                description="Profile updated successfully",
+                schema=ProfileSerializer,
+                examples={
+                    'application/json': {
+                        "id": 3,
+                        "name": "mak",
+                        "email": "makdatse@gmail.com",
+                        "birthdate": "2001-05-16",
+                        "profession": "actor",
+                        "nationality": "ethiopian",
+                        "age": 24,
+                        "location": "",
+                        "created_at": "2025-05-27T05:37:38.297856Z",
+                        "availability_status": True,
+                        "verified": False,
+                        "flagged": False,
+                        "status": "",
+                        "identity_verification": {
+                            "id_type": None,
+                            "id_number": None,
+                            "id_expiry_date": None,
+                            "id_front": None,
+                            "id_back": None
+                        },
+                        "professional_qualifications": {
+                            "experience_level": None,
+                            "skills": [],
+                            "work_authorization": None,
+                            "industry_experience": None,
+                            "min_salary": None,
+                            "max_salary": None,
+                            "availability": None,
+                            "preferred_work_location": None,
+                            "shift_preference": None,
+                            "willingness_to_relocate": None,
+                            "overtime_availability": None,
+                            "travel_willingness": None,
+                            "software_proficiency": [],
+                            "typing_speed": None,
+                            "driving_skills": None,
+                            "equipment_experience": [],
+                            "role_title": None,
+                            "portfolio_url": None,
+                            "union_membership": None,
+                            "reference": [],
+                            "available_start_date": None,
+                            "preferred_company_size": None,
+                            "preferred_industry": [],
+                            "leadership_style": None,
+                            "communication_style": None,
+                            "motivation": None,
+                            "has_driving_license": False
+                        },
+                        "physical_attributes": {
+                            "weight": None,
+                            "height": None,
+                            "gender": None,
+                            "hair_color": None,
+                            "eye_color": None,
+                            "body_type": None,
+                            "skin_tone": None,
+                            "facial_hair": None,
+                            "tattoos_visible": False,
+                            "piercings_visible": False,
+                            "physical_condition": None
+                        },
+                        "medical_info": {
+                            "health_conditions": [],
+                            "medications": [],
+                            "disability_status": None,
+                            "disability_type": None
+                        },
+                        "education": {
+                            "education_level": None,
+                            "degree_type": None,
+                            "field_of_study": None,
+                            "graduation_year": None,
+                            "gpa": None,
+                            "institution_name": None,
+                            "scholarships": [],
+                            "academic_achievements": [],
+                            "certifications": [],
+                            "online_courses": []
+                        },
+                        "work_experience": {
+                            "years_of_experience": None,
+                            "employment_status": None,
+                            "previous_employers": [],
+                            "projects": [],
+                            "training": [],
+                            "internship_experience": None
+                        },
+                        "contact_info": {
+                            "address": None,
+                            "city": None,
+                            "region": None,
+                            "postal_code": None,
+                            "residence_type": None,
+                            "residence_duration": None,
+                            "housing_status": None,
+                            "emergency_contact": None,
+                            "emergency_phone": None
+                        },
+                        "personal_info": {
+                            "marital_status": None,
+                            "ethnicity": None,
+                            "personality_type": None,
+                            "work_preference": None,
+                            "hobbies": [],
+                            "volunteer_experience": None,
+                            "company_culture_preference": None,
+                            "social_media_links": {},
+                            "social_media_handles": [],
+                            "language_proficiency": [],
+                            "special_skills": [],
+                            "tools_experience": [],
+                            "award_recognitions": []
+                        },
+                        "media": {
+                            "video": None,
+                            "photo": None
+                        }
+                    }
+                }
+            ),
+            400: openapi.Response(description="Validation error"),
+            401: openapi.Response(description="Unauthorized"),
+            404: openapi.Response(description="Profile not found"),
+        }
+    )
+    def patch(self, request):
+        try:
+            profile = Profile.objects.get(user=request.user)
+            serializer = ProfileSerializer(profile, data=request.data, partial=True)
+            if serializer.is_valid():
+                updated_profile = serializer.save()
+                response_data = {
+                    "id": updated_profile.id,
+                    "message": "Profile updated successfully."
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        except Profile.DoesNotExist:
+            return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response(
+                {"message": f"An error occurred while updating the profile: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 class VerificationView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
