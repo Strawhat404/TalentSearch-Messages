@@ -11,7 +11,7 @@ from django.conf import settings
 from datetime import timedelta
 from django.core.files.storage import default_storage
 
-print("=== USING PROD SETTINGS ===")
+print(">>> DJANGO_SETTINGS_MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
 
 # Print ALLOWED_HOSTS for debugging
 try:
