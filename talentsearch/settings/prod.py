@@ -11,6 +11,8 @@ from django.conf import settings
 from datetime import timedelta
 from django.core.files.storage import default_storage
 
+print("=== USING PROD SETTINGS ===")
+
 # Print ALLOWED_HOSTS for debugging
 try:
     print(">>> ALLOWED_HOSTS (before):", repr(ALLOWED_HOSTS))
@@ -30,9 +32,9 @@ ALLOWED_HOSTS = [
 # Cloudinary settings
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dui2bk6ey',
-    'API_KEY': '761469258968664',
-    'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
+    'CLOUD_NAME': os.environ.get('CLOUD_NAME'),
+    'API_KEY': os.environ.get('API_KEY'),
+    'API_SECRET': os.environ.get('API_SECRET'),
 }
 
 
