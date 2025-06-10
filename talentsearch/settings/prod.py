@@ -9,7 +9,6 @@ import os
 import logging
 from django.conf import settings
 from datetime import timedelta
-from talentsearch.storage import WhiteNoiseMediaStorage
 
 # Print ALLOWED_HOSTS for debugging
 try:
@@ -188,9 +187,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5174",
     "http://localhost:5175",
 ]
-
-# Add these settings after the WhiteNoise configuration
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 # Cloudinary settings
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'

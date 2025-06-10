@@ -241,10 +241,10 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Cloudinary settings
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dui2bk6ey',
-    'API_KEY': '761469258968664',
-    'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
-}
+# CLOUDINARY_STORAGE = {
+#     'CLOUD_NAME': 'dui2bk6ey',
+#     'API_KEY': '761469258968664',
+#     'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
+# }
