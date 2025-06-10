@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'rest_framework_simplejwt.token_blacklist',
+    'cloudinary',
+    'cloudinary_storage',
 
     # Custom apps
     'authapp',
@@ -237,3 +239,12 @@ if 'test' in sys.argv:
 AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailBackend',
 ]
+
+# Cloudinary settings
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dui2bk6ey',
+    'API_KEY': 'your_api_key',
+    'API_SECRET': 'your_api_secret',
+}
