@@ -9,6 +9,7 @@ import os
 import logging
 from django.conf import settings
 from datetime import timedelta
+from django.core.files.storage import default_storage
 
 # Print ALLOWED_HOSTS for debugging
 try:
@@ -25,6 +26,15 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     '.onrender.com',  # This allows all subdomains of onrender.com
 ]
+
+# Cloudinary settings
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dui2bk6ey',
+    'API_KEY': '761469258968664',
+    'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
+}
+
 
 # Get SECRET_KEY from environment or generate a new one
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
@@ -188,11 +198,6 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5175",
 ]
 
-# Cloudinary settings
-DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+logger = logging.getLogger("django")
+logger.warning(f"DJANGO STORAGE BACKEND: {default_storage.__class__}")
 
-CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': 'dui2bk6ey',
-    'API_KEY': '761469258968664',
-    'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
-}
