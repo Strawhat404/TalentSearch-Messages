@@ -111,7 +111,6 @@ set -e
 echo "Activating virtual environment..."
 source /opt/render/project/src/.venv/bin/activate
 echo "Starting daphne (from venv) ..."
-exec /opt/render/project/src/.venv/bin/daphne talentsearch.asgi:application --host 0.0.0.0 --port 10000 --workers 4
 EOF
 
 # Make start.sh executable
