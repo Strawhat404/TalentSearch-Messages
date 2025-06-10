@@ -20,7 +20,7 @@ except Exception as e:
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'talentsearch-messages-uokp.onrender.com',
+    'talentsearch-messages-1.onrender.com',
     'localhost',
     '127.0.0.1',
     '.onrender.com',  # This allows all subdomains of onrender.com

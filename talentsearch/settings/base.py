@@ -28,6 +28,7 @@ SECRET_KEY = env("SECRET_KEY", default="django-insecure-key-for-development-only
 DEBUG = env("DEBUG", default=False)
 ALLOWED_HOSTS = [
     'talentsearch-messages-uokp.onrender.com',
+    'https://talentsearch-messages-1.onrender.com',
     'localhost',
     '127.0.0.1',
 ]
@@ -241,10 +242,10 @@ AUTHENTICATION_BACKENDS = [
 ]
 
 # Cloudinary settings
-# DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
-# CLOUDINARY_STORAGE = {
-#     'CLOUD_NAME': 'dui2bk6ey',
-#     'API_KEY': '761469258968664',
-#     'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
-# }
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'dui2bk6ey',
+    'API_KEY': '761469258968664',
+    'API_SECRET': 'KtJL05Ri5Hmqwtbpwt5xjvZ9idQ',
+}
