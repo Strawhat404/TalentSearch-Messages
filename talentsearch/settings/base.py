@@ -27,8 +27,7 @@ if os.path.exists(os.path.join(BASE_DIR, ".env")):
 SECRET_KEY = env("SECRET_KEY", default="django-insecure-key-for-development-only")
 DEBUG = env("DEBUG", default=False)
 ALLOWED_HOSTS = [
-    'talentsearch-messages-uokp.onrender.com',
-    'https://talentsearch-messages-1.onrender.com',
+    'talentsearch-messages-1.onrender.com',
     'localhost',
     '127.0.0.1',
 ]
@@ -146,8 +145,8 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Custom user model
 AUTH_USER_MODEL = 'authapp.User'
