@@ -120,3 +120,5 @@ chmod +x /opt/render/project/src/start.sh
 # Debug: verify start.sh exists and is executable
 echo "Verifying start.sh (wrapper script) ..."
 ls -l /opt/render/project/src/start.sh
+
+gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT
