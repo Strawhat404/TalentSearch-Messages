@@ -1,0 +1,37 @@
+{
+    "regions": [
+        {
+            "code": "north",
+            "label": "North",
+            "cities": [
+                {"code": "manila", "label": "Manila"},
+                {"code": "quezon_city", "label": "Quezon City"},
+                {"code": "caloocan", "label": "Caloocan"},
+                {"code": "las_pinas", "label": "Las Piñas"},
+                {"code": "makati", "label": "Makati"},
+                {"code": "malabon", "label": "Malabon"},
+                {"code": "mandaluyong", "label": "Mandaluyong"},
+                {"code": "marikina", "label": "Marikina"},
+                {"code": "muntinlupa", "label": "Muntinlupa"},
+                {"code": "navotas", "label": "Navotas"},
+                {"code": "paranaque", "label": "Parañaque"},
+                {"code": "pasay", "label": "Pasay"},
+                {"code": "pasig", "label": "Pasig"},
+                {"code": "pateros", "label": "Pateros"},
+                {"code": "san_juan", "label": "San Juan"},
+                {"code": "taguig", "label": "Taguig"},
+                {"code": "valenzuela", "label": "Valenzuela"}
+            ]
+        },
+        {
+            "code": "south",
+            "label": "South",
+            "cities": [
+                {"code": "cavite", "label": "Cavite"},
+                {"code": "laguna", "label": "Laguna"},
+                {"code": "batangas", "label": "Batangas"},
+                {"code": "rizal", "label": "Rizal"}
+            ]
+        }
+    ]
+} 
