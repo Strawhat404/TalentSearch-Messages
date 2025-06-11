@@ -17,282 +17,204 @@ class ProfileView(APIView):
     parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     @swagger_auto_schema(
-        tags=['profile'],
-        summary="Get user profile",
-        description="Retrieve the authenticated user's profile.",
-        responses={
-            200: openapi.Response(
-                description="Profile retrieved successfully",
-                schema=ProfileSerializer,
-                examples={
-                    'application/json': {
-                        "id": 3,
-                        "name": "mak",
-                        "email": "makdatse@gmail.com",
-                        "birthdate": "2001-05-16",
-                        "profession": "actor",
-                        "nationality": "ethiopian",
-                        "age": 24,
-                        "location": "",
-                        "created_at": "2025-05-27T05:37:38.297856Z",
-                        "availability_status": True,
-                        "verified": False,
-                        "flagged": False,
-                        "status": "",
-                        "identity_verification": {
-                            "id_type": None,
-                            "id_number": None,
-                            "id_expiry_date": None,
-                            "id_front": None,
-                            "id_back": None
-                        },
-                        "professional_qualifications": {
-                            "experience_level": None,
-                            "skills": [],
-                            "work_authorization": None,
-                            "industry_experience": None,
-                            "min_salary": None,
-                            "max_salary": None,
-                            "availability": None,
-                            "preferred_work_location": None,
-                            "shift_preference": None,
-                            "willingness_to_relocate": None,
-                            "overtime_availability": None,
-                            "travel_willingness": None,
-                            "software_proficiency": [],
-                            "typing_speed": None,
-                            "driving_skills": None,
-                            "equipment_experience": [],
-                            "role_title": None,
-                            "portfolio_url": None,
-                            "union_membership": None,
-                            "reference": [],
-                            "available_start_date": None,
-                            "preferred_company_size": None,
-                            "preferred_industry": [],
-                            "leadership_style": None,
-                            "communication_style": None,
-                            "motivation": None,
-                            "has_driving_license": False
-                        },
-                        "physical_attributes": {
-                            "weight": None,
-                            "height": None,
-                            "gender": None,
-                            "hair_color": None,
-                            "eye_color": None,
-                            "body_type": None,
-                            "skin_tone": None,
-                            "facial_hair": None,
-                            "tattoos_visible": False,
-                            "piercings_visible": False,
-                            "physical_condition": None
-                        },
-                        "medical_info": {
-                            "health_conditions": [],
-                            "medications": [],
-                            "disability_status": None,
-                            "disability_type": None
-                        },
-                        "education": {
-                            "education_level": None,
-                            "degree_type": None,
-                            "field_of_study": None,
-                            "graduation_year": None,
-                            "gpa": None,
-                            "institution_name": None,
-                            "scholarships": [],
-                            "academic_achievements": [],
-                            "certifications": [],
-                            "online_courses": []
-                        },
-                        "work_experience": {
-                            "years_of_experience": None,
-                            "employment_status": None,
-                            "previous_employers": [],
-                            "projects": [],
-                            "training": [],
-                            "internship_experience": None
-                        },
-                        "contact_info": {
-                            "address": None,
-                            "city": None,
-                            "region": None,
-                            "postal_code": None,
-                            "residence_type": None,
-                            "residence_duration": None,
-                            "housing_status": None,
-                            "emergency_contact": None,
-                            "emergency_phone": None
-                        },
-                        "personal_info": {
-                            "marital_status": None,
-                            "ethnicity": None,
-                            "personality_type": None,
-                            "work_preference": None,
-                            "hobbies": [],
-                            "volunteer_experience": None,
-                            "company_culture_preference": None,
-                            "social_media_links": {},
-                            "social_media_handles": [],
-                            "language_proficiency": [],
-                            "special_skills": [],
-                            "tools_experience": [],
-                            "award_recognitions": []
-                        },
-                        "media": {
-                            "video": None,
-                            "photo": None
-                        }
+        tags=['Profile'],
+        operation_summary="Create Profile",
+        operation_description="Create a new user profile with all required information",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['name', 'birthdate', 'profession', 'nationality', 'location', 'physical_attributes'],
+            properties={
+                'name': openapi.Schema(type=openapi.TYPE_STRING, example="John Doe"),
+                'birthdate': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE, example="1990-01-01"),
+                'profession': openapi.Schema(type=openapi.TYPE_STRING, example="actor"),
+                'nationality': openapi.Schema(type=openapi.TYPE_STRING, example="ethiopian"),
+                'location': openapi.Schema(type=openapi.TYPE_STRING, example="Addis Ababa"),
+                'physical_attributes': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    required=['weight', 'height', 'gender', 'hair_color', 'eye_color', 'body_type', 'skin_tone'],
+                    properties={
+                        'weight': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, minimum=30, example=70.5),
+                        'height': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, minimum=100, example=175.0),
+                        'gender': openapi.Schema(type=openapi.TYPE_STRING, example="male"),
+                        'hair_color': openapi.Schema(type=openapi.TYPE_STRING, example="black"),
+                        'eye_color': openapi.Schema(type=openapi.TYPE_STRING, example="brown"),
+                        'body_type': openapi.Schema(type=openapi.TYPE_STRING, example="athletic"),
+                        'skin_tone': openapi.Schema(type=openapi.TYPE_STRING, example="medium"),
+                        'facial_hair': openapi.Schema(type=openapi.TYPE_STRING, example="clean shaven"),
+                        'tattoos_visible': openapi.Schema(type=openapi.TYPE_BOOLEAN, default=False),
+                        'piercings_visible': openapi.Schema(type=openapi.TYPE_BOOLEAN, default=False),
+                        'physical_condition': openapi.Schema(type=openapi.TYPE_STRING, example="excellent")
                     }
-                }
-            ),
-            404: openapi.Response(description="Profile not found"),
-            401: openapi.Response(description="Unauthorized"),
-        }
-    )
-    def get(self, request):
-        try:
-            profile = Profile.objects.get(user=request.user)
-            serializer = ProfileSerializer(profile)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except Profile.DoesNotExist:
-            return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
-
-    @swagger_auto_schema(
-        tags=['profile'],
-        summary="Create user profile",
-        description="Create a new user profile with required and optional fields.",
-        request_body=ProfileSerializer,
+                ),
+                'education': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'education_level': openapi.Schema(type=openapi.TYPE_STRING, example="bachelor"),
+                        'degree_type': openapi.Schema(type=openapi.TYPE_STRING, example="BA"),
+                        'field_of_study': openapi.Schema(type=openapi.TYPE_STRING, example="Performing Arts"),
+                        'graduation_year': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE, example="2020"),
+                        'gpa': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, example=3.8),
+                        'institution_name': openapi.Schema(type=openapi.TYPE_STRING, example="University of Arts"),
+                        'scholarships': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'academic_achievements': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'certifications': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'online_courses': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING))
+                    }
+                ),
+                'work_experience': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'years_of_experience': openapi.Schema(type=openapi.TYPE_INTEGER, minimum=0, example=5),
+                        'employment_status': openapi.Schema(type=openapi.TYPE_STRING, example="full-time"),
+                        'previous_employers': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'projects': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'training': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'internship_experience': openapi.Schema(type=openapi.TYPE_STRING, example="6 months at XYZ Studio")
+                    }
+                ),
+                'personal_info': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'marital_status': openapi.Schema(type=openapi.TYPE_STRING, example="single"),
+                        'ethnicity': openapi.Schema(type=openapi.TYPE_STRING, example="african"),
+                        'personality_type': openapi.Schema(type=openapi.TYPE_STRING, example="extrovert"),
+                        'work_preference': openapi.Schema(type=openapi.TYPE_STRING, example="flexible"),
+                        'hobbies': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'volunteer_experience': openapi.Schema(type=openapi.TYPE_STRING, example="Community theater"),
+                        'company_culture_preference': openapi.Schema(type=openapi.TYPE_STRING, example="collaborative"),
+                        'social_media': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'other_social_media': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'language_proficiency': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'special_skills': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'tools_experience': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'award_recognitions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING))
+                    }
+                ),
+                'contact_info': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'address': openapi.Schema(type=openapi.TYPE_STRING, example="123 Main St"),
+                        'city': openapi.Schema(type=openapi.TYPE_STRING, example="Addis Ababa"),
+                        'region': openapi.Schema(type=openapi.TYPE_STRING, example="Addis Ababa"),
+                        'postal_code': openapi.Schema(type=openapi.TYPE_STRING, example="1000"),
+                        'residence_type': openapi.Schema(type=openapi.TYPE_STRING, example="apartment"),
+                        'residence_duration': openapi.Schema(type=openapi.TYPE_STRING, example="2 years"),
+                        'housing_status': openapi.Schema(type=openapi.TYPE_STRING, example="renting"),
+                        'emergency_contact': openapi.Schema(type=openapi.TYPE_STRING, example="Jane Doe"),
+                        'emergency_phone': openapi.Schema(type=openapi.TYPE_STRING, example="+251911234567")
+                    }
+                )
+            }
+        ),
         responses={
             201: openapi.Response(
                 description="Profile created successfully",
                 schema=ProfileSerializer,
                 examples={
                     'application/json': {
-                        "id": 3,
-                        "name": "mak",
-                        "email": "makdatse@gmail.com",
-                        "birthdate": "2001-05-16",
+                        "id": 1,
+                        "name": "John Doe",
+                        "email": "john@example.com",
+                        "birthdate": "1990-01-01",
                         "profession": "actor",
                         "nationality": "ethiopian",
-                        "age": 24,
-                        "location": "",
-                        "created_at": "2025-05-27T05:37:38.297856Z",
+                        "age": 34,
+                        "location": "Addis Ababa",
+                        "created_at": "2024-02-20T10:00:00Z",
                         "availability_status": True,
                         "verified": False,
                         "flagged": False,
-                        "status": "",
-                        "identity_verification": {
-                            "id_type": None,
-                            "id_number": None,
-                            "id_expiry_date": None,
-                            "id_front": None,
-                            "id_back": None
-                        },
-                        "professional_qualifications": {
-                            "experience_level": None,
-                            "skills": [],
-                            "work_authorization": None,
-                            "industry_experience": None,
-                            "min_salary": None,
-                            "max_salary": None,
-                            "availability": None,
-                            "preferred_work_location": None,
-                            "shift_preference": None,
-                            "willingness_to_relocate": None,
-                            "overtime_availability": None,
-                            "travel_willingness": None,
-                            "software_proficiency": [],
-                            "typing_speed": None,
-                            "driving_skills": None,
-                            "equipment_experience": [],
-                            "role_title": None,
-                            "portfolio_url": None,
-                            "union_membership": None,
-                            "reference": [],
-                            "available_start_date": None,
-                            "preferred_company_size": None,
-                            "preferred_industry": [],
-                            "leadership_style": None,
-                            "communication_style": None,
-                            "motivation": None,
-                            "has_driving_license": False
-                        },
+                        "status": "active",
                         "physical_attributes": {
-                            "weight": None,
-                            "height": None,
-                            "gender": None,
-                            "hair_color": None,
-                            "eye_color": None,
-                            "body_type": None,
-                            "skin_tone": None,
-                            "facial_hair": None,
+                            "weight": 70.5,
+                            "height": 175.0,
+                            "gender": "male",
+                            "hair_color": "black",
+                            "eye_color": "brown",
+                            "body_type": "athletic",
+                            "skin_tone": "medium",
+                            "facial_hair": "clean shaven",
                             "tattoos_visible": False,
                             "piercings_visible": False,
-                            "physical_condition": None
-                        },
-                        "medical_info": {
-                            "health_conditions": [],
-                            "medications": [],
-                            "disability_status": None,
-                            "disability_type": None
+                            "physical_condition": "excellent"
                         },
                         "education": {
-                            "education_level": None,
-                            "degree_type": None,
-                            "field_of_study": None,
-                            "graduation_year": None,
-                            "gpa": None,
-                            "institution_name": None,
-                            "scholarships": [],
-                            "academic_achievements": [],
-                            "certifications": [],
-                            "online_courses": []
+                            "education_level": "bachelor",
+                            "degree_type": "BA",
+                            "field_of_study": "Performing Arts",
+                            "graduation_year": "2020",
+                            "gpa": 3.8,
+                            "institution_name": "University of Arts",
+                            "scholarships": ["Merit Scholarship"],
+                            "academic_achievements": ["Dean's List"],
+                            "certifications": ["Acting Certification"],
+                            "online_courses": ["Advanced Acting Techniques"]
                         },
                         "work_experience": {
-                            "years_of_experience": None,
-                            "employment_status": None,
-                            "previous_employers": [],
-                            "projects": [],
-                            "training": [],
-                            "internship_experience": None
-                        },
-                        "contact_info": {
-                            "address": None,
-                            "city": None,
-                            "region": None,
-                            "postal_code": None,
-                            "residence_type": None,
-                            "residence_duration": None,
-                            "housing_status": None,
-                            "emergency_contact": None,
-                            "emergency_phone": None
+                            "years_of_experience": 5,
+                            "employment_status": "full-time",
+                            "previous_employers": ["ABC Studios"],
+                            "projects": ["Movie X", "TV Show Y"],
+                            "training": ["Method Acting"],
+                            "internship_experience": "6 months at XYZ Studio"
                         },
                         "personal_info": {
-                            "marital_status": None,
-                            "ethnicity": None,
-                            "personality_type": None,
-                            "work_preference": None,
-                            "hobbies": [],
-                            "volunteer_experience": None,
-                            "company_culture_preference": None,
-                            "social_media_links": {},
-                            "social_media_handles": [],
-                            "language_proficiency": [],
-                            "special_skills": [],
-                            "tools_experience": [],
-                            "award_recognitions": []
+                            "marital_status": "single",
+                            "ethnicity": "african",
+                            "personality_type": "extrovert",
+                            "work_preference": "flexible",
+                            "hobbies": ["dancing", "singing"],
+                            "volunteer_experience": "Community theater",
+                            "company_culture_preference": "collaborative",
+                            "social_media": ["instagram.com/johndoe"],
+                            "other_social_media": [],
+                            "language_proficiency": ["English", "Amharic"],
+                            "special_skills": ["Stage Combat"],
+                            "tools_experience": ["Final Cut Pro"],
+                            "award_recognitions": ["Best Actor 2023"]
                         },
-                        "media": {
-                            "video": None,
-                            "photo": None
+                        "contact_info": {
+                            "address": "123 Main St",
+                            "city": "Addis Ababa",
+                            "region": "Addis Ababa",
+                            "postal_code": "1000",
+                            "residence_type": "apartment",
+                            "residence_duration": "2 years",
+                            "housing_status": "renting",
+                            "emergency_contact": "Jane Doe",
+                            "emergency_phone": "+251911234567"
                         }
                     }
                 }
             ),
-            400: openapi.Response(description="Validation error"),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING),
+                        'details': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            additionalProperties=openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            )
+                        )
+                    }
+                ),
+                examples={
+                    'application/json': {
+                        "error": "Validation Error",
+                        "details": {
+                            "birthdate": ["User must be at least 18 years old"],
+                            "physical_attributes.weight": ["Weight must be at least 30 kg"]
+                        }
+                    }
+                }
+            ),
             401: openapi.Response(description="Unauthorized"),
+            403: openapi.Response(description="Forbidden"),
+            500: openapi.Response(description="Internal Server Error")
         }
     )
     def post(self, request):
@@ -318,21 +240,121 @@ class ProfileView(APIView):
             )
 
     @swagger_auto_schema(
-        tags=['profile'],
-        summary="Update user profile",
-        description="Update an existing user profile with partial data.",
-        request_body=ProfileSerializer,
+        tags=['Profile'],
+        operation_summary="Update Profile",
+        operation_description="Update an existing user profile. All fields are optional for update.",
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'name': openapi.Schema(type=openapi.TYPE_STRING, example="John Doe"),
+                'birthdate': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE, example="1990-01-01"),
+                'profession': openapi.Schema(type=openapi.TYPE_STRING, example="actor"),
+                'nationality': openapi.Schema(type=openapi.TYPE_STRING, example="ethiopian"),
+                'location': openapi.Schema(type=openapi.TYPE_STRING, example="Addis Ababa"),
+                'physical_attributes': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'weight': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, minimum=30, example=70.5),
+                        'height': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, minimum=100, example=175.0),
+                        'gender': openapi.Schema(type=openapi.TYPE_STRING, example="male"),
+                        'hair_color': openapi.Schema(type=openapi.TYPE_STRING, example="black"),
+                        'eye_color': openapi.Schema(type=openapi.TYPE_STRING, example="brown"),
+                        'body_type': openapi.Schema(type=openapi.TYPE_STRING, example="athletic"),
+                        'skin_tone': openapi.Schema(type=openapi.TYPE_STRING, example="medium"),
+                        'facial_hair': openapi.Schema(type=openapi.TYPE_STRING, example="clean shaven"),
+                        'tattoos_visible': openapi.Schema(type=openapi.TYPE_BOOLEAN, default=False),
+                        'piercings_visible': openapi.Schema(type=openapi.TYPE_BOOLEAN, default=False),
+                        'physical_condition': openapi.Schema(type=openapi.TYPE_STRING, example="excellent")
+                    }
+                ),
+                'education': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'education_level': openapi.Schema(type=openapi.TYPE_STRING, example="bachelor"),
+                        'degree_type': openapi.Schema(type=openapi.TYPE_STRING, example="BA"),
+                        'field_of_study': openapi.Schema(type=openapi.TYPE_STRING, example="Performing Arts"),
+                        'graduation_year': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATE, example="2020"),
+                        'gpa': openapi.Schema(type=openapi.TYPE_NUMBER, format=openapi.FORMAT_FLOAT, example=3.8),
+                        'institution_name': openapi.Schema(type=openapi.TYPE_STRING, example="University of Arts"),
+                        'scholarships': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'academic_achievements': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'certifications': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'online_courses': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING))
+                    }
+                ),
+                'work_experience': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'years_of_experience': openapi.Schema(type=openapi.TYPE_INTEGER, minimum=0, example=5),
+                        'employment_status': openapi.Schema(type=openapi.TYPE_STRING, example="full-time"),
+                        'previous_employers': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'projects': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'training': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'internship_experience': openapi.Schema(type=openapi.TYPE_STRING, example="6 months at XYZ Studio")
+                    }
+                ),
+                'personal_info': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'marital_status': openapi.Schema(type=openapi.TYPE_STRING, example="single"),
+                        'ethnicity': openapi.Schema(type=openapi.TYPE_STRING, example="african"),
+                        'personality_type': openapi.Schema(type=openapi.TYPE_STRING, example="extrovert"),
+                        'work_preference': openapi.Schema(type=openapi.TYPE_STRING, example="flexible"),
+                        'hobbies': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'volunteer_experience': openapi.Schema(type=openapi.TYPE_STRING, example="Community theater"),
+                        'company_culture_preference': openapi.Schema(type=openapi.TYPE_STRING, example="collaborative"),
+                        'social_media': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'other_social_media': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'language_proficiency': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'special_skills': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'tools_experience': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING)),
+                        'award_recognitions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING))
+                    }
+                ),
+                'contact_info': openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'address': openapi.Schema(type=openapi.TYPE_STRING, example="123 Main St"),
+                        'city': openapi.Schema(type=openapi.TYPE_STRING, example="Addis Ababa"),
+                        'region': openapi.Schema(type=openapi.TYPE_STRING, example="Addis Ababa"),
+                        'postal_code': openapi.Schema(type=openapi.TYPE_STRING, example="1000"),
+                        'residence_type': openapi.Schema(type=openapi.TYPE_STRING, example="apartment"),
+                        'residence_duration': openapi.Schema(type=openapi.TYPE_STRING, example="2 years"),
+                        'housing_status': openapi.Schema(type=openapi.TYPE_STRING, example="renting"),
+                        'emergency_contact': openapi.Schema(type=openapi.TYPE_STRING, example="Jane Doe"),
+                        'emergency_phone': openapi.Schema(type=openapi.TYPE_STRING, example="+251911234567")
+                    }
+                )
+            }
+        ),
         responses={
             200: openapi.Response(
                 description="Profile updated successfully",
                 schema=ProfileSerializer
             ),
-            400: openapi.Response(description="Validation error"),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING),
+                        'details': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            additionalProperties=openapi.Schema(
+                                type=openapi.TYPE_ARRAY,
+                                items=openapi.Schema(type=openapi.TYPE_STRING)
+                            )
+                        )
+                    }
+                )
+            ),
             401: openapi.Response(description="Unauthorized"),
+            403: openapi.Response(description="Forbidden"),
             404: openapi.Response(description="Profile not found"),
+            500: openapi.Response(description="Internal Server Error")
         }
     )
-    def patch(self, request):
+    def put(self, request):
         try:
             profile = Profile.objects.get(user=request.user)
             # Create a copy of the data to avoid modifying the original
@@ -391,7 +413,29 @@ class ProfileView(APIView):
             )
 
     @swagger_auto_schema(
-        tags=['profile'],
+        tags=['Profile'],
+        operation_summary="Get Profile",
+        operation_description="Retrieve the current user's profile",
+        responses={
+            200: openapi.Response(
+                description="Profile retrieved successfully",
+                schema=ProfileSerializer
+            ),
+            401: openapi.Response(description="Unauthorized"),
+            404: openapi.Response(description="Profile not found"),
+            500: openapi.Response(description="Internal Server Error")
+        }
+    )
+    def get(self, request):
+        try:
+            profile = Profile.objects.get(user=request.user)
+            serializer = ProfileSerializer(profile)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Profile.DoesNotExist:
+            return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    @swagger_auto_schema(
+        tags=['Profile'],
         summary="Delete user profile",
         description="Delete the authenticated user's profile.",
         responses={
@@ -560,6 +604,17 @@ class ChoiceDataView(APIView):
     """
     View to serve choice data for various fields
     """
+    @swagger_auto_schema(
+        tags=['Profile'],
+        operation_summary="Get Profile Choices",
+        operation_description="Retrieve available choices for profile fields (countries, languages, physical attributes, etc.)",
+        responses={
+            200: openapi.Response(
+                description="Choices retrieved successfully",
+                schema=openapi.Schema(type=openapi.TYPE_OBJECT)
+            )
+        }
+    )
     def get(self, request):
         data_dir = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
         response_data = {}
