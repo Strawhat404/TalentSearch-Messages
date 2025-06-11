@@ -389,16 +389,24 @@ class PhysicalAttributes(models.Model):
     weight = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
+        help_text="Weight in kilograms",
         null=True,
         blank=True,
-        help_text="Weight in kilograms (required)"
+        validators=[
+            MinValueValidator(30, message="Weight must be at least 30 kg"),
+            MaxValueValidator(500, message="Weight cannot exceed 500 kg")
+        ]
     )
     height = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
+        help_text="Height in centimeters",
         null=True,
         blank=True,
-        help_text="Height in centimeters (required)"
+        validators=[
+            MinValueValidator(100, message="Height must be at least 100 cm"),
+            MaxValueValidator(300, message="Height cannot exceed 300 cm")
+        ]
     )
     gender = models.CharField(
         max_length=20,
@@ -441,7 +449,6 @@ class PhysicalAttributes(models.Model):
             self.facial_hair = sanitize_string(self.facial_hair)
         if self.physical_condition:
             self.physical_condition = sanitize_string(self.physical_condition)
-
         # Validate gender
         gender_choices = GenderChoices.objects.first()
         if gender_choices:

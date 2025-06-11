@@ -159,7 +159,7 @@ class ContactInfoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields:
-            self.fields[field].required = False
+            self.fields[field].required = True
 
 class PersonalInfoForm(forms.ModelForm):
     class Meta:

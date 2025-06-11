@@ -27,7 +27,7 @@ if os.path.exists(os.path.join(BASE_DIR, ".env")):
 SECRET_KEY = env("SECRET_KEY", default="django-insecure-key-for-development-only")
 DEBUG = env("DEBUG", default=False)
 ALLOWED_HOSTS = [
-    'talentsearch-messages-uokp.onrender.com',
+    'talentsearch-messages-1.onrender.com',
     'localhost',
     '127.0.0.1',
 ]
@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'rest_framework_simplejwt.token_blacklist',
+    'cloudinary',
+    'cloudinary_storage',
 
     # Custom apps
     'authapp',
@@ -76,6 +78,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'authapp.views.TokenAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
@@ -142,8 +145,8 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Custom user model
 AUTH_USER_MODEL = 'authapp.User'
@@ -151,8 +154,8 @@ AUTH_USER_MODEL = 'authapp.User'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'authapp.authentication.BlacklistCheckingJWTAuthentication',
+
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -167,7 +170,23 @@ REST_FRAMEWORK = {
         'test': '1000/minute',
         'auth': '10/minute',
     },
-    'TOKEN_EXPIRE_MINUTES': 60,  # Optional: can be removed if not used
+}
+
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
 # JWT Settings
@@ -219,10 +238,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
 
-# For development only (optional)
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-
 # Test Settings
 if 'test' in sys.argv:
     REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
@@ -241,5 +256,4 @@ if 'test' in sys.argv:
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailBackend',
-    'django.contrib.auth.backends.ModelBackend',
 ]

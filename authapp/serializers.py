@@ -14,14 +14,20 @@ class UserSerializer(serializers.ModelSerializer):
     """
     Serializer for user registration with enhanced validation.
     """
+    confirm_password = serializers.CharField(write_only=True, required=True)
+    
     class Meta:
         model = User
-        fields = ['id', 'email', 'name', 'password']
+        fields = ['id', 'username', 'name', 'phone_number', 'email', 'password', 'confirm_password']
         extra_kwargs = {
-            'password': {'write_only': True},
-            'name': {'min_length': 2, 'max_length': 255},
-            'email': {'required': True}
+            'username': {'required': True},
+            'name': {'required': True, 'min_length': 2, 'max_length': 255},
+            'phone_number': {'required': True},
+            'email': {'required': True},
+            'password': {'write_only': True, 'required': True},
+            'confirm_password': {'write_only': True, 'required': True},
         }
+        read_only_fields = ['id']
 
     def to_internal_value(self, data):
         # Check for admin privilege fields in the raw input
@@ -35,6 +41,18 @@ class UserSerializer(serializers.ModelSerializer):
         # Remove any admin privilege fields from the data (defensive)
         attrs.pop('is_staff', None)
         attrs.pop('is_superuser', None)
+        
+        # Validate password confirmation
+        password = attrs.get('password')
+        confirm_password = attrs.get('confirm_password')
+        
+        if password and confirm_password and password != confirm_password:
+            raise serializers.ValidationError({
+                'confirm_password': "Passwords don't match."
+            })
+            
+        # Remove confirm_password from attrs as it's not a model field
+        attrs.pop('confirm_password', None)
         return attrs
 
     def validate_password(self, value):
@@ -78,6 +96,18 @@ class UserSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Name can only contain letters, spaces, hyphens, apostrophes, and periods.")
         
         return value.strip()
+
+    def validate_username(self, value):
+        if ' ' in value:
+            raise serializers.ValidationError("Username cannot contain spaces.")
+        return value
+
+    def validate_phone_number(self, value):
+        if not value.startswith('+251'):
+            raise serializers.ValidationError("Phone number must start with +251.")
+        if not re.fullmatch(r'\+251\d{9}', value):
+            raise serializers.ValidationError("Phone number must be in the format +2519XXXXXXXX.")
+        return value
 
     def create(self, validated_data):
         # Ensure new users are created with non-admin privileges
