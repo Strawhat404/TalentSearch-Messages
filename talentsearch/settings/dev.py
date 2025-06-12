@@ -15,13 +15,15 @@ DATABASES = {
 }
 
 # Email settings for development
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_HOST_USER = 'abelyitages10@gmail.com'
-EMAIL_HOST_PASSWORD = 'jmkj xtvh mnst zlex'
-EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'abelyitages10@gmail.com'
+
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'localhost'
+# EMAIL_PORT = 1025
+# EMAIL_HOST_USER = 'dev@example.com'
+# EMAIL_HOST_PASSWORD = 'dev_password'
+# EMAIL_USE_TLS = False
+# DEFAULT_FROM_EMAIL = 'dev@example.com'
+
 
 # Redis settings for development
 CACHES = {
