@@ -63,7 +63,8 @@ INSTALLED_APPS = [
     'comment_likes',
     'rental_items',
     'rental_ratings',
-    'user_ratings'
+    'user_ratings',
+    'contact_us'
 
 ]
 
@@ -130,6 +131,7 @@ EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='dev@example.com')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='dev_password')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='dev@example.com')
+CONTACT_RECIPIENT_EMAIL = env('CONTACT_RECIPIENT_EMAIL', default='dev@example.com')
 
 # Static & Media
 STATIC_URL = '/static/'
