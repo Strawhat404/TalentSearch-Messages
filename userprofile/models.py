@@ -13,10 +13,17 @@ from django.core.files.storage import default_storage
 from django.utils import timezone
 import logging
 from datetime import timedelta
+from django.contrib.postgres.fields import ArrayField
 
 User = get_user_model()
 
 logger = logging.getLogger(__name__)
+
+def get_array_field():
+    """Returns the appropriate field type based on the database backend"""
+    if settings.DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+        return ArrayField(models.CharField(max_length=20), default=list, blank=True)
+    return models.JSONField(default=list, blank=True)
 
 # Choice Constants
 HOUSING_STATUS_CHOICES = [
@@ -624,95 +631,102 @@ class ContactInfo(models.Model):
                 })
 
 class PersonalInfo(models.Model):
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+    MARITAL_STATUS_CHOICES = [
+        ('single', 'Single'),
+        ('married', 'Married'),
+        ('divorced', 'Divorced'),
+        ('widowed', 'Widowed'),
+    ]
+    ID_TYPE_CHOICES = [
+        ('passport', 'Passport'),
+        ('national_id', 'National ID'),
+        ('drivers_license', 'Driver\'s License'),
+    ]
+    LANGUAGE_CHOICES = [
+        ('english', 'English'),
+        ('amharic', 'Amharic'),
+        ('oromo', 'Oromo'),
+        ('tigrinya', 'Tigrinya'),
+        ('somali', 'Somali'),
+        ('afar', 'Afar'),
+        ('other', 'Other'),
+    ]
+    HOBBY_CHOICES = [
+        ('reading', 'Reading'),
+        ('sports', 'Sports'),
+        ('music', 'Music'),
+        ('travel', 'Travel'),
+        ('cooking', 'Cooking'),
+        ('photography', 'Photography'),
+        ('art', 'Art'),
+        ('dancing', 'Dancing'),
+        ('gaming', 'Gaming'),
+        ('fitness', 'Fitness'),
+        ('other', 'Other'),
+    ]
+    SOCIAL_MEDIA_CHOICES = [
+        ('facebook', 'Facebook'),
+        ('instagram', 'Instagram'),
+        ('twitter', 'Twitter'),
+        ('linkedin', 'LinkedIn'),
+        ('tiktok', 'TikTok'),
+        ('youtube', 'YouTube'),
+        ('other', 'Other'),
+    ]
+
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
-    marital_status = models.CharField(
-        max_length=50,
-        help_text="Marital status (required)"
-    )
-    ethnicity = models.CharField(max_length=50, blank=True)
-    personality_type = models.CharField(max_length=50, blank=True)
-    work_preference = models.CharField(max_length=50, blank=True)
-    hobbies = models.JSONField(
-        default=list,
-        help_text="List of hobbies (required)"
-    )
-    custom_hobby = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text="Custom hobby (required)"
-    )
-    volunteer_experience = models.CharField(max_length=50, blank=True)
-    company_culture_preference = models.CharField(max_length=100, blank=True)
-    social_media = models.JSONField(
-        default=list,
-        help_text="List of social media accounts with usernames and followers"
-    )
-    other_social_media = models.JSONField(
-        default=list,
-        help_text="List of other social media platforms not in the predefined list"
-    )
-    language_proficiency = models.JSONField(
-        default=list,
-        help_text="List of languages and proficiency levels (required)"
-    )
-    special_skills = models.JSONField(default=list)
-    tools_experience = models.JSONField(default=list)
-    award_recognitions = models.JSONField(default=list)
+    first_name = models.CharField(max_length=100, null=False, blank=False)
+    last_name = models.CharField(max_length=100, null=False, blank=False)
+    date_of_birth = models.DateField(null=False, blank=False)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=False, blank=False)
+    marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, null=False, blank=False)
+    nationality = models.CharField(max_length=100, null=False, blank=False)
+    id_type = models.CharField(max_length=20, choices=ID_TYPE_CHOICES, null=False, blank=False)
+    id_number = models.CharField(max_length=50, null=False, blank=False)
+    hobbies = models.JSONField(default=list, null=False, blank=False)
+    language_proficiency = models.JSONField(default=list, null=False, blank=False)
+    social_media = models.JSONField(default=dict, null=False, blank=False)
+    custom_hobby = models.CharField(max_length=100, blank=True, null=True)
+    custom_language = models.CharField(max_length=100, blank=True, null=True)
+    custom_social_media = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
-    def clean(self):
-        # Sanitize string fields
-        if self.marital_status:
-            self.marital_status = sanitize_string(self.marital_status)
-        if self.ethnicity:
-            self.ethnicity = sanitize_string(self.ethnicity)
-        if self.personality_type:
-            self.personality_type = sanitize_string(self.personality_type)
-        if self.work_preference:
-            self.work_preference = sanitize_string(self.work_preference)
-        if self.volunteer_experience:
-            self.volunteer_experience = sanitize_string(self.volunteer_experience)
-        if self.company_culture_preference:
-            self.company_culture_preference = sanitize_string(self.company_culture_preference)
-        if self.custom_hobby:
-            # Validate hobby length
-            if len(self.custom_hobby.strip()) < 2:
-                raise ValidationError({
-                    'custom_hobby': 'Custom hobby must be at least 2 characters long.'
-                })
-            if len(self.custom_hobby.strip()) > 50:
-                raise ValidationError({
-                    'custom_hobby': 'Custom hobby cannot exceed 50 characters.'
-                })
-            # Check for duplicate hobbies
-            if self.custom_hobby.strip().lower() in [h.lower() for h in self.hobbies]:
-                raise ValidationError({
-                    'custom_hobby': 'This hobby already exists in your list.'
-                })
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
 
-        # Validate marital status
-        marital_status_choices = MaritalStatusChoices.objects.first()
-        if marital_status_choices:
-            valid_statuses = [choice['code'] for choice in marital_status_choices.choices]
-            if self.marital_status not in valid_statuses:
-                raise ValidationError({'marital_status': f'Invalid marital status. Choose from: {", ".join(valid_statuses)}'})
-
-        # Validate social media data
-        if not self.social_media and not self.other_social_media:
-            raise ValidationError({
-                'social_media': 'At least one social media account is required.'
-                })
+    class Meta:
+        verbose_name = "Personal Information"
+        verbose_name_plural = "Personal Information"
 
     def save(self, *args, **kwargs):
-        # Ensure at least one social media account exists
-        if not self.social_media and not self.other_social_media:
-            raise ValidationError("At least one social media account is required.")
-        if not self.custom_hobby:
-            raise ValidationError("Custom hobby is required.")
+        if not self.first_name:
+            raise ValidationError("First name is required.")
+        if not self.last_name:
+            raise ValidationError("Last name is required.")
+        if not self.date_of_birth:
+            raise ValidationError("Date of birth is required.")
+        if not self.gender:
+            raise ValidationError("Gender is required.")
         if not self.marital_status:
             raise ValidationError("Marital status is required.")
+        if not self.nationality:
+            raise ValidationError("Nationality is required.")
+        if not self.id_type:
+            raise ValidationError("ID type is required.")
+        if not self.id_number:
+            raise ValidationError("ID number is required.")
+        if not self.hobbies:
+            raise ValidationError("At least one hobby is required.")
         if not self.language_proficiency:
             raise ValidationError("At least one language proficiency is required.")
+        if not self.social_media:
+            raise ValidationError("At least one social media account is required.")
         super().save(*args, **kwargs)
 
 class Media(models.Model):

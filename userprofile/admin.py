@@ -165,16 +165,32 @@ class PersonalInfoForm(forms.ModelForm):
     class Meta:
         model = PersonalInfo
         fields = [
-            'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media',
-            'other_social_media', 'language_proficiency', 'special_skills', 'tools_experience',
-            'award_recognitions'
+            'first_name',
+            'last_name',
+            'date_of_birth',
+            'gender',
+            'marital_status',
+            'nationality',
+            'id_type',
+            'id_number',
+            'hobbies',
+            'language_proficiency',
+            'social_media',
+            'custom_hobby',
+            'custom_language',
+            'custom_social_media'
         ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+            'hobbies': forms.CheckboxSelectMultiple(),
+            'language_proficiency': forms.CheckboxSelectMultiple(),
+            'social_media': forms.JSONField(),
+        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].required = False
+    def clean(self):
+        cleaned_data = super().clean()
+        # Add any custom validation here if needed
+        return cleaned_data
 
 class IdentityVerificationInline(admin.StackedInline):
     model = IdentityVerification
@@ -252,10 +268,20 @@ class PersonalInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-        'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-        'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-        'award_recognitions'
+        'first_name',
+        'last_name',
+        'date_of_birth',
+        'gender',
+        'marital_status',
+        'nationality',
+        'id_type',
+        'id_number',
+        'hobbies',
+        'language_proficiency',
+        'social_media',
+        'custom_hobby',
+        'custom_language',
+        'custom_social_media'
     ]
 
 class MediaInline(admin.StackedInline):
