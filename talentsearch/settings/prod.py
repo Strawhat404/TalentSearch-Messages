@@ -8,6 +8,10 @@ from decouple import config, Csv
 import os
 import logging
 from django.conf import settings
+from datetime import timedelta
+from django.core.files.storage import default_storage
+
+print(">>> DJANGO_SETTINGS_MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
 
 # Print ALLOWED_HOSTS for debugging
 try:
@@ -19,11 +23,20 @@ except Exception as e:
 DEBUG = False
 
 ALLOWED_HOSTS = [
-    'talentsearch-messages-uokp.onrender.com',
+    'talentsearch-messages-1.onrender.com',
     'localhost',
     '127.0.0.1',
     '.onrender.com',  # This allows all subdomains of onrender.com
 ]
+
+# Cloudinary settings
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': os.environ.get('CLOUD_NAME'),
+    'API_KEY': os.environ.get('API_KEY'),
+    'API_SECRET': os.environ.get('API_SECRET'),
+}
+
 
 # Get SECRET_KEY from environment or generate a new one
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
@@ -38,7 +51,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
-WHITENOISE_ROOT = STATIC_ROOT
+WHITENOISE_ROOT = os.path.join(BASE_DIR, 'media')
 WHITENOISE_INDEX_FILE = True
 
 # Cache configuration with fallback
@@ -71,8 +84,7 @@ else:
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -91,6 +103,23 @@ REST_FRAMEWORK = {
         'rest_framework.throttling.AnonRateThrottle',
         'rest_framework.throttling.UserRateThrottle',
     ],
+}
+
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
 # Logging configuration
@@ -132,7 +161,7 @@ DATABASES = {
 }
 
 # Email config for production
-EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = config('EMAIL_HOST', default='smtp.gmail.com')
 EMAIL_PORT = config('EMAIL_PORT', cast=int, default=587)
 EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool, default=True)
@@ -155,7 +184,6 @@ SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailBackend',  # Custom email backend
-    'django.contrib.auth.backends.ModelBackend',  # Fallback
 ]
 
 # Session settings
@@ -164,5 +192,14 @@ SESSION_COOKIE_AGE = 1209600  # 2 weeks in seconds
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
-# New FRONTEND_URL setting
-FRONTEND_URL = "https://talentsearch-messages-uokp.onrender.com"
+CORS_ALLOWED_ORIGINS = [
+    "https://myfrontend.com",
+    "https://my-frontend.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:5174",
+    "http://localhost:5175",
+]
+
+logger = logging.getLogger("django")
+logger.warning(f"DJANGO STORAGE BACKEND: {default_storage.__class__}")
+

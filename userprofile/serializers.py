@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
-    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog
+    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog, LocationData
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -10,6 +10,8 @@ import re
 import magic
 from datetime import date
 import bleach
+import json
+from django.conf import settings
 
 # Helper function to sanitize strings
 def sanitize_string(value):
@@ -88,17 +90,42 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid ID back image. Must be a valid image format (jpg, jpeg, png, gif).")
         return value
 
+class ActorCategorySerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+
 class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = ProfessionalQualifications
-        fields = [
-            'experience_level', 'skills', 'work_authorization', 'industry_experience',
-            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
-            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
-            'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
-        ]
+    actor_category = serializers.CharField(required=False)
+    actor_category_details = serializers.SerializerMethodField()
+    model_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    model_categories_details = serializers.SerializerMethodField()
+    performer_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    performer_categories_details = serializers.SerializerMethodField()
+    influencer_categories = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    influencer_categories_details = serializers.SerializerMethodField()
+    skills = serializers.ListField(
+        child=serializers.CharField(),
+        required=False
+    )
+    skills_details = serializers.SerializerMethodField()
+    main_skill = serializers.CharField(required=False)
+    main_skill_details = serializers.SerializerMethodField()
+    willingness_to_relocate = serializers.BooleanField(required=False)
+    overtime_availability = serializers.BooleanField(required=False)
+    travel_willingness = serializers.BooleanField(required=False)
+    driving_skills = serializers.BooleanField(required=False)
+    union_membership = serializers.BooleanField(required=False)
+    has_driving_license = serializers.BooleanField(required=False)
 
     def validate_experience_level(self, value):
         if value:
@@ -108,13 +135,6 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
         return value
 
     def validate_work_authorization(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_industry_experience(self, value):
         if value:
             value = sanitize_string(value)
             if not value.strip():
@@ -142,42 +162,7 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
                 return ""
         return value
 
-    def validate_willingness_to_relocate(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_overtime_availability(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_travel_willingness(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_driving_skills(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
     def validate_role_title(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_union_membership(self, value):
         if value:
             value = sanitize_string(value)
             if not value.strip():
@@ -221,6 +206,107 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
         if value is not None and value < 0:
             raise serializers.ValidationError("Maximum salary cannot be negative.")
         return value
+
+    def get_actor_category_details(self, obj):
+        if not obj.actor_category:
+            return None
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'actor_categories.json'), 'r') as f:
+                categories = json.load(f)['actor_categories']
+                for category in categories:
+                    if category['id'] == obj.actor_category:
+                        return category
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+        return None
+
+    def get_model_categories_details(self, obj):
+        if not obj.model_categories:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'model_categories.json'), 'r') as f:
+                categories = json.load(f)['model_categories']
+                return [cat for cat in categories if cat['id'] in obj.model_categories]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_performer_categories_details(self, obj):
+        if not obj.performer_categories:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'performer_categories.json'), 'r') as f:
+                categories = json.load(f)['performer_categories']
+                return [cat for cat in categories if cat['id'] in obj.performer_categories]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_influencer_categories_details(self, obj):
+        if not obj.influencer_categories:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'influencer_categories.json'), 'r') as f:
+                categories = json.load(f)['influencer_categories']
+                return [cat for cat in categories if cat['id'] in obj.influencer_categories]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_skills_details(self, obj):
+        if not obj.skills:
+            return []
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'skills.json'), 'r') as f:
+                skills = json.load(f)['skills']
+                return [skill for skill in skills if skill['id'] in obj.skills]
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
+
+    def get_main_skill_details(self, obj):
+        if not obj.main_skill:
+            return None
+        
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'skills.json'), 'r') as f:
+                skills = json.load(f)['skills']
+                for skill in skills:
+                    if skill['id'] == obj.main_skill:
+                        return skill
+        except (FileNotFoundError, json.JSONDecodeError):
+            return None
+        return None
+
+    def validate(self, data):
+        # Validate that main_skill is one of the selected skills
+        if data.get('main_skill') and data.get('skills'):
+            if data['main_skill'] not in data['skills']:
+                raise serializers.ValidationError({
+                    'main_skill': 'Main skill must be one of the selected skills'
+                })
+        return data
+
+    class Meta:
+        model = ProfessionalQualifications
+        fields = [
+            'professions',
+            'experience_level', 'skills', 'skills_details', 'work_authorization',
+            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
+            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
+            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
+            'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
+            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+            'actor_category', 'actor_category_details',
+            'model_categories', 'model_categories_details',
+            'performer_categories', 'performer_categories_details',
+            'influencer_categories', 'influencer_categories_details',
+            'main_skill', 'main_skill_details'
+        ]
+        extra_kwargs = {
+            'travel_willingness': {'required': True}
+        }
 
 class PhysicalAttributesSerializer(serializers.ModelSerializer):
     class Meta:
@@ -382,70 +468,100 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
         return value
 
 class ContactInfoSerializer(serializers.ModelSerializer):
+    region_choices = serializers.SerializerMethodField()
+    city_choices = serializers.SerializerMethodField()
+    country_choices = serializers.SerializerMethodField()
+
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'city', 'region', 'postal_code', 'residence_type',
-            'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+            'address', 'specific_area', 'city', 'region', 'country',
+            'housing_status', 'residence_duration', 'emergency_contact',
+            'emergency_phone', 'region_choices', 'city_choices', 'country_choices'
         ]
+        extra_kwargs = {
+            'address': {'required': True},
+            'specific_area': {'required': True},
+            'city': {'required': True},
+            'region': {'required': True},
+            'country': {'required': True},
+            'housing_status': {'required': True},
+            'residence_duration': {'required': True},
+            'emergency_contact': {'required': True},
+            'emergency_phone': {'required': True}
+        }
 
-    def validate_address(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def get_region_choices(self, obj):
+        regions = LocationData.objects.all()
+        return [{'id': region.region_id, 'name': region.region_name} for region in regions]
 
-    def validate_city(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def get_city_choices(self, obj):
+        if obj and obj.region:
+            try:
+                location_data = LocationData.objects.get(region_id=obj.region)
+                return location_data.cities
+            except LocationData.DoesNotExist:
+                return []
+        return []
 
-    def validate_region(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def get_country_choices(self, obj):
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
+                countries_data = json.load(f)
+                return countries_data['countries']
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
-    def validate_residence_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        region = data.get('region')
+        city = data.get('city')
+        country = data.get('country')
 
-    def validate_residence_duration(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        if region and city:
+            try:
+                # Case-insensitive region lookup
+                location_data = LocationData.objects.get(region_id__iexact=region)
+                # Case-insensitive city validation
+                valid_cities = {city['id'].lower(): city['name'] for city in location_data.cities}
+                if city.lower() not in valid_cities:
+                    raise serializers.ValidationError({
+                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities.values())}'
+                    })
+            except LocationData.DoesNotExist:
+                raise serializers.ValidationError({
+                    'region': 'Invalid region selected.'
+                })
 
-    def validate_housing_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        if country:
+            try:
+                with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
+                    countries_data = json.load(f)
+                    valid_countries = {country['id'].lower(): country['name'] for country in countries_data['countries']}
+                    if country.lower() not in valid_countries:
+                        raise serializers.ValidationError({
+                            'country': f'Invalid country selected. Please choose from: {", ".join(valid_countries.values())}'
+                        })
+            except (FileNotFoundError, json.JSONDecodeError):
+                raise serializers.ValidationError({
+                    'country': 'Error validating country. Please try again.'
+                })
 
-    def validate_emergency_contact(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        return data
+
+    def update(self, instance, validated_data):
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+        return instance
 
 class PersonalInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PersonalInfo
         fields = [
             'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-            'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-            'award_recognitions'
+            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media',
+            'other_social_media', 'language_proficiency', 'special_skills', 'tools_experience',
+            'award_recognitions', 'custom_hobby'
         ]
 
     def validate_marital_status(self, value):
@@ -490,17 +606,29 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
                 return ""
         return value
 
-    def validate_social_media_links(self, value):
-        sanitized_value = {}
-        for platform, url in value.items():
-            if url:
-                sanitized_url = sanitize_string(url)
-                if not (sanitized_url.startswith('http://') or sanitized_url.startswith('https://')):
-                    raise serializers.ValidationError({platform: "Invalid URL. Must start with http:// or https://"})
-                sanitized_value[platform] = sanitized_url
-            else:
-                sanitized_value[platform] = url
-        return sanitized_value
+    def validate_social_media(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Social media must be a list of accounts.")
+        for account in value:
+            if not isinstance(account, dict):
+                raise serializers.ValidationError("Each social media account must be a dictionary.")
+            if 'platform' not in account or 'username' not in account:
+                raise serializers.ValidationError("Each social media account must have 'platform' and 'username' fields.")
+            if 'followers' not in account:
+                account['followers'] = 0
+        return value
+
+    def validate_other_social_media(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Other social media must be a list of accounts.")
+        for account in value:
+            if not isinstance(account, dict):
+                raise serializers.ValidationError("Each social media account must be a dictionary.")
+            if 'platform' not in account or 'username' not in account:
+                raise serializers.ValidationError("Each social media account must have 'platform' and 'username' fields.")
+            if 'followers' not in account:
+                account['followers'] = 0
+        return value
 
 class MediaSerializer(serializers.ModelSerializer):
     class Meta:

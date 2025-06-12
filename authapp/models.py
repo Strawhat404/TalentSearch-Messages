@@ -24,11 +24,11 @@ class UserManager(BaseUserManager):
         return self.create_user(email, password, **extra_fields)
 
 class User(AbstractUser):
-    name = models.CharField(max_length=255, default='Unknown User')
-    username = None  # Remove the username field
-    email = models.EmailField(unique=True)  # Use email as the unique identifier
+    username = models.CharField(max_length=150, unique=True, default="default_username")
+    name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
     backup_email = models.EmailField(blank=True, null=True, help_text='Backup email for account recovery')
-    phone_number = models.CharField(max_length=20, blank=True, null=True, help_text='Phone number for account recovery')
+    phone_number = models.CharField(max_length=20, default="0000000000")
     last_password_change = models.DateTimeField(default=timezone.now)
     is_locked = models.BooleanField(default=False, help_text='Whether the account is locked due to failed attempts')
     lockout_until = models.DateTimeField(null=True, blank=True, help_text='When the account lockout expires')
@@ -179,3 +179,4 @@ class PasswordResetOTP(models.Model):
     otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
+    
