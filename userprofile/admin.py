@@ -85,12 +85,12 @@ class ProfessionalQualificationsForm(forms.ModelForm):
     class Meta:
         model = ProfessionalQualifications
         fields = [
-            'experience_level', 'skills', 'work_authorization', 'industry_experience',
-            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
+            'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
             'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
             'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
             'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+            'work_authorization'
         ]
 
     def __init__(self, *args, **kwargs):
@@ -152,29 +152,45 @@ class ContactInfoForm(forms.ModelForm):
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'city', 'region', 'postal_code', 'residence_type',
-            'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+            'address', 'specific_area', 'city', 'region', 'country',
+            'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         for field in self.fields:
-            self.fields[field].required = False
+            self.fields[field].required = True
 
 class PersonalInfoForm(forms.ModelForm):
     class Meta:
         model = PersonalInfo
         fields = [
-            'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-            'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-            'award_recognitions'
+            'first_name',
+            'last_name',
+            'date_of_birth',
+            'gender',
+            'marital_status',
+            'nationality',
+            'id_type',
+            'id_number',
+            'hobbies',
+            'language_proficiency',
+            'social_media',
+            'custom_hobby',
+            'custom_language',
+            'custom_social_media'
         ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+            'hobbies': forms.CheckboxSelectMultiple(),
+            'language_proficiency': forms.CheckboxSelectMultiple(),
+            'social_media': forms.JSONField(),
+        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].required = False
+    def clean(self):
+        cleaned_data = super().clean()
+        # Add any custom validation here if needed
+        return cleaned_data
 
 class IdentityVerificationInline(admin.StackedInline):
     model = IdentityVerification
@@ -190,12 +206,12 @@ class ProfessionalQualificationsInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'experience_level', 'skills', 'work_authorization', 'industry_experience',
-        'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
+        'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
         'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
         'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
         'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-        'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+        'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+        'work_authorization'
     ]
 
 class PhysicalAttributesInline(admin.StackedInline):
@@ -242,8 +258,8 @@ class ContactInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'address', 'city', 'region', 'postal_code', 'residence_type',
-        'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+        'address', 'specific_area', 'city', 'region', 'country',
+        'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
     ]
 
 class PersonalInfoInline(admin.StackedInline):
@@ -252,10 +268,20 @@ class PersonalInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-        'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-        'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-        'award_recognitions'
+        'first_name',
+        'last_name',
+        'date_of_birth',
+        'gender',
+        'marital_status',
+        'nationality',
+        'id_type',
+        'id_number',
+        'hobbies',
+        'language_proficiency',
+        'social_media',
+        'custom_hobby',
+        'custom_language',
+        'custom_social_media'
     ]
 
 class MediaInline(admin.StackedInline):

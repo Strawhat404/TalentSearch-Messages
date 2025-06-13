@@ -1,0 +1,12 @@
+{
+    "employment_status": [
+        {"code": "full_time", "label": "Full Time"},
+        {"code": "part_time", "label": "Part Time"},
+        {"code": "contract", "label": "Contract"},
+        {"code": "freelance", "label": "Freelance"},
+        {"code": "internship", "label": "Internship"},
+        {"code": "temporary", "label": "Temporary"},
+        {"code": "seasonal", "label": "Seasonal"},
+        {"code": "project_based", "label": "Project Based"}
+    ]
+} 

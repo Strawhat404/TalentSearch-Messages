@@ -1,12 +1,44 @@
 from django.db import models
-from django.core.validators import FileExtensionValidator, MinValueValidator, RegexValidator
+from django.core.validators import FileExtensionValidator, MinValueValidator, RegexValidator, MaxValueValidator
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 import re
 from datetime import date
 import bleach
+import os
+import json
+from django.conf import settings
+from PIL import Image, ExifTags
+from django.core.files.storage import default_storage
+from django.utils import timezone
+import logging
+from datetime import timedelta
+from django.contrib.postgres.fields import ArrayField
 
 User = get_user_model()
+
+logger = logging.getLogger(__name__)
+
+def get_array_field():
+    """Returns the appropriate field type based on the database backend"""
+    if settings.DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
+        return ArrayField(models.CharField(max_length=20), default=list, blank=True)
+    return models.JSONField(default=list, blank=True)
+
+# Choice Constants
+HOUSING_STATUS_CHOICES = [
+    ('owned', 'Owned'),
+    ('rented', 'Rented'),
+    ('living_with_family', 'Living with Family'),
+    ('other', 'Other')
+]
+
+RESIDENCE_DURATION_CHOICES = [
+    ('less_than_1_year', 'Less than 1 year'),
+    ('1_to_3_years', '1 to 3 years'),
+    ('3_to_5_years', '3 to 5 years'),
+    ('more_than_5_years', 'More than 5 years')
+]
 
 # Helper function to sanitize strings (same as in serializers.py)
 def sanitize_string(value):
@@ -25,12 +57,16 @@ def sanitize_string(value):
 class Profile(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    name = models.CharField(max_length=100, blank=False, null=False)
-    birthdate = models.DateField(blank=False, null=True)
-    profession = models.CharField(max_length=100, blank=False, null=False)
-    nationality = models.CharField(max_length=50, blank=False, null=False)
+    name = models.CharField(max_length=100)
+    birthdate = models.DateField(null=True, blank=True, help_text="Date of birth (required)")
+    profession = models.CharField(max_length=50)
+    nationality = models.CharField(
+        max_length=100,
+        help_text="Nationality (required)"
+    )
     location = models.CharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     availability_status = models.BooleanField(default=True)
     verified = models.BooleanField(default=False)
     flagged = models.BooleanField(default=False)
@@ -49,22 +85,62 @@ class Profile(models.Model):
         if self.status:
             self.status = sanitize_string(self.status)
 
-        # Existing validation
-        if self.birthdate and self.birthdate > date.today():
+        # Validate profession
+        try:
+            profession_choices = ProfessionChoices.objects.first()
+            if profession_choices:
+                valid_professions = [choice['code'] for choice in profession_choices.choices]
+                if self.profession not in valid_professions:
+                    raise ValidationError({
+                        'profession': f'Invalid profession selected. Please choose from: {", ".join(valid_professions)}'
+                    })
+        except Exception as e:
             raise ValidationError({
-                'birthdate': 'Birthdate cannot be in the future.'
+                'profession': 'Error validating profession. Please try again.'
             })
 
+        # Validate nationality
+        try:
+            nationality_choices = NationalityChoices.objects.first()
+            if nationality_choices:
+                valid_nationalities = [choice['code'] for choice in nationality_choices.choices]
+                if self.nationality not in valid_nationalities:
+                    raise ValidationError({
+                        'nationality': f'Invalid nationality selected. Please choose from: {", ".join(valid_nationalities)}'
+                    })
+        except Exception as e:
+            raise ValidationError({
+                'nationality': 'Error validating nationality. Please try again.'
+            })
+
+        # Existing validations
+        if self.birthdate:
+            if self.birthdate > date.today():
+                raise ValidationError({
+                    'birthdate': 'Birthdate cannot be in the future.'
+                })
+            # Calculate age
+            age = (date.today() - self.birthdate).days // 365
+            if age < 18:
+                raise ValidationError({
+                    'birthdate': 'Must be at least 18 years old.'
+                })
+            if age > 100:
+                raise ValidationError({
+                    'birthdate': 'Age cannot exceed 100 years.'
+                })
+
     def save(self, *args, **kwargs):
-        # Validate required fields
-        if not self.name or self.name.strip() == "":
-            raise ValueError("Name cannot be blank.")
         if not self.birthdate:
-            raise ValueError("Birthdate is required.")
-        if not self.profession or self.profession.strip() == "":
-            raise ValueError("Profession cannot be blank.")
-        if not self.nationality or self.nationality.strip() == "":
-            raise ValueError("Nationality cannot be blank.")
+            raise ValidationError("Date of birth is required.")
+        if not self.nationality:
+            raise ValidationError("Nationality is required.")
+        if not self.profession:
+            raise ValidationError("Profession is required.")
+        if not self.name:
+            raise ValidationError("Name is required.")
+        if not self.location:
+            raise ValidationError("Location is required.")
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -82,144 +158,283 @@ class Profile(models.Model):
 
 class IdentityVerification(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='identity_verification')
-    id_type = models.CharField(max_length=50, blank=True)
+    id_type = models.CharField(
+        max_length=50,
+        help_text="Type of identification document"
+    )
     id_number = models.CharField(max_length=50, blank=True)
     id_expiry_date = models.DateField(null=True, blank=True)
     id_front = models.ImageField(
         upload_to='id_fronts/',
-        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
+        help_text="Front photo of ID document",
         blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
+        null=True
     )
     id_back = models.ImageField(
         upload_to='id_backs/',
-        null=True,
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
+        help_text="Back photo of ID document",
         blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
+        null=True
     )
     id_verified = models.BooleanField(default=False)
 
     def clean(self):
-        # Sanitize id_type (id_number is skipped due to strict regex validation)
+        # Sanitize id_type
         if self.id_type:
             self.id_type = sanitize_string(self.id_type)
 
-        # Existing validation
-        if self.id_type and self.id_number:
-            if self.id_type == 'kebele_id':
-                if not self.id_number.strip():
-                    raise ValidationError({
-                        'id_number': 'Kebele ID must not be empty.'
-                    })
-            elif self.id_type == 'national_id':
-                if not re.match(r'^\d{12}$', self.id_number):
-                    raise ValidationError({
-                        'id_number': 'National ID must be exactly 12 digits.'
-                    })
-            elif self.id_type == 'passport':
-                if not re.match(r'^E[P]?\d{7,8}$', self.id_number):
-                    raise ValidationError({
-                        'id_number': 'Passport must start with "E" or "EP" followed by 7-8 digits.'
-                    })
-            elif self.id_type == 'drivers_license':
-                if not re.match(r'^[A-Za-z0-9]+$', self.id_number):
-                    raise ValidationError({
-                        'id_number': "Driver's License must contain only letters and numbers."
-                    })
-        elif self.id_type and not self.id_number:
-            raise ValidationError({
-                'id_number': f'{self.id_type} requires a valid ID number.'
-            })
-        elif self.id_number and not self.id_type:
-            raise ValidationError({
-                'id_type': 'ID type must be specified when providing an ID number.'
-            })
-        if self.id_expiry_date and self.id_expiry_date < date.today():
-            raise ValidationError({
-                'id_expiry_date': 'ID expiry date cannot be in the past.'
-            })
+        # Validate id_type
+        id_type_choices = IDTypeChoices.objects.first()
+        if id_type_choices:
+            valid_types = [choice['code'] for choice in id_type_choices.choices]
+            if self.id_type not in valid_types:
+                raise ValidationError({'id_type': f'Invalid ID type. Choose from: {", ".join(valid_types)}'})
+
+    def save(self, *args, **kwargs):
+        if not self.id_type:
+            raise ValidationError("ID type is required.")
+        super().save(*args, **kwargs)
 
 class ProfessionalQualifications(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='professional_qualifications')
-    experience_level = models.CharField(max_length=50, blank=True)
-    skills = models.JSONField(default=list)
-    work_authorization = models.CharField(max_length=100, blank=True)
-    industry_experience = models.CharField(max_length=100, blank=True)
-    min_salary = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
-    max_salary = models.IntegerField(null=True, blank=True, validators=[MinValueValidator(0)])
-    availability = models.CharField(max_length=50, blank=True)
-    preferred_work_location = models.CharField(max_length=50, blank=True)
-    shift_preference = models.CharField(max_length=50, blank=True)
-    willingness_to_relocate = models.CharField(max_length=50, blank=True)
-    overtime_availability = models.CharField(max_length=50, blank=True)
-    travel_willingness = models.CharField(max_length=50, blank=True)
+    professions = models.JSONField(
+        default=list,
+        help_text="Selected professions (minimum 1 required)"
+    )
+    actor_category = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Category of acting experience"
+    )
+    model_categories = models.JSONField(
+        default=list,
+        help_text="Selected model categories"
+    )
+    performer_categories = models.JSONField(
+        default=list,
+        help_text="Selected performer categories"
+    )
+    influencer_categories = models.JSONField(
+        default=list,
+        help_text="Selected influencer categories"
+    )
+    min_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Minimum expected salary"
+    )
+    max_salary = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        help_text="Maximum expected salary"
+    )
+    skills = models.JSONField(
+        default=list,
+        help_text="Selected skills"
+    )
+    skill_description = models.TextField(
+        blank=True,
+        help_text="Detailed description of skills (required for Stuntman)"
+    )
+    video_url = models.URLField(
+        blank=True,
+        help_text="URL to showcase video (required for Stuntman)"
+    )
+    main_skill = models.CharField(
+        max_length=50,
+        blank=True,
+        help_text="Primary skill (required for stuntman)"
+    )
+    experience_level = models.CharField(
+        max_length=50,
+        help_text="Experience level (required)"
+    )
+    years_of_experience = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Years of experience (required)"
+    )
+    availability = models.CharField(
+        max_length=50,
+        help_text="Availability (required)"
+    )
+    employment_status = models.CharField(
+        max_length=50,
+        blank=True,
+        null=True,
+        help_text="Employment status (required)"
+    )
+    preferred_work_location = models.CharField(
+        max_length=50,
+        help_text="Preferred work location (required)"
+    )
+    shift_preference = models.CharField(
+        max_length=50,
+        help_text="Shift preference (required)"
+    )
+    willingness_to_relocate = models.BooleanField(default=False)
+    overtime_availability = models.BooleanField(default=False)
+    travel_willingness = models.BooleanField(default=False)
     software_proficiency = models.JSONField(default=list)
     typing_speed = models.IntegerField(null=True, blank=True)
-    driving_skills = models.CharField(max_length=100, blank=True)
+    driving_skills = models.BooleanField(default=False)
     equipment_experience = models.JSONField(default=list)
-    role_title = models.CharField(max_length=100, blank=True)
+    role_title = models.CharField(max_length=100)
     portfolio_url = models.URLField(blank=True, null=True)
-    union_membership = models.CharField(max_length=100, blank=True)
-    reference = models.JSONField(default=list)
+    union_membership = models.BooleanField(default=False)
+    reference = models.TextField(blank=True, null=True)
     available_start_date = models.DateField(null=True, blank=True)
-    preferred_company_size = models.CharField(max_length=50, blank=True)
-    preferred_industry = models.JSONField(default=list)
-    leadership_style = models.CharField(max_length=50, blank=True)
-    communication_style = models.CharField(max_length=50, blank=True)
-    motivation = models.CharField(max_length=100, blank=True)
+    preferred_company_size = models.CharField(
+        max_length=50,
+        help_text="Preferred company size"
+    )
+    preferred_industry = models.CharField(
+        max_length=50,
+        help_text="Preferred industry"
+    )
+    leadership_style = models.CharField(
+        max_length=50,
+        help_text="Leadership style"
+    )
+    communication_style = models.CharField(
+        max_length=50,
+        help_text="Communication style"
+    )
+    motivation = models.CharField(
+        max_length=50,
+        help_text="Motivation"
+    )
     has_driving_license = models.BooleanField(default=False)
+    work_authorization = models.CharField(max_length=50)
 
     def clean(self):
         # Sanitize string fields
+        if self.actor_category:
+            self.actor_category = sanitize_string(self.actor_category)
+        if self.skill_description:
+            self.skill_description = sanitize_string(self.skill_description)
+        if self.main_skill:
+            self.main_skill = sanitize_string(self.main_skill)
         if self.experience_level:
             self.experience_level = sanitize_string(self.experience_level)
-        if self.work_authorization:
-            self.work_authorization = sanitize_string(self.work_authorization)
-        if self.industry_experience:
-            self.industry_experience = sanitize_string(self.industry_experience)
+        if self.years_of_experience:
+            self.years_of_experience = sanitize_string(self.years_of_experience)
         if self.availability:
             self.availability = sanitize_string(self.availability)
+        if self.employment_status:
+            self.employment_status = sanitize_string(self.employment_status)
         if self.preferred_work_location:
             self.preferred_work_location = sanitize_string(self.preferred_work_location)
         if self.shift_preference:
             self.shift_preference = sanitize_string(self.shift_preference)
-        if self.willingness_to_relocate:
-            self.willingness_to_relocate = sanitize_string(self.willingness_to_relocate)
-        if self.overtime_availability:
-            self.overtime_availability = sanitize_string(self.overtime_availability)
-        if self.travel_willingness:
-            self.travel_willingness = sanitize_string(self.travel_willingness)
-        if self.driving_skills:
-            self.driving_skills = sanitize_string(self.driving_skills)
-        if self.role_title:
-            self.role_title = sanitize_string(self.role_title)
-        if self.union_membership:
-            self.union_membership = sanitize_string(self.union_membership)
-        if self.preferred_company_size:
-            self.preferred_company_size = sanitize_string(self.preferred_company_size)
-        if self.leadership_style:
-            self.leadership_style = sanitize_string(self.leadership_style)
-        if self.communication_style:
-            self.communication_style = sanitize_string(self.communication_style)
-        if self.motivation:
-            self.motivation = sanitize_string(self.motivation)
 
-        # Existing validation
-        if self.min_salary is not None and self.max_salary is not None:
-            if self.min_salary > self.max_salary:
-                raise ValidationError({
-                    'min_salary': 'Minimum salary cannot be greater than maximum salary.'
-                })
+        # Validate experience_level
+        experience_level_choices = ExperienceLevelChoices.objects.first()
+        if experience_level_choices:
+            valid_levels = [choice['code'] for choice in experience_level_choices.choices]
+            if self.experience_level not in valid_levels:
+                raise ValidationError({'experience_level': f'Invalid experience level. Choose from: {", ".join(valid_levels)}'})
+
+        # Validate years_of_experience
+        years_choices = YearsChoices.objects.first()
+        if years_choices:
+            valid_years = [choice['code'] for choice in years_choices.choices]
+            if self.years_of_experience and self.years_of_experience not in valid_years:
+                raise ValidationError({'years_of_experience': f'Invalid years of experience. Choose from: {", ".join(valid_years)}'})
+
+        # Validate availability
+        availability_choices = AvailabilityChoices.objects.first()
+        if availability_choices:
+            valid_availability = [choice['code'] for choice in availability_choices.choices]
+            if self.availability not in valid_availability:
+                raise ValidationError({'availability': f'Invalid availability. Choose from: {", ".join(valid_availability)}'})
+
+        # Validate employment_status
+        employment_status_choices = EmploymentStatusChoices.objects.first()
+        if employment_status_choices:
+            valid_statuses = [choice['code'] for choice in employment_status_choices.choices]
+            if self.employment_status and self.employment_status not in valid_statuses:
+                raise ValidationError({'employment_status': f'Invalid employment status. Choose from: {", ".join(valid_statuses)}'})
+
+        # Validate preferred_work_location
+        work_location_choices = WorkLocationChoices.objects.first()
+        if work_location_choices:
+            valid_locations = [choice['code'] for choice in work_location_choices.choices]
+            if self.preferred_work_location not in valid_locations:
+                raise ValidationError({'preferred_work_location': f'Invalid work location. Choose from: {", ".join(valid_locations)}'})
+
+        # Validate shift_preference
+        shift_choices = ShiftChoices.objects.first()
+        if shift_choices:
+            valid_shifts = [choice['code'] for choice in shift_choices.choices]
+            if self.shift_preference not in valid_shifts:
+                raise ValidationError({'shift_preference': f'Invalid shift preference. Choose from: {", ".join(valid_shifts)}'})
+
+    def save(self, *args, **kwargs):
+        # Validate that at least one professional qualification is provided
+        if not self.professions:
+            raise ValidationError("At least one profession is required.")
+        if not self.experience_level:
+            raise ValidationError("Experience level is required.")
+        if not self.availability:
+            raise ValidationError("Availability is required.")
+        if not self.preferred_work_location:
+            raise ValidationError("Preferred work location is required.")
+        if not self.shift_preference:
+            raise ValidationError("Shift preference is required.")
+        super().save(*args, **kwargs)
 
 class PhysicalAttributes(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='physical_attributes')
-    weight = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
-    height = models.DecimalField(max_digits=5, decimal_places=1, null=True, blank=True)
-    gender = models.CharField(max_length=20, blank=True)
-    hair_color = models.CharField(max_length=50, blank=True)
-    eye_color = models.CharField(max_length=50, blank=True)
-    body_type = models.CharField(max_length=50, blank=True)
-    skin_tone = models.CharField(max_length=50, blank=True)
+    weight = models.DecimalField(
+        max_digits=5, 
+        decimal_places=1, 
+        help_text="Weight in kilograms",
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(30, message="Weight must be at least 30 kg"),
+            MaxValueValidator(500, message="Weight cannot exceed 500 kg")
+        ]
+    )
+    height = models.DecimalField(
+        max_digits=5, 
+        decimal_places=1, 
+        help_text="Height in centimeters",
+        null=True,
+        blank=True,
+        validators=[
+            MinValueValidator(100, message="Height must be at least 100 cm"),
+            MaxValueValidator(300, message="Height cannot exceed 300 cm")
+        ]
+    )
+    gender = models.CharField(
+        max_length=20,
+        help_text="Gender (required)"
+    )
+    hair_color = models.CharField(
+        max_length=50,
+        help_text="Hair color (required)"
+    )
+    eye_color = models.CharField(
+        max_length=50,
+        help_text="Eye color (required)"
+    )
+    body_type = models.CharField(
+        max_length=50,
+        help_text="Body type (required)"
+    )
+    skin_tone = models.CharField(
+        max_length=50,
+        help_text="Skin tone (required)"
+    )
     facial_hair = models.CharField(max_length=50, blank=True)
     tattoos_visible = models.BooleanField(default=False)
     piercings_visible = models.BooleanField(default=False)
@@ -241,11 +456,52 @@ class PhysicalAttributes(models.Model):
             self.facial_hair = sanitize_string(self.facial_hair)
         if self.physical_condition:
             self.physical_condition = sanitize_string(self.physical_condition)
+        # Validate gender
+        gender_choices = GenderChoices.objects.first()
+        if gender_choices:
+            valid_genders = [choice['code'] for choice in gender_choices.choices]
+            if self.gender not in valid_genders:
+                raise ValidationError({'gender': f'Invalid gender. Choose from: {", ".join(valid_genders)}'})
+
+        # Existing validations
+        if self.height is not None:
+            if self.height < 100:  # Minimum height 100 cm
+                raise ValidationError({
+                    'height': 'Height must be at least 100 cm.'
+                })
+        if self.weight is not None:
+            if self.weight < 30:  # Minimum weight 30 kg
+                raise ValidationError({
+                    'weight': 'Weight must be at least 30 kg.'
+                })
+
+    def save(self, *args, **kwargs):
+        if self.weight is None:
+            raise ValidationError("Weight is required.")
+        if self.height is None:
+            raise ValidationError("Height is required.")
+        if not self.gender:
+            raise ValidationError("Gender is required.")
+        if not self.hair_color:
+            raise ValidationError("Hair color is required.")
+        if not self.eye_color:
+            raise ValidationError("Eye color is required.")
+        if not self.body_type:
+            raise ValidationError("Body type is required.")
+        if not self.skin_tone:
+            raise ValidationError("Skin tone is required.")
+        super().save(*args, **kwargs)
 
 class MedicalInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='medical_info')
-    health_conditions = models.JSONField(default=list)
-    medications = models.JSONField(default=list)
+    health_conditions = models.JSONField(
+        default=list,
+        help_text="List of health conditions (required)"
+    )
+    medications = models.JSONField(
+        default=list,
+        help_text="List of medications (required)"
+    )
     disability_status = models.CharField(max_length=50, blank=True)
     disability_type = models.CharField(max_length=50, blank=True, default="None")
 
@@ -255,6 +511,13 @@ class MedicalInfo(models.Model):
             self.disability_status = sanitize_string(self.disability_status)
         if self.disability_type:
             self.disability_type = sanitize_string(self.disability_type)
+
+    def save(self, *args, **kwargs):
+        if not self.health_conditions:
+            raise ValidationError("At least one health condition is required.")
+        if not self.medications:
+            raise ValidationError("At least one medication is required.")
+        super().save(*args, **kwargs)
 
 class Education(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='education')
@@ -302,82 +565,169 @@ class WorkExperience(models.Model):
 
 class ContactInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
-    address = models.CharField(max_length=200, blank=True)
-    city = models.CharField(max_length=100, blank=True)
-    region = models.CharField(max_length=100, blank=True)
-    postal_code = models.CharField(max_length=20, blank=True)
-    residence_type = models.CharField(max_length=50, blank=True)
-    residence_duration = models.CharField(max_length=50, blank=True)
-    housing_status = models.CharField(max_length=50, blank=True)
-    emergency_contact = models.CharField(max_length=100, blank=True)
-    emergency_phone = models.CharField(
-        max_length=17,
-        blank=True,
-        validators=[RegexValidator(
-            regex=r'^\+?1?\d{9,15}$',
-            message="Phone number must be entered in the format: '+999999999'. Up to 15 digits allowed."
-        )]
-    )
+    address = models.CharField(max_length=255)
+    specific_area = models.CharField(max_length=100)
+    city = models.CharField(max_length=100)
+    region = models.CharField(max_length=100)
+    country = models.CharField(max_length=2)
+    housing_status = models.CharField(max_length=50, choices=HOUSING_STATUS_CHOICES)
+    residence_duration = models.CharField(max_length=50, choices=RESIDENCE_DURATION_CHOICES)
+    emergency_contact = models.CharField(max_length=100)
+    emergency_phone = models.CharField(max_length=20)
+
+    def __str__(self):
+        return f"{self.profile.user.username}'s Contact Info"
+
+    def get_country_choices(self):
+        try:
+            with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
+                countries_data = json.load(f)
+                return countries_data['countries']
+        except (FileNotFoundError, json.JSONDecodeError):
+            return []
 
     def clean(self):
-        # Sanitize string fields (skip postal_code and emergency_phone due to strict regex validation)
-        if self.address:
-            self.address = sanitize_string(self.address)
-        if self.city:
-            self.city = sanitize_string(self.city)
-        if self.region:
-            self.region = sanitize_string(self.region)
-        if self.residence_type:
-            self.residence_type = sanitize_string(self.residence_type)
-        if self.residence_duration:
-            self.residence_duration = sanitize_string(self.residence_duration)
-        if self.housing_status:
-            self.housing_status = sanitize_string(self.housing_status)
-        if self.emergency_contact:
-            self.emergency_contact = sanitize_string(self.emergency_contact)
-
-        # Existing validation
-        if self.postal_code:
-            postal_pattern = r'^\d{4}$'
-            if not re.match(postal_pattern, self.postal_code.strip()):
+        if self.region and self.city:
+            try:
+                # Case-insensitive region lookup
+                location_data = LocationData.objects.get(region_id__iexact=self.region)
+                # Case-insensitive city validation
+                valid_cities = {city['id'].lower(): city['name'] for city in location_data.cities}
+                if self.city.lower() not in valid_cities:
+                    raise ValidationError({
+                        'city': f'Invalid city for the selected region. Please choose from: {", ".join(valid_cities.values())}'
+                    })
+            except LocationData.DoesNotExist:
                 raise ValidationError({
-                    'postal_code': 'Postal code must be exactly 4 digits (e.g., "1234").'
+                    'region': 'Invalid region selected.'
                 })
-            if not self.city or not self.region:
+
+        if self.country:
+            try:
+                with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'countries.json'), 'r') as f:
+                    countries_data = json.load(f)
+                    valid_countries = {country['id'].lower(): country['name'] for country in countries_data['countries']}
+                    if self.country.lower() not in valid_countries:
+                        raise ValidationError({
+                            'country': f'Invalid country selected. Please choose from: {", ".join(valid_countries.values())}'
+                        })
+            except (FileNotFoundError, json.JSONDecodeError):
                 raise ValidationError({
-                    'postal_code': 'City and region must be provided when postal code is set.'
+                    'country': 'Error validating country. Please try again.'
+                })
+
+        if self.housing_status:
+            valid_statuses = {status[0].lower(): status[1] for status in HOUSING_STATUS_CHOICES}
+            if self.housing_status.lower() not in valid_statuses:
+                raise ValidationError({
+                    'housing_status': f'Invalid housing status. Please choose from: {", ".join(valid_statuses.values())}'
+                })
+
+        if self.residence_duration:
+            valid_durations = {duration[0].lower(): duration[1] for duration in RESIDENCE_DURATION_CHOICES}
+            if self.residence_duration.lower() not in valid_durations:
+                raise ValidationError({
+                    'residence_duration': f'Invalid residence duration. Please choose from: {", ".join(valid_durations.values())}'
                 })
 
 class PersonalInfo(models.Model):
-    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
-    marital_status = models.CharField(max_length=50, blank=True)
-    ethnicity = models.CharField(max_length=50, blank=True)
-    personality_type = models.CharField(max_length=50, blank=True)
-    work_preference = models.CharField(max_length=50, blank=True)
-    hobbies = models.JSONField(default=list)
-    volunteer_experience = models.CharField(max_length=50, blank=True)
-    company_culture_preference = models.CharField(max_length=100, blank=True)
-    social_media_links = models.JSONField(default=dict)
-    social_media_handles = models.JSONField(default=list)
-    language_proficiency = models.JSONField(default=list)
-    special_skills = models.JSONField(default=list)
-    tools_experience = models.JSONField(default=list)
-    award_recognitions = models.JSONField(default=list)
+    GENDER_CHOICES = [
+        ('male', 'Male'),
+        ('female', 'Female'),
+        ('other', 'Other'),
+    ]
+    MARITAL_STATUS_CHOICES = [
+        ('single', 'Single'),
+        ('married', 'Married'),
+        ('divorced', 'Divorced'),
+        ('widowed', 'Widowed'),
+    ]
+    ID_TYPE_CHOICES = [
+        ('passport', 'Passport'),
+        ('national_id', 'National ID'),
+        ('drivers_license', 'Driver\'s License'),
+    ]
+    LANGUAGE_CHOICES = [
+        ('english', 'English'),
+        ('amharic', 'Amharic'),
+        ('oromo', 'Oromo'),
+        ('tigrinya', 'Tigrinya'),
+        ('somali', 'Somali'),
+        ('afar', 'Afar'),
+        ('other', 'Other'),
+    ]
+    HOBBY_CHOICES = [
+        ('reading', 'Reading'),
+        ('sports', 'Sports'),
+        ('music', 'Music'),
+        ('travel', 'Travel'),
+        ('cooking', 'Cooking'),
+        ('photography', 'Photography'),
+        ('art', 'Art'),
+        ('dancing', 'Dancing'),
+        ('gaming', 'Gaming'),
+        ('fitness', 'Fitness'),
+        ('other', 'Other'),
+    ]
+    SOCIAL_MEDIA_CHOICES = [
+        ('facebook', 'Facebook'),
+        ('instagram', 'Instagram'),
+        ('twitter', 'Twitter'),
+        ('linkedin', 'LinkedIn'),
+        ('tiktok', 'TikTok'),
+        ('youtube', 'YouTube'),
+        ('other', 'Other'),
+    ]
 
-    def clean(self):
-        # Sanitize string fields
-        if self.marital_status:
-            self.marital_status = sanitize_string(self.marital_status)
-        if self.ethnicity:
-            self.ethnicity = sanitize_string(self.ethnicity)
-        if self.personality_type:
-            self.personality_type = sanitize_string(self.personality_type)
-        if self.work_preference:
-            self.work_preference = sanitize_string(self.work_preference)
-        if self.volunteer_experience:
-            self.volunteer_experience = sanitize_string(self.volunteer_experience)
-        if self.company_culture_preference:
-            self.company_culture_preference = sanitize_string(self.company_culture_preference)
+    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
+    first_name = models.CharField(max_length=100, null=False, blank=False)
+    last_name = models.CharField(max_length=100, null=False, blank=False)
+    date_of_birth = models.DateField(null=False, blank=False)
+    gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=False, blank=False)
+    marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, null=False, blank=False)
+    nationality = models.CharField(max_length=100, null=False, blank=False)
+    id_type = models.CharField(max_length=20, choices=ID_TYPE_CHOICES, null=False, blank=False)
+    id_number = models.CharField(max_length=50, null=False, blank=False)
+    hobbies = models.JSONField(default=list, null=False, blank=False)
+    language_proficiency = models.JSONField(default=list, null=False, blank=False)
+    social_media = models.JSONField(default=dict, null=False, blank=False)
+    custom_hobby = models.CharField(max_length=100, blank=True, null=True)
+    custom_language = models.CharField(max_length=100, blank=True, null=True)
+    custom_social_media = models.CharField(max_length=100, blank=True, null=True)
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name}"
+
+    class Meta:
+        verbose_name = "Personal Information"
+        verbose_name_plural = "Personal Information"
+
+    def save(self, *args, **kwargs):
+        if not self.first_name:
+            raise ValidationError("First name is required.")
+        if not self.last_name:
+            raise ValidationError("Last name is required.")
+        if not self.date_of_birth:
+            raise ValidationError("Date of birth is required.")
+        if not self.gender:
+            raise ValidationError("Gender is required.")
+        if not self.marital_status:
+            raise ValidationError("Marital status is required.")
+        if not self.nationality:
+            raise ValidationError("Nationality is required.")
+        if not self.id_type:
+            raise ValidationError("ID type is required.")
+        if not self.id_number:
+            raise ValidationError("ID number is required.")
+        if not self.hobbies:
+            raise ValidationError("At least one hobby is required.")
+        if not self.language_proficiency:
+            raise ValidationError("At least one language proficiency is required.")
+        if not self.social_media:
+            raise ValidationError("At least one social media account is required.")
+        super().save(*args, **kwargs)
 
 class Media(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='media')
@@ -389,10 +739,231 @@ class Media(models.Model):
     )
     photo = models.ImageField(
         upload_to='profile_photos/',
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
+            MinValueValidator(800, message="Image width must be at least 800 pixels"),
+            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+        ],
+        help_text="Professional headshot (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width.",
+        blank=True,
+        null=True
+    )
+    natural_photo_1 = models.ImageField(
+        upload_to='natural_photos/',
         null=True,
         blank=True,
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
+            MinValueValidator(800, message="Image width must be at least 800 pixels"),
+            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+        ],
+        help_text="First natural photo (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
     )
+    natural_photo_2 = models.ImageField(
+        upload_to='natural_photos/',
+        null=True,
+        blank=True,
+        validators=[
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
+            MinValueValidator(800, message="Image width must be at least 800 pixels"),
+            MaxValueValidator(2000, message="Image width must not exceed 2000px width")
+        ],
+        help_text="Second natural photo (required). Must be JPG/PNG format, minimum 800px width, maximum 2000px width."
+    )
+    photo_processed = models.BooleanField(default=False)
+    natural_photo_1_processed = models.BooleanField(default=False)
+    natural_photo_2_processed = models.BooleanField(default=False)
+    last_cleanup = models.DateTimeField(null=True, blank=True)
+
+    def _process_image(self, image_field, field_name):
+        """Process image: resize, optimize, and add watermark if needed"""
+        try:
+            # Open image
+            img = Image.open(image_field)
+            
+            # Convert to RGB if necessary
+            if img.mode in ('RGBA', 'P'):
+                img = img.convert('RGB')
+            
+            # Resize if needed while maintaining aspect ratio
+            if img.width > 2000:
+                ratio = 2000 / img.width
+                new_size = (2000, int(img.height * ratio))
+                img = img.resize(new_size, Image.Resampling.LANCZOS)
+            
+            # Optimize image
+            if img.format == 'JPEG':
+                img.save(image_field.path, 'JPEG', quality=85, optimize=True)
+            elif img.format == 'PNG':
+                img.save(image_field.path, 'PNG', optimize=True)
+            
+            # Update processed flag
+            setattr(self, f'{field_name}_processed', True)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error processing image {field_name}: {str(e)}")
+            return False
+
+    def _validate_image(self, image, field_name):
+        """Enhanced image validation including metadata and content checks"""
+        try:
+            # Basic validation
+            img = Image.open(image)
+            width, height = img.size
+            
+            # Check dimensions
+            if width < 800 or width > 2000:
+                raise ValidationError({
+                    field_name: f'Image width must be between 800 and 2000 pixels. Current width: {width}px'
+                })
+            
+            # Check aspect ratio
+            aspect_ratio = width / height
+            if not (0.6 <= aspect_ratio <= 0.8):
+                raise ValidationError({
+                    field_name: 'Image aspect ratio should be approximately 3:4.'
+                })
+            
+            # Check file size
+            if image.size > 5 * 1024 * 1024:
+                raise ValidationError({
+                    field_name: 'Image file size must not exceed 5MB.'
+                })
+            
+            # Check image quality
+            if img.format == 'JPEG':
+                quality = img.info.get('quality', 0)
+                if quality < 80:
+                    raise ValidationError({
+                        field_name: 'Image quality must be at least 80%.'
+                    })
+            
+            # Check metadata
+            try:
+                exif = img._getexif()
+                if exif:
+                    for tag_id in exif:
+                        tag = ExifTags.TAGS.get(tag_id, tag_id)
+                        if tag in ['DateTime', 'DateTimeOriginal', 'DateTimeDigitized']:
+                            # Check if image is too old (e.g., more than 5 years)
+                            image_date = exif[tag_id]
+                            if isinstance(image_date, str):
+                                from datetime import datetime
+                                try:
+                                    image_date = datetime.strptime(image_date, '%Y:%m:%d %H:%M:%S')
+                                    if image_date < (timezone.now() - timedelta(days=5*365)):
+                                        raise ValidationError({
+                                            field_name: 'Image appears to be more than 5 years old. Please provide a recent photo.'
+                                        })
+                                except ValueError:
+                                    pass
+            except Exception as e:
+                logger.warning(f"Error reading EXIF data: {str(e)}")
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error validating image {field_name}: {str(e)}")
+            raise ValidationError({
+                field_name: f'Error validating image: {str(e)}'
+            })
+
+    def clean(self):
+        """Validate all images before saving"""
+        # Validate headshot
+        if self.photo:
+            self._validate_image(self.photo, 'photo')
+        
+        # Validate natural photos
+        if self.natural_photo_1:
+            self._validate_image(self.natural_photo_1, 'natural_photo_1')
+        else:
+            raise ValidationError({
+                'natural_photo_1': 'First natural photo is required.'
+            })
+            
+        if self.natural_photo_2:
+            self._validate_image(self.natural_photo_2, 'natural_photo_2')
+        else:
+            raise ValidationError({
+                'natural_photo_2': 'Second natural photo is required.'
+            })
+
+    def save(self, *args, **kwargs):
+        """Process and save images"""
+        self.clean()
+        
+        # Process images if not already processed
+        if self.photo and not self.photo_processed:
+            self._process_image(self.photo, 'photo')
+        
+        if self.natural_photo_1 and not self.natural_photo_1_processed:
+            self._process_image(self.natural_photo_1, 'natural_photo_1')
+        
+        if self.natural_photo_2 and not self.natural_photo_2_processed:
+            self._process_image(self.natural_photo_2, 'natural_photo_2')
+        
+        # Cleanup old files if needed
+        self._cleanup_old_files()
+        
+        super().save(*args, **kwargs)
+
+    def _cleanup_old_files(self):
+        """Clean up old and unused files"""
+        if self.last_cleanup and (timezone.now() - self.last_cleanup) < timedelta(days=1):
+            return  # Only cleanup once per day
+        
+        try:
+            # Get all media directories
+            media_dirs = ['profile_photos/', 'natural_photos/', 'profile_videos/']
+            
+            for directory in media_dirs:
+                # List all files in directory
+                files = default_storage.listdir(directory)[1]
+                
+                for file in files:
+                    file_path = os.path.join(directory, file)
+                    
+                    # Check if file is older than 30 days
+                    try:
+                        file_stat = default_storage.stat(file_path)
+                        file_time = timezone.datetime.fromtimestamp(file_stat.st_mtime)
+                        
+                        if (timezone.now() - file_time) > timedelta(days=30):
+                            # Check if file is not associated with any profile
+                            if not Media.objects.filter(
+                                photo=file_path
+                            ).exists() and not Media.objects.filter(
+                                natural_photo_1=file_path
+                            ).exists() and not Media.objects.filter(
+                                natural_photo_2=file_path
+                            ).exists():
+                                # Delete the file
+                                default_storage.delete(file_path)
+                                logger.info(f"Deleted old file: {file_path}")
+                    except Exception as e:
+                        logger.error(f"Error processing file {file_path}: {str(e)}")
+            
+            self.last_cleanup = timezone.now()
+        except Exception as e:
+            logger.error(f"Error during cleanup: {str(e)}")
+
+    def delete(self, *args, **kwargs):
+        """Clean up files when model is deleted"""
+        try:
+            # Delete associated files
+            if self.photo:
+                default_storage.delete(self.photo.path)
+            if self.natural_photo_1:
+                default_storage.delete(self.natural_photo_1.path)
+            if self.natural_photo_2:
+                default_storage.delete(self.natural_photo_2.path)
+            if self.video:
+                default_storage.delete(self.video.path)
+        except Exception as e:
+            logger.error(f"Error deleting files: {str(e)}")
+        
+        super().delete(*args, **kwargs)
 
 class VerificationStatus(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='verification_status')
@@ -440,3 +1011,154 @@ class VerificationAuditLog(models.Model):
 
     def __str__(self):
         return f"Verification Log for {self.profile.name} at {self.changed_at}"
+
+class LocationData(models.Model):
+    region_id = models.CharField(max_length=50, unique=True)
+    region_name = models.CharField(max_length=100)
+    cities = models.JSONField()
+
+    def __str__(self):
+        return self.region_name
+
+    class Meta:
+        verbose_name = "Location Data"
+        verbose_name_plural = "Location Data"
+
+class ChoiceData(models.Model):
+    choice_type = models.CharField(max_length=50, unique=True)
+    choices = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.choice_type} Choices"
+
+    class Meta:
+        verbose_name = 'Choice Data'
+        verbose_name_plural = 'Choice Data'
+
+class ProfessionalChoices(models.Model):
+    company_sizes = models.JSONField(default=list)
+    industries = models.JSONField(default=list)
+    leadership_styles = models.JSONField(default=list)
+    communication_styles = models.JSONField(default=list)
+    motivations = models.JSONField(default=list)
+
+    class Meta:
+        verbose_name = 'Professional Choices'
+        verbose_name_plural = 'Professional Choices'
+
+    def __str__(self):
+        return "Professional Choices"
+
+class GenderChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Gender Choices"
+
+class MaritalStatusChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Marital Status Choices"
+
+class HousingStatusChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Housing Status Choices"
+
+class DurationChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Duration Choices"
+
+class IDTypeChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "ID Type Choices"
+
+class ActorCategoryChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Actor Category Choices"
+
+class SkillsChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Skills Choices"
+
+class ExperienceLevelChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Experience Level Choices"
+
+class YearsChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Years Choices"
+
+class AvailabilityChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Availability Choices"
+
+class EmploymentStatusChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Employment Status Choices"
+
+class WorkLocationChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Work Location Choices"
+
+class ShiftChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Shift Choices"
+
+class NationalityChoices(models.Model):
+    choices = models.JSONField(default=list)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return "Nationality Choices"

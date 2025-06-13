@@ -1,0 +1,10 @@
+{
+    "shifts": [
+        {"code": "morning", "label": "Morning (6AM-2PM)"},
+        {"code": "afternoon", "label": "Afternoon (2PM-10PM)"},
+        {"code": "night", "label": "Night (10PM-6AM)"},
+        {"code": "rotating", "label": "Rotating"},
+        {"code": "flexible", "label": "Flexible"},
+        {"code": "split", "label": "Split Shift"}
+    ]
+} 

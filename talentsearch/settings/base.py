@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 import environ
 import sys
+from datetime import timedelta
 
 # Initialize environment variables
 env = environ.Env(
@@ -26,7 +27,7 @@ if os.path.exists(os.path.join(BASE_DIR, ".env")):
 SECRET_KEY = env("SECRET_KEY", default="django-insecure-key-for-development-only")
 DEBUG = env("DEBUG", default=False)
 ALLOWED_HOSTS = [
-    'talentsearch-messages-uokp.onrender.com',
+    'talentsearch-messages-1.onrender.com',
     'localhost',
     '127.0.0.1',
 ]
@@ -48,6 +49,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'django_filters',
     'rest_framework_simplejwt.token_blacklist',
+    'cloudinary',
+    'cloudinary_storage',
 
     # Custom apps
     'authapp',
@@ -63,7 +66,9 @@ INSTALLED_APPS = [
     'comment_likes',
     'rental_items',
     'rental_ratings',
-    'user_ratings'
+    'user_ratings',
+    'contact_us',
+    'platform_stats'
 
 ]
 
@@ -75,6 +80,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'authapp.views.TokenAuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
@@ -130,6 +136,7 @@ EMAIL_USE_TLS = env('EMAIL_USE_TLS', default=True)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='dev@example.com')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='dev_password')
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='dev@example.com')
+CONTACT_RECIPIENT_EMAIL = env('CONTACT_RECIPIENT_EMAIL', default='dev@example.com')
 
 # Static & Media
 STATIC_URL = '/static/'
@@ -141,8 +148,8 @@ WHITENOISE_USE_FINDERS = True
 WHITENOISE_MANIFEST_STRICT = False
 WHITENOISE_ALLOW_ALL_ORIGINS = True
 
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# MEDIA_URL = '/media/'
+# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # Custom user model
 AUTH_USER_MODEL = 'authapp.User'
@@ -150,8 +157,8 @@ AUTH_USER_MODEL = 'authapp.User'
 # REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
-        'rest_framework.authentication.TokenAuthentication',
-        'rest_framework.authentication.SessionAuthentication',
+        'authapp.authentication.BlacklistCheckingJWTAuthentication',
+
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -166,7 +173,40 @@ REST_FRAMEWORK = {
         'test': '1000/minute',
         'auth': '10/minute',
     },
-    'TOKEN_EXPIRE_MINUTES': 60,  # Optional: can be removed if not used
+}
+
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+}
+
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # Token will be valid for 7 days
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),  # Refresh token will be valid for 30 days
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
 }
 
 # Session settings
@@ -201,10 +241,6 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
 
-# For development only (optional)
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-
 # Test Settings
 if 'test' in sys.argv:
     REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
@@ -223,5 +259,4 @@ if 'test' in sys.argv:
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailBackend',
-    'django.contrib.auth.backends.ModelBackend',
 ]
