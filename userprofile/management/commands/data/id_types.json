@@ -1,0 +1,22 @@
+{
+    "id_types": [
+        {"code": "passport", "label": "Passport"},
+        {"code": "drivers_license", "label": "Driver's License"},
+        {"code": "sss", "label": "SSS ID"},
+        {"code": "gsis", "label": "GSIS ID"},
+        {"code": "umid", "label": "UMID"},
+        {"code": "philhealth", "label": "PhilHealth ID"},
+        {"code": "postal", "label": "Postal ID"},
+        {"code": "voters", "label": "Voter's ID"},
+        {"code": "prc", "label": "PRC ID"},
+        {"code": "nbi", "label": "NBI Clearance"},
+        {"code": "police", "label": "Police Clearance"},
+        {"code": "barangay", "label": "Barangay Clearance"},
+        {"code": "senior_citizen", "label": "Senior Citizen ID"},
+        {"code": "ofw", "label": "OFW ID"},
+        {"code": "seaman", "label": "Seaman's Book"},
+        {"code": "alien", "label": "Alien Certificate of Registration"},
+        {"code": "immigrant", "label": "Immigrant Certificate of Registration"},
+        {"code": "other", "label": "Other Government-Issued ID"}
+    ]
+} 

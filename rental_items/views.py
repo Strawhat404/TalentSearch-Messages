@@ -72,18 +72,18 @@ class RentalItemViewSet(viewsets.ModelViewSet):
         },
         help_text='Update an existing rental item',
         example={
-            'id': 'uuid',
-            'name': 'Updated Item Name',
-            'type': 'equipment',
-            'category': 'tools',
-            'daily_rate': 50.00,
-            'available': True,
-            'featured_item': False,
-            'approved': True,
-            'user_profile': {
-                'name': 'Owner Name',
-                'photo': 'photo_url'
-            }
+                    'id': 'uuid',
+                    'name': 'Updated Item Name',
+                    'type': 'equipment',
+                    'category': 'tools',
+                    'daily_rate': 50.00,
+                    'available': True,
+                    'featured_item': False,
+                    'approved': True,
+                    'user_profile': {
+                        'name': 'Owner Name',
+                        'photo': 'photo_url'
+                    }
         }
     )
     def update(self, request, *args, **kwargs):

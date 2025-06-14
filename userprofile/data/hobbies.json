@@ -1,0 +1,11 @@
+{
+    "hobbies": [
+        {"name": "Reading", "code": "READING"},
+        {"name": "Sports", "code": "SPORTS"},
+        {"name": "Music", "code": "MUSIC"},
+        {"name": "Traveling", "code": "TRAVELING"},
+        {"name": "Cooking", "code": "COOKING"},
+        {"name": "Gaming", "code": "GAMING"},
+        {"name": "Other", "code": "OTHER"}
+    ]
+} 

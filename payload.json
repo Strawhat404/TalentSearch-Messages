@@ -1,0 +1,77 @@
+{
+    "name": "John Doe",
+    "birthdate": "1995-04-12",
+    "profession": "actor",
+    "nationality": "ethiopian",
+    "location": "Addis Ababa",
+  
+    "personal_info": {
+      "first_name": "John",
+      "last_name": "Doe",
+      "date_of_birth": "1995-04-12",
+      "gender": "male",
+      "marital_status": "single",
+      "nationality": "ethiopian",
+      "id_type": "national_id",
+      "id_number": "123456789012",
+      "hobbies": ["reading", "sports"],
+      "language_proficiency": ["english", "amharic"],
+      "social_media": { "facebook": "john.doe" }
+    },
+  
+    "professional_qualifications": {
+      "professions": ["actor"],
+      "experience_level": "mid",
+      "work_authorization": "ethiopia",
+      "availability": "full_time",
+      "preferred_work_location": "ethiopia",
+      "shift_preference": "day",
+      "role_title": "Lead Actor",
+      "main_skill": "acting",
+  
+      "preferred_company_size": "small",
+      "preferred_industry": "film",
+      "leadership_style": "collaborative",
+      "communication_style": "open",
+      "motivation": "growth"
+    },
+  
+    "contact_info": {
+      "address": "123 Churchill Ave",
+      "specific_area": "Kazanchis",
+      "city": "Addis Ababa",
+      "region": "AA",
+      "country": "ET",
+      "housing_status": "rented",
+      "residence_duration": "1_to_3_years",
+      "emergency_contact": "Jane Doe",
+      "emergency_phone": "+251911000000"
+    },
+  
+    "physical_attributes": {
+      "height": 180.0,
+      "weight": 75.0,
+      "gender": "male",
+      "hair_color": "black",
+      "eye_color": "brown",
+      "body_type": "athletic",
+      "skin_tone": "medium"
+    },
+  
+    "medical_info": { "health_conditions": ["none"], "medications": ["none"] },
+  
+    "education": {
+      "education_level": "bachelor",
+      "degree_type": "BA",
+      "field_of_study": "Theatre Arts",
+      "institution_name": "Addis Ababa University"
+    },
+  
+    "work_experience": {
+      "years_of_experience": "5",
+      "employment_status": "freelance",
+      "previous_employers": [
+        { "name": "Arts Plc", "position": "Actor", "duration": "2018-2020" }
+      ]
+    }
+  }

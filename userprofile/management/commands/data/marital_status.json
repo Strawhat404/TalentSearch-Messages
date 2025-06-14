@@ -1,0 +1,8 @@
+{
+    "marital_statuses": [
+        {"code": "single", "label": "Single"},
+        {"code": "married", "label": "Married"},
+        {"code": "divorced", "label": "Divorced"},
+        {"code": "widowed", "label": "Widowed"}
+    ]
+} 

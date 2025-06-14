@@ -1,0 +1,533 @@
+openapi: 3.0.3
+info:
+  title: Profile API
+  description: API for managing user profiles and media
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@talentsearch.com
+
+servers:
+  - url: /api
+    description: API base URL
+
+components:
+  schemas:
+    PhysicalAttributes:
+      type: object
+      required:
+        - weight
+        - height
+        - gender
+        - hair_color
+        - eye_color
+        - body_type
+        - skin_tone
+      properties:
+        weight:
+          type: number
+          format: float
+          minimum: 30
+          description: Weight in kg
+        height:
+          type: number
+          format: float
+          minimum: 100
+          description: Height in cm
+        gender:
+          type: string
+          enum: [male, female, other]
+        hair_color:
+          type: string
+        eye_color:
+          type: string
+        body_type:
+          type: string
+        skin_tone:
+          type: string
+        facial_hair:
+          type: string
+        tattoos_visible:
+          type: boolean
+          default: false
+        piercings_visible:
+          type: boolean
+          default: false
+        physical_condition:
+          type: string
+
+    Education:
+      type: object
+      properties:
+        education_level:
+          type: string
+        degree_type:
+          type: string
+        field_of_study:
+          type: string
+        graduation_year:
+          type: string
+          format: date
+        gpa:
+          type: number
+          format: float
+        institution_name:
+          type: string
+        scholarships:
+          type: array
+          items:
+            type: string
+        academic_achievements:
+          type: array
+          items:
+            type: string
+        certifications:
+          type: array
+          items:
+            type: string
+        online_courses:
+          type: array
+          items:
+            type: string
+
+    WorkExperience:
+      type: object
+      properties:
+        years_of_experience:
+          type: integer
+          minimum: 0
+        employment_status:
+          type: string
+        previous_employers:
+          type: array
+          items:
+            type: string
+        projects:
+          type: array
+          items:
+            type: string
+        training:
+          type: array
+          items:
+            type: string
+        internship_experience:
+          type: string
+
+    PersonalInfo:
+      type: object
+      properties:
+        marital_status:
+          type: string
+        ethnicity:
+          type: string
+        personality_type:
+          type: string
+        work_preference:
+          type: string
+        hobbies:
+          type: array
+          items:
+            type: string
+        volunteer_experience:
+          type: string
+        company_culture_preference:
+          type: string
+        social_media:
+          type: array
+          items:
+            type: string
+        other_social_media:
+          type: array
+          items:
+            type: string
+        language_proficiency:
+          type: array
+          items:
+            type: string
+        special_skills:
+          type: array
+          items:
+            type: string
+        tools_experience:
+          type: array
+          items:
+            type: string
+        award_recognitions:
+          type: array
+          items:
+            type: string
+
+    ContactInfo:
+      type: object
+      properties:
+        address:
+          type: string
+        city:
+          type: string
+        region:
+          type: string
+        postal_code:
+          type: string
+        residence_type:
+          type: string
+        residence_duration:
+          type: string
+        housing_status:
+          type: string
+        emergency_contact:
+          type: string
+        emergency_phone:
+          type: string
+
+    Profile:
+      type: object
+      required:
+        - name
+        - birthdate
+        - profession
+        - nationality
+        - location
+        - physical_attributes
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+          readOnly: true
+        birthdate:
+          type: string
+          format: date
+        profession:
+          type: string
+        nationality:
+          type: string
+        age:
+          type: integer
+          readOnly: true
+        location:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+          readOnly: true
+        availability_status:
+          type: boolean
+          default: false
+        verified:
+          type: boolean
+          default: false
+          readOnly: true
+        flagged:
+          type: boolean
+          default: false
+          readOnly: true
+        status:
+          type: string
+          readOnly: true
+        physical_attributes:
+          $ref: '#/components/schemas/PhysicalAttributes'
+        education:
+          $ref: '#/components/schemas/Education'
+        work_experience:
+          $ref: '#/components/schemas/WorkExperience'
+        personal_info:
+          $ref: '#/components/schemas/PersonalInfo'
+        contact_info:
+          $ref: '#/components/schemas/ContactInfo'
+
+    Media:
+      type: object
+      properties:
+        id:
+          type: integer
+          readOnly: true
+        photo:
+          type: string
+          format: uri
+        natural_photo_1:
+          type: string
+          format: uri
+        natural_photo_2:
+          type: string
+          format: uri
+        video:
+          type: string
+          format: uri
+        photo_processed:
+          type: boolean
+          default: false
+          readOnly: true
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              type: string
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+paths:
+  /profile/:
+    post:
+      summary: Create a new profile
+      description: Create a new user profile with all required information
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+      responses:
+        '201':
+          description: Profile created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update profile
+      description: Update an existing user profile
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Profile'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    get:
+      summary: Get profile
+      description: Retrieve the current user's profile
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Profile'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /profile/media/:
+    post:
+      summary: Upload media
+      description: Upload profile photos and video
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Main profile photo (JPG/PNG, 800-2000px width, max 5MB)
+                natural_photo_1:
+                  type: string
+                  format: binary
+                  description: Natural photo 1 (JPG/PNG, 800-2000px width, max 5MB)
+                natural_photo_2:
+                  type: string
+                  format: binary
+                  description: Natural photo 2 (JPG/PNG, 800-2000px width, max 5MB)
+                video:
+                  type: string
+                  format: binary
+                  description: Profile video (MP4/AVI/MOV/MKV, max 2 minutes, max 50MB)
+      responses:
+        '201':
+          description: Media uploaded successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      summary: Update media
+      description: Update profile photos and video
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: Main profile photo (JPG/PNG, 800-2000px width, max 5MB)
+                natural_photo_1:
+                  type: string
+                  format: binary
+                  description: Natural photo 1 (JPG/PNG, 800-2000px width, max 5MB)
+                natural_photo_2:
+                  type: string
+                  format: binary
+                  description: Natural photo 2 (JPG/PNG, 800-2000px width, max 5MB)
+                video:
+                  type: string
+                  format: binary
+                  description: Profile video (MP4/AVI/MOV/MKV, max 2 minutes, max 50MB)
+      responses:
+        '200':
+          description: Media updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Media'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error' 
