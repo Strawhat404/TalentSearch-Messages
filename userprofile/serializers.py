@@ -28,6 +28,34 @@ def sanitize_string(value):
     cleaned_value = re.sub(r'\s+', ' ', cleaned_value).strip()
     return cleaned_value
 
+# --- Load static choice lists once -------------------------------------------------
+DATA_DIR = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
+
+def _safe_load(list_name, filename, key):
+    try:
+        with open(os.path.join(DATA_DIR, filename), 'r') as _f:
+            return json.load(_f)[key]
+    except Exception:
+        return []
+
+ALLOWED_LANGUAGES          = _safe_load('languages',            'languages.json',            'languages')
+PHYSICAL_DATA              = _safe_load('physical_attributes',  'physical_attributes.json',  None)
+# when key is None we returned full dict; handle fallback
+if isinstance(PHYSICAL_DATA, dict):
+    HAIR_COLORS   = PHYSICAL_DATA.get('hair_colors', [])
+    EYE_COLORS    = PHYSICAL_DATA.get('eye_colors', [])
+    SKIN_TONES    = PHYSICAL_DATA.get('skin_tones', [])
+    BODY_TYPES    = PHYSICAL_DATA.get('body_types', [])
+else:
+    HAIR_COLORS = EYE_COLORS = SKIN_TONES = BODY_TYPES = []
+
+MEDICAL_DATA = _safe_load('medical_info', 'medical_info.json', None)
+if isinstance(MEDICAL_DATA, dict):
+    KNOWN_MED_CONDITIONS = MEDICAL_DATA.get('disability_statuses', []) + MEDICAL_DATA.get('medical_conditions', []) if MEDICAL_DATA else []
+    KNOWN_MEDICINE_TYPES = MEDICAL_DATA.get('medicine_types', [])
+else:
+    KNOWN_MED_CONDITIONS = KNOWN_MEDICINE_TYPES = []
+
 class IdentityVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = IdentityVerification
@@ -137,6 +165,10 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
                     'main_skill': 'Main skill must be one of the selected skills'
                 })
 
+        # travel_willingness must be present per consultant
+        if 'travel_willingness' not in data:
+            raise serializers.ValidationError({"travel_willingness": "Willingness to travel must be specified (true/false)."})
+
         return data
 
 class PhysicalAttributesSerializer(serializers.ModelSerializer):
@@ -151,6 +183,10 @@ class PhysicalAttributesSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate required fields
+        if not data.get('height'):
+            raise serializers.ValidationError({"height": "Height is required."})
+        if not data.get('weight'):
+            raise serializers.ValidationError({"weight": "Weight is required."})
         if not data.get('gender'):
             raise serializers.ValidationError({"gender": "Gender is required."})
         if not data.get('hair_color'):
@@ -177,6 +213,16 @@ class PhysicalAttributesSerializer(serializers.ModelSerializer):
                     'weight': 'Weight must be between 30 and 500 kilograms.'
                 })
 
+        # Membership validation using static lists
+        if data.get('hair_color') and data['hair_color'] not in HAIR_COLORS:
+            raise serializers.ValidationError({'hair_color': 'Invalid hair color.'})
+        if data.get('eye_color') and data['eye_color'] not in EYE_COLORS:
+            raise serializers.ValidationError({'eye_color': 'Invalid eye color.'})
+        if data.get('skin_tone') and data['skin_tone'] not in SKIN_TONES:
+            raise serializers.ValidationError({'skin_tone': 'Invalid skin tone.'})
+        if data.get('body_type') and data['body_type'] not in BODY_TYPES:
+            raise serializers.ValidationError({'body_type': 'Invalid body type.'})
+
         return data
 
 class MedicalInfoSerializer(serializers.ModelSerializer):
@@ -195,17 +241,14 @@ class MedicalInfoSerializer(serializers.ModelSerializer):
         if not data.get('medications'):
             raise serializers.ValidationError({"medications": "Medications are required."})
 
-        # Validate disability status and type
-        disability_status = data.get('disability_status')
-        disability_type = data.get('disability_type')
-        if disability_status and not disability_type:
-            raise serializers.ValidationError({
-                'disability_type': 'Disability type is required when disability status is provided.'
-            })
-        if not disability_status and disability_type:
-            raise serializers.ValidationError({
-                'disability_status': 'Disability status is required when disability type is provided.'
-            })
+        # Membership checks
+        invalid_conditions = [c for c in data.get('health_conditions', []) if c not in KNOWN_MED_CONDITIONS]
+        if invalid_conditions:
+            raise serializers.ValidationError({'health_conditions': f'Invalid condition(s): {", ".join(invalid_conditions)}'})
+
+        invalid_meds = [m for m in data.get('medications', []) if m not in KNOWN_MEDICINE_TYPES]
+        if invalid_meds:
+            raise serializers.ValidationError({'medications': f'Invalid medication type(s): {", ".join(invalid_meds)}'})
 
         return data
 
@@ -364,9 +407,9 @@ class ContactInfoSerializer(serializers.ModelSerializer):
         # Validate phone number format
         emergency_phone = data.get('emergency_phone')
         if emergency_phone:
-            if not re.match(r'^\+?[0-9]{10,15}$', emergency_phone):
+            if not re.match(r'^\+251[0-9]{9}$', emergency_phone):
                 raise serializers.ValidationError({
-                    'emergency_phone': 'Phone number must be in international format (e.g., +251912345678)'
+                    'emergency_phone': 'Phone must start with +251 followed by 9 digits.'
                 })
 
         # Validate housing status
@@ -418,6 +461,8 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"hobbies": "At least one hobby is required."})
         if not data.get('language_proficiency'):
             raise serializers.ValidationError({"language_proficiency": "At least one language proficiency is required."})
+        if not data.get('custom_hobby'):
+            raise serializers.ValidationError({"custom_hobby": "Custom hobby is required."})
         
         # Validate social media accounts
         social_media = data.get('social_media', {})
@@ -441,6 +486,11 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({'id_number': f'{id_type} requires a valid ID number.'})
         elif id_number and not id_type:
             raise serializers.ValidationError({'id_type': 'ID type must be specified when providing an ID number.'})
+
+        # Validate languages membership
+        invalid_langs = [lng for lng in data.get('language_proficiency', []) if lng not in ALLOWED_LANGUAGES]
+        if invalid_langs:
+            raise serializers.ValidationError({'language_proficiency': f'Invalid language codes: {", ".join(invalid_langs)}'})
 
         return data
 
