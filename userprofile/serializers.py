@@ -62,6 +62,13 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
         fields = ['id_type', 'id_number', 'id_expiry_date', 'id_front', 'id_back', 'id_verified']
         read_only_fields = ['id_verified']
 
+    def validate(self, data):
+        if not data.get('id_front'):
+            raise serializers.ValidationError({"id_front": "Front photo of ID document is required."})
+        if not data.get('id_back'):
+            raise serializers.ValidationError({"id_back": "Back photo of ID document is required."})
+        return data
+
     def get_id_number(self, obj):
         id_number = obj.id_number
         if id_number and len(id_number) > 4:
@@ -408,7 +415,7 @@ class ContactInfoSerializer(serializers.ModelSerializer):
         emergency_phone = data.get('emergency_phone')
         if emergency_phone:
             if not re.match(r'^\+251[0-9]{9}$', emergency_phone):
-                raise serializers.ValidationError({
+                    raise serializers.ValidationError({
                     'emergency_phone': 'Phone must start with +251 followed by 9 digits.'
                 })
 

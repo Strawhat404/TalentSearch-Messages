@@ -372,7 +372,7 @@ class ProfileView(APIView):
             for attr, value in data.items():
                 setattr(profile, attr, value)
             profile.save()
-            
+
             response_data = {
                 "id": profile.id,
                 "message": "Profile updated successfully."
