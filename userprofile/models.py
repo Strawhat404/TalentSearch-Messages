@@ -334,6 +334,45 @@ class ProfessionalQualifications(models.Model):
         if self.shift_preference:
             self.shift_preference = sanitize_string(self.shift_preference)
 
+        professions_lower = [p.lower() for p in self.professions]
+
+        # Stuntman-specific validations
+        if 'stuntman' in professions_lower:
+            if not self.skill_description:
+                raise ValidationError({
+                    'skill_description': 'Skill description is required for Stuntman profession.'
+                })
+            if not self.video_url:
+                raise ValidationError({
+                    'video_url': 'Showcase video URL is required for Stuntman profession.'
+                })
+            if not self.main_skill:
+                raise ValidationError({
+                    'main_skill': 'Main skill is required for Stuntman profession.'
+                })
+            if not self.skills:
+                raise ValidationError({
+                    'skills': 'At least one skill is required for Stuntman profession.'
+                })
+            if self.main_skill not in self.skills:
+                raise ValidationError({
+                    'main_skill': 'Main skill must be one of the selected skills.'
+                })
+
+        # Cameraman-specific validations
+        if 'cameraman' in professions_lower:
+            if not self.portfolio_url:
+                raise ValidationError({
+                    'portfolio_url': 'Portfolio URL is required for Cameraman profession.'
+                })
+
+        # Voice-Over specific validations
+        if 'voice over artist' in professions_lower:
+            if not self.video_url:
+                raise ValidationError({
+                    'video_url': 'Demo video URL is required for Voice-Over profession.'
+                })
+
         # Validate experience_level
         experience_level_choices = ExperienceLevelChoices.objects.first()
         if experience_level_choices:
@@ -704,6 +743,52 @@ class PersonalInfo(models.Model):
     class Meta:
         verbose_name = "Personal Information"
         verbose_name_plural = "Personal Information"
+
+    def clean(self):
+        # Validate social media structure
+        if not isinstance(self.social_media, dict):
+            raise ValidationError({
+                'social_media': 'Social media must be a dictionary of platforms and their details.'
+            })
+
+        if not self.social_media:
+            raise ValidationError({
+                'social_media': 'At least one social media account is required.'
+            })
+
+        valid_platforms = [choice[0] for choice in self.SOCIAL_MEDIA_CHOICES]
+        
+        for platform, details in self.social_media.items():
+            if platform.lower() not in [p.lower() for p in valid_platforms] and platform.lower() != 'other':
+                raise ValidationError({
+                    'social_media': f'Invalid social media platform: {platform}. Must be one of: {", ".join(valid_platforms)}'
+                })
+            
+            if not isinstance(details, dict):
+                raise ValidationError({
+                    'social_media': f'Details for {platform} must be a dictionary.'
+                })
+            
+            if 'url' not in details:
+                raise ValidationError({
+                    'social_media': f'URL is required for {platform}.'
+                })
+            
+            if 'followers' not in details:
+                raise ValidationError({
+                    'social_media': f'Follower count is required for {platform}.'
+                })
+            
+            try:
+                followers = int(details['followers'])
+                if followers < 0:
+                    raise ValidationError({
+                        'social_media': f'Follower count for {platform} cannot be negative.'
+                    })
+            except (ValueError, TypeError):
+                raise ValidationError({
+                    'social_media': f'Follower count for {platform} must be a valid number.'
+                })
 
     def save(self, *args, **kwargs):
         if not self.first_name:

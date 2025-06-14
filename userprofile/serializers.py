@@ -165,11 +165,44 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
             if min_salary > max_salary:
                 raise serializers.ValidationError({"min_salary": "Minimum salary cannot be greater than maximum salary."})
 
-        # Validate that main_skill is one of the selected skills
-        if data.get('main_skill') and data.get('skills'):
-            if data['main_skill'] not in data['skills']:
+        professions = data.get('professions', [])
+        professions_lower = [p.lower() for p in professions]
+
+        # Stuntman-specific validations
+        if 'stuntman' in professions_lower:
+            if not data.get('skill_description'):
                 raise serializers.ValidationError({
-                    'main_skill': 'Main skill must be one of the selected skills'
+                    'skill_description': 'Skill description is required for Stuntman profession.'
+                })
+            if not data.get('video_url'):
+                raise serializers.ValidationError({
+                    'video_url': 'Showcase video URL is required for Stuntman profession.'
+                })
+            if not data.get('main_skill'):
+                raise serializers.ValidationError({
+                    'main_skill': 'Main skill is required for Stuntman profession.'
+                })
+            if not data.get('skills'):
+                raise serializers.ValidationError({
+                    'skills': 'At least one skill is required for Stuntman profession.'
+                })
+            if data.get('main_skill') not in data.get('skills', []):
+                raise serializers.ValidationError({
+                    'main_skill': 'Main skill must be one of the selected skills.'
+                })
+
+        # Cameraman-specific validations
+        if 'cameraman' in professions_lower:
+            if not data.get('portfolio_url'):
+                raise serializers.ValidationError({
+                    'portfolio_url': 'Portfolio URL is required for Cameraman profession.'
+                })
+
+        # Voice-Over specific validations
+        if 'voice over artist' in professions_lower:
+            if not data.get('video_url'):
+                raise serializers.ValidationError({
+                    'video_url': 'Demo video URL is required for Voice-Over profession.'
                 })
 
         # travel_willingness must be present per consultant
@@ -467,10 +500,46 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
         if not data.get('custom_hobby'):
             raise serializers.ValidationError({"custom_hobby": "Custom hobby is required."})
         
-        # Validate social media accounts
+        # Validate social media structure
         social_media = data.get('social_media', {})
         if not social_media:
-            raise serializers.ValidationError({"social_media": "At least one social media account is required."})
+            raise serializers.ValidationError({
+                "social_media": "At least one social media account is required."
+            })
+
+        valid_platforms = [choice[0] for choice in PersonalInfo.SOCIAL_MEDIA_CHOICES]
+        
+        for platform, details in social_media.items():
+            if platform.lower() not in [p.lower() for p in valid_platforms] and platform.lower() != 'other':
+                raise serializers.ValidationError({
+                    'social_media': f'Invalid social media platform: {platform}. Must be one of: {", ".join(valid_platforms)}'
+                })
+            
+            if not isinstance(details, dict):
+                raise serializers.ValidationError({
+                    'social_media': f'Details for {platform} must be a dictionary with "url" and "followers" fields.'
+                })
+            
+            if 'url' not in details:
+                raise serializers.ValidationError({
+                    'social_media': f'URL is required for {platform}.'
+                })
+            
+            if 'followers' not in details:
+                raise serializers.ValidationError({
+                    'social_media': f'Follower count is required for {platform}.'
+                })
+            
+            try:
+                followers = int(details['followers'])
+                if followers < 0:
+                    raise serializers.ValidationError({
+                        'social_media': f'Follower count for {platform} cannot be negative.'
+                    })
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({
+                    'social_media': f'Follower count for {platform} must be a valid number.'
+                })
         
         # Validate ID number based on ID type
         id_type = data.get('id_type')
