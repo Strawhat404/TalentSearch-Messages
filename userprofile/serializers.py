@@ -445,10 +445,6 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate required fields
-        if not data.get('first_name'):
-            raise serializers.ValidationError({"first_name": "First name is required."})
-        if not data.get('last_name'):
-            raise serializers.ValidationError({"last_name": "Last name is required."})
         if not data.get('date_of_birth'):
             raise serializers.ValidationError({"date_of_birth": "Date of birth is required."})
         if not data.get('gender'):
@@ -559,8 +555,6 @@ class ProfileSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         # Validate required fields
-        if not data.get('name'):
-            raise serializers.ValidationError({"name": "Name is required."})
         if not data.get('birthdate'):
             raise serializers.ValidationError({"birthdate": "Date of birth is required."})
         if not data.get('profession'):

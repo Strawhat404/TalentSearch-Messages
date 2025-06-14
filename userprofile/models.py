@@ -57,7 +57,7 @@ def sanitize_string(value):
 class Profile(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    name = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, blank=True)
     birthdate = models.DateField(null=True, blank=True, help_text="Date of birth (required)")
     profession = models.CharField(max_length=50)
     nationality = models.CharField(
@@ -130,6 +130,9 @@ class Profile(models.Model):
                     'birthdate': 'Age cannot exceed 100 years.'
                 })
 
+        if not self.location:
+            raise ValidationError("Location is required.")
+
     def save(self, *args, **kwargs):
         if not self.birthdate:
             raise ValidationError("Date of birth is required.")
@@ -137,10 +140,6 @@ class Profile(models.Model):
             raise ValidationError("Nationality is required.")
         if not self.profession:
             raise ValidationError("Profession is required.")
-        if not self.name:
-            raise ValidationError("Name is required.")
-        if not self.location:
-            raise ValidationError("Location is required.")
         super().save(*args, **kwargs)
 
     def __str__(self):
