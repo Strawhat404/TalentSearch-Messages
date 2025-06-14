@@ -7,7 +7,7 @@ from django.conf import settings
 class Command(BaseCommand):
     help = 'Load all education-related data from JSON files'
 
-    def handle(self, *args, **options):
+    def handle(self, *args, **options): 
         # Load education levels
         try:
             with open(os.path.join(settings.BASE_DIR, 'userprofile', 'data', 'education_levels.json'), 'r') as f:

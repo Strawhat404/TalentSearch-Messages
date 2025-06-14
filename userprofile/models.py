@@ -396,9 +396,10 @@ class PhysicalAttributes(models.Model):
     weight = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
-        help_text="Weight in kilograms",
-        null=True,
-        blank=True,
+        help_text="Weight in kilograms (required)",
+        null=False,
+        blank=False,
+        default=30,
         validators=[
             MinValueValidator(30, message="Weight must be at least 30 kg"),
             MaxValueValidator(500, message="Weight cannot exceed 500 kg")
@@ -407,9 +408,10 @@ class PhysicalAttributes(models.Model):
     height = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
-        help_text="Height in centimeters",
-        null=True,
-        blank=True,
+        help_text="Height in centimeters (required)",
+        null=False,
+        blank=False,
+        default=100,
         validators=[
             MinValueValidator(100, message="Height must be at least 100 cm"),
             MaxValueValidator(300, message="Height cannot exceed 300 cm")
@@ -680,8 +682,8 @@ class PersonalInfo(models.Model):
     ]
 
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
-    first_name = models.CharField(max_length=100, null=False, blank=False)
-    last_name = models.CharField(max_length=100, null=False, blank=False)
+    first_name = models.CharField(max_length=100, null=True, blank=True)
+    last_name = models.CharField(max_length=100, null=True, blank=True)
     date_of_birth = models.DateField(null=False, blank=False)
     gender = models.CharField(max_length=10, choices=GENDER_CHOICES, null=False, blank=False)
     marital_status = models.CharField(max_length=20, choices=MARITAL_STATUS_CHOICES, null=False, blank=False)
@@ -691,7 +693,7 @@ class PersonalInfo(models.Model):
     hobbies = models.JSONField(default=list, null=False, blank=False)
     language_proficiency = models.JSONField(default=list, null=False, blank=False)
     social_media = models.JSONField(default=dict, null=False, blank=False)
-    custom_hobby = models.CharField(max_length=100, blank=True, null=True)
+    custom_hobby = models.CharField(max_length=100, blank=False, null=False, default='')
     custom_language = models.CharField(max_length=100, blank=True, null=True)
     custom_social_media = models.CharField(max_length=100, blank=True, null=True)
     created_at = models.DateTimeField(default=timezone.now)
