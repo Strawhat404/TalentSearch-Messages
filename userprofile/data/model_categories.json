@@ -1,0 +1,54 @@
+{
+    "model_categories": [
+        {
+            "id": "fashion",
+            "name": "Fashion",
+            "description": "Fashion modeling and runway work"
+        },
+        {
+            "id": "runway",
+            "name": "Runway",
+            "description": "Professional runway modeling"
+        },
+        {
+            "id": "commercial",
+            "name": "Commercial",
+            "description": "Commercial and advertising modeling"
+        },
+        {
+            "id": "mature",
+            "name": "Mature",
+            "description": "Mature and senior modeling"
+        },
+        {
+            "id": "promotional",
+            "name": "Promotional",
+            "description": "Promotional and event modeling"
+        },
+        {
+            "id": "parts",
+            "name": "Parts",
+            "description": "Hand, foot, and body parts modeling"
+        },
+        {
+            "id": "tiktok",
+            "name": "TikTok",
+            "description": "TikTok and social media modeling"
+        },
+        {
+            "id": "fitness",
+            "name": "Fitness",
+            "description": "Fitness and athletic modeling"
+        },
+        {
+            "id": "glamour",
+            "name": "Glamour",
+            "description": "Glamour and beauty modeling"
+        },
+        {
+            "id": "plus_size",
+            "name": "Plus Size",
+            "description": "Plus size and curve modeling"
+        }
+    ]
+} 

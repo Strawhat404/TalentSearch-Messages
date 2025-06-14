@@ -1,0 +1,12 @@
+{
+    "availability": [
+        {"code": "immediate", "label": "Immediate"},
+        {"code": "1_week", "label": "1 Week"},
+        {"code": "2_weeks", "label": "2 Weeks"},
+        {"code": "1_month", "label": "1 Month"},
+        {"code": "2_months", "label": "2 Months"},
+        {"code": "3_months", "label": "3 Months"},
+        {"code": "6_months", "label": "6 Months"},
+        {"code": "1_year", "label": "1 Year"}
+    ]
+} 

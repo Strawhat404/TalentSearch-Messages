@@ -1,0 +1,8 @@
+{
+    "housing_statuses": [
+        {"code": "owned", "label": "Owned"},
+        {"code": "rented", "label": "Rented"},
+        {"code": "living_with_family", "label": "Living with Family"},
+        {"code": "other", "label": "Other"}
+    ]
+} 
