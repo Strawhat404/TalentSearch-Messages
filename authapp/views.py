@@ -597,13 +597,13 @@ class LogoutView(APIView):
         if hasattr(request, 'session'):
             request.session.flush()
 
-        # Log the logout
-        SecurityLog.objects.create(
-            user=request.user,
-            event_type='logout',
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT')
-        )
+            # Log the logout
+            SecurityLog.objects.create(
+                user=request.user,
+                event_type='logout',
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT')
+            )
 
         return Response({'message': 'Successfully logged out'}, status=status.HTTP_200_OK)
 
@@ -693,7 +693,7 @@ class LogoutAllDevicesView(APIView):
                 user=request.user,
                 event_type='logout_all_devices',
                 ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT')
+                user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
             
             return Response(

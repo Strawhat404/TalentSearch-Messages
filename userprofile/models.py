@@ -166,16 +166,16 @@ class IdentityVerification(models.Model):
     id_front = models.ImageField(
         upload_to='id_fronts/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Front photo of ID document",
-        blank=True,
-        null=True
+        help_text="Front photo of ID document (required)",
+        null=True,
+        blank=True
     )
     id_back = models.ImageField(
         upload_to='id_backs/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Back photo of ID document",
-        blank=True,
-        null=True
+        help_text="Back photo of ID document (required)",
+        null=True,
+        blank=True
     )
     id_verified = models.BooleanField(default=False)
 
