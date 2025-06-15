@@ -524,13 +524,13 @@ class ProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     age = serializers.IntegerField(read_only=True)
     identity_verification = IdentityVerificationSerializer(required=False)
-    professional_qualifications = ProfessionalQualificationsSerializer(required=False)
-    physical_attributes = PhysicalAttributesSerializer(required=False)
-    medical_info = MedicalInfoSerializer(required=False)
+    professional_qualifications = ProfessionalQualificationsSerializer(required=True)
+    physical_attributes = PhysicalAttributesSerializer(required=True)
+    medical_info = MedicalInfoSerializer(required=True)
     education = EducationSerializer(required=False)
     work_experience = WorkExperienceSerializer(required=False)
-    contact_info = ContactInfoSerializer(required=False)
-    personal_info = PersonalInfoSerializer(required=False)
+    contact_info = ContactInfoSerializer(required=True)
+    personal_info = PersonalInfoSerializer(required=True)
     media = MediaSerializer(required=False)
 
     class Meta:
@@ -555,47 +555,17 @@ class ProfileSerializer(serializers.ModelSerializer):
         if not data.get('location'):
             raise serializers.ValidationError({"location": "Location is required."})
 
-        # Validate nested data
-        personal_info = data.get('personal_info', {})
-        if personal_info:
-            if not personal_info.get('social_media'):
-                raise serializers.ValidationError({"personal_info.social_media": "At least one social media account is required."})
-            if not personal_info.get('marital_status'):
-                raise serializers.ValidationError({"personal_info.marital_status": "Marital status is required."})
-            if not personal_info.get('hobbies'):
-                raise serializers.ValidationError({"personal_info.hobbies": "At least one hobby is required."})
-            if not personal_info.get('language_proficiency'):
-                raise serializers.ValidationError({"personal_info.language_proficiency": "At least one language proficiency is required."})
-
-        professional_qualifications = data.get('professional_qualifications', {})
-        if professional_qualifications:
-            if not professional_qualifications.get('professions'):
-                raise serializers.ValidationError({"professional_qualifications.professions": "At least one profession is required."})
-            if not professional_qualifications.get('experience_level'):
-                raise serializers.ValidationError({"professional_qualifications.experience_level": "Experience level is required."})
-            if not professional_qualifications.get('work_authorization'):
-                raise serializers.ValidationError({"professional_qualifications.work_authorization": "Work authorization is required."})
-            if not professional_qualifications.get('availability'):
-                raise serializers.ValidationError({"professional_qualifications.availability": "Availability is required."})
-            if not professional_qualifications.get('preferred_work_location'):
-                raise serializers.ValidationError({"professional_qualifications.preferred_work_location": "Preferred work location is required."})
-            if not professional_qualifications.get('shift_preference'):
-                raise serializers.ValidationError({"professional_qualifications.shift_preference": "Shift preference is required."})
-
-        contact_info = data.get('contact_info', {})
-        if contact_info:
-            if not contact_info.get('address'):
-                raise serializers.ValidationError({"contact_info.address": "Address is required."})
-            if not contact_info.get('city'):
-                raise serializers.ValidationError({"contact_info.city": "City is required."})
-            if not contact_info.get('region'):
-                raise serializers.ValidationError({"contact_info.region": "Region is required."})
-            if not contact_info.get('country'):
-                raise serializers.ValidationError({"contact_info.country": "Country is required."})
-            if not contact_info.get('emergency_contact'):
-                raise serializers.ValidationError({"contact_info.emergency_contact": "Emergency contact is required."})
-            if not contact_info.get('emergency_phone'):
-                raise serializers.ValidationError({"contact_info.emergency_phone": "Emergency phone is required."})
+        # Validate that required nested data is provided
+        if not data.get('professional_qualifications'):
+            raise serializers.ValidationError({"professional_qualifications": "Professional qualifications are required."})
+        if not data.get('physical_attributes'):
+            raise serializers.ValidationError({"physical_attributes": "Physical attributes are required."})
+        if not data.get('medical_info'):
+            raise serializers.ValidationError({"medical_info": "Medical information is required."})
+        if not data.get('contact_info'):
+            raise serializers.ValidationError({"contact_info": "Contact information is required."})
+        if not data.get('personal_info'):
+            raise serializers.ValidationError({"personal_info": "Personal information is required."})
 
         return data
 
@@ -622,7 +592,7 @@ class ProfileSerializer(serializers.ModelSerializer):
                 serializer.is_valid(raise_exception=True)
                 nested_validated_data[key] = serializer.validated_data
             else:
-                nested_validated_data[key] = {}
+                nested_validated_data[key] = None
 
         if Profile.objects.filter(user=user).exists():
             raise serializers.ValidationError({"error": "A profile already exists for this user."})
@@ -632,9 +602,9 @@ class ProfileSerializer(serializers.ModelSerializer):
                 # Create the profile
                 profile = Profile.objects.create(user=user, **validated_data)
                 
-                # Create nested objects
+                # Create nested objects - only create if data exists
                 for key, model, _ in nested_data:
-                    if nested_validated_data[key]:
+                    if nested_validated_data[key] is not None:
                         model.objects.create(profile=profile, **nested_validated_data[key])
                 
                 return profile
