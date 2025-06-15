@@ -2,7 +2,7 @@ from rest_framework import serializers
 from .models import (
     Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
     MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog, LocationData,
-    HOUSING_STATUS_CHOICES, RESIDENCE_DURATION_CHOICES
+    HOUSING_STATUS_CHOICES, RESIDENCE_DURATION_CHOICES, Choices
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -31,28 +31,32 @@ def sanitize_string(value):
 # --- Load static choice lists once -------------------------------------------------
 DATA_DIR = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
 
-def _safe_load(list_name, filename, key):
+def _safe_load(filename, key):
     try:
         with open(os.path.join(DATA_DIR, filename), 'r') as _f:
-            return json.load(_f)[key]
+            data = json.load(_f)
+            if key:
+                return [item['code'] for item in data.get(key, [])]
+            return data
     except Exception:
         return []
 
-ALLOWED_LANGUAGES          = _safe_load('languages',            'languages.json',            'languages')
-PHYSICAL_DATA              = _safe_load('physical_attributes',  'physical_attributes.json',  None)
-# when key is None we returned full dict; handle fallback
+ALLOWED_LANGUAGES = _safe_load('languages.json', 'languages')
+PHYSICAL_DATA = _safe_load('physical_attributes.json', None)
 if isinstance(PHYSICAL_DATA, dict):
-    HAIR_COLORS   = PHYSICAL_DATA.get('hair_colors', [])
-    EYE_COLORS    = PHYSICAL_DATA.get('eye_colors', [])
-    SKIN_TONES    = PHYSICAL_DATA.get('skin_tones', [])
-    BODY_TYPES    = PHYSICAL_DATA.get('body_types', [])
+    HAIR_COLORS   = [item['code'] for item in PHYSICAL_DATA.get('hair_colors', [])]
+    EYE_COLORS    = [item['code'] for item in PHYSICAL_DATA.get('eye_colors', [])]
+    SKIN_TONES    = [item['code'] for item in PHYSICAL_DATA.get('skin_tones', [])]
+    BODY_TYPES    = [item['code'] for item in PHYSICAL_DATA.get('body_types', [])]
 else:
     HAIR_COLORS = EYE_COLORS = SKIN_TONES = BODY_TYPES = []
 
-MEDICAL_DATA = _safe_load('medical_info', 'medical_info.json', None)
+MEDICAL_DATA = _safe_load('medical_info.json', None)
 if isinstance(MEDICAL_DATA, dict):
-    KNOWN_MED_CONDITIONS = MEDICAL_DATA.get('disability_statuses', []) + MEDICAL_DATA.get('medical_conditions', []) if MEDICAL_DATA else []
-    KNOWN_MEDICINE_TYPES = MEDICAL_DATA.get('medicine_types', [])
+    conditions = [item['code'] for item in MEDICAL_DATA.get('medical_conditions', [])]
+    disabilities = [item['code'] for item in MEDICAL_DATA.get('disability_statuses', [])]
+    KNOWN_MED_CONDITIONS = conditions + disabilities
+    KNOWN_MEDICINE_TYPES = [item['code'] for item in MEDICAL_DATA.get('medicine_types', [])]
 else:
     KNOWN_MED_CONDITIONS = KNOWN_MEDICINE_TYPES = []
 
@@ -63,10 +67,6 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
         read_only_fields = ['id_verified']
 
     def validate(self, data):
-        if not data.get('id_front'):
-            raise serializers.ValidationError({"id_front": "Front photo of ID document is required."})
-        if not data.get('id_back'):
-            raise serializers.ValidationError({"id_back": "Back photo of ID document is required."})
         return data
 
     def get_id_number(self, obj):
@@ -139,7 +139,9 @@ class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
             'skill_description', 'video_url', 'experience_level', 'work_authorization',
             'availability', 'preferred_work_location', 'shift_preference', 'role_title',
             'preferred_company_size', 'preferred_industry', 'leadership_style',
-            'communication_style', 'motivation', 'min_salary', 'max_salary'
+            'communication_style', 'motivation', 'min_salary', 'max_salary', 'willingness_to_relocate',
+            'overtime_availability', 'travel_willingness', 'equipment_experience', 'portfolio_url',
+            'union_membership', 'reference', 'available_start_date', 'has_driving_license'
         ]
         read_only_fields = ['id']
 
@@ -297,8 +299,8 @@ class EducationSerializer(serializers.ModelSerializer):
         model = Education
         fields = [
             'id', 'education_level', 'degree_type', 'field_of_study',
-            'graduation_year', 'gpa', 'institution_name', 'scholarships',
-            'academic_achievements', 'certifications', 'online_courses'
+            'institution_name', 'scholarships', 'academic_achievements',
+            'certifications', 'online_courses'
         ]
         read_only_fields = ['id']
 
@@ -309,37 +311,13 @@ class EducationSerializer(serializers.ModelSerializer):
         if not data.get('institution_name'):
             raise serializers.ValidationError({"institution_name": "Institution name is required."})
 
-        # Validate graduation year if provided
-        graduation_year = data.get('graduation_year')
-        if graduation_year:
-            try:
-                year = int(graduation_year)
-                current_year = date.today().year
-                if year < 1900 or year > current_year:
-                    raise serializers.ValidationError({
-                        'graduation_year': f'Graduation year must be between 1900 and {current_year}.'
-                    })
-            except ValueError:
-                raise serializers.ValidationError({
-                    'graduation_year': 'Graduation year must be a valid year.'
-                })
-
-        # Validate GPA if provided
-        gpa = data.get('gpa')
-        if gpa is not None:
-            if gpa < 0 or gpa > 4.0:
-                raise serializers.ValidationError({
-                    'gpa': 'GPA must be between 0 and 4.0.'
-                })
-
         return data
 
 class WorkExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkExperience
         fields = [
-            'id', 'years_of_experience', 'employment_status', 'previous_employers',
-            'projects', 'training', 'internship_experience'
+            'id', 'years_of_experience', 'employment_status'
         ]
         read_only_fields = ['id']
 
@@ -349,69 +327,6 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError({"years_of_experience": "Years of experience is required."})
         if not data.get('employment_status'):
             raise serializers.ValidationError({"employment_status": "Employment status is required."})
-
-        # Validate previous employers if provided
-        previous_employers = data.get('previous_employers', [])
-        if previous_employers:
-            for employer in previous_employers:
-                if not isinstance(employer, dict):
-                    raise serializers.ValidationError({
-                        'previous_employers': 'Each employer must be a dictionary.'
-                    })
-                if 'name' not in employer:
-                    raise serializers.ValidationError({
-                        'previous_employers': 'Each employer must have a name.'
-                    })
-                if 'position' not in employer:
-                    raise serializers.ValidationError({
-                        'previous_employers': 'Each employer must have a position.'
-                    })
-                if 'duration' not in employer:
-                    raise serializers.ValidationError({
-                        'previous_employers': 'Each employer must have a duration.'
-                    })
-
-        # Validate projects if provided
-        projects = data.get('projects', [])
-        if projects:
-            for project in projects:
-                if not isinstance(project, dict):
-                    raise serializers.ValidationError({
-                        'projects': 'Each project must be a dictionary.'
-                    })
-                if 'name' not in project:
-                    raise serializers.ValidationError({
-                        'projects': 'Each project must have a name.'
-                    })
-                if 'description' not in project:
-                    raise serializers.ValidationError({
-                        'projects': 'Each project must have a description.'
-                    })
-                if 'duration' not in project:
-                    raise serializers.ValidationError({
-                        'projects': 'Each project must have a duration.'
-                    })
-
-        # Validate training if provided
-        training = data.get('training', [])
-        if training:
-            for item in training:
-                if not isinstance(item, dict):
-                    raise serializers.ValidationError({
-                        'training': 'Each training item must be a dictionary.'
-                    })
-                if 'name' not in item:
-                    raise serializers.ValidationError({
-                        'training': 'Each training item must have a name.'
-                    })
-                if 'institution' not in item:
-                    raise serializers.ValidationError({
-                        'training': 'Each training item must have an institution.'
-                    })
-                if 'duration' not in item:
-                    raise serializers.ValidationError({
-                        'training': 'Each training item must have a duration.'
-                    })
 
         return data
 
@@ -804,3 +719,25 @@ class VerificationAuditLogSerializer(serializers.ModelSerializer):
             'verification_method', 'notes', 'ip_address', 'user_agent'
         ]
         read_only_fields = ['changed_at', 'changed_by', 'ip_address', 'user_agent']
+
+class ChoicesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Choices
+        fields = ['category', 'subcategory', 'choices']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate(self, data):
+        # Ensure choices is a list of dictionaries with name and code
+        choices = data.get('choices', [])
+        if not isinstance(choices, list):
+            raise serializers.ValidationError({'choices': 'Must be a list'})
+        
+        for choice in choices:
+            if not isinstance(choice, dict):
+                raise serializers.ValidationError({'choices': 'Each choice must be a dictionary'})
+            if 'name' not in choice or 'code' not in choice:
+                raise serializers.ValidationError({'choices': 'Each choice must have name and code'})
+            if not isinstance(choice['name'], str) or not isinstance(choice['code'], str):
+                raise serializers.ValidationError({'choices': 'Name and code must be strings'})
+        
+        return data

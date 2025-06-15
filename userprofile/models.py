@@ -166,14 +166,14 @@ class IdentityVerification(models.Model):
     id_front = models.ImageField(
         upload_to='id_fronts/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Front photo of ID document (required)",
+        help_text="Front photo of ID document (optional)",
         null=True,
         blank=True
     )
     id_back = models.ImageField(
         upload_to='id_backs/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Back photo of ID document (required)",
+        help_text="Back photo of ID document (optional)",
         null=True,
         blank=True
     )
@@ -281,9 +281,6 @@ class ProfessionalQualifications(models.Model):
     willingness_to_relocate = models.BooleanField(default=False)
     overtime_availability = models.BooleanField(default=False)
     travel_willingness = models.BooleanField(default=False)
-    software_proficiency = models.JSONField(default=list)
-    typing_speed = models.IntegerField(null=True, blank=True)
-    driving_skills = models.BooleanField(default=False)
     equipment_experience = models.JSONField(default=list)
     role_title = models.CharField(max_length=100)
     portfolio_url = models.URLField(blank=True, null=True)
@@ -564,8 +561,6 @@ class Education(models.Model):
     education_level = models.CharField(max_length=50, blank=True)
     degree_type = models.CharField(max_length=50, blank=True)
     field_of_study = models.CharField(max_length=100, blank=True)
-    graduation_year = models.CharField(max_length=4, blank=True)
-    gpa = models.FloatField(null=True, blank=True)
     institution_name = models.CharField(max_length=100, blank=True)
     scholarships = models.JSONField(default=list)
     academic_achievements = models.JSONField(default=list)
@@ -580,8 +575,6 @@ class Education(models.Model):
             self.degree_type = sanitize_string(self.degree_type)
         if self.field_of_study:
             self.field_of_study = sanitize_string(self.field_of_study)
-        if self.graduation_year:
-            self.graduation_year = sanitize_string(self.graduation_year)
         if self.institution_name:
             self.institution_name = sanitize_string(self.institution_name)
 
@@ -589,10 +582,6 @@ class WorkExperience(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='work_experience')
     years_of_experience = models.CharField(max_length=50, blank=True)
     employment_status = models.CharField(max_length=50, blank=True)
-    previous_employers = models.JSONField(default=list)
-    projects = models.JSONField(default=list)
-    training = models.JSONField(default=list)
-    internship_experience = models.CharField(max_length=50, blank=True)
 
     def clean(self):
         # Sanitize string fields
@@ -600,8 +589,6 @@ class WorkExperience(models.Model):
             self.years_of_experience = sanitize_string(self.years_of_experience)
         if self.employment_status:
             self.employment_status = sanitize_string(self.employment_status)
-        if self.internship_experience:
-            self.internship_experience = sanitize_string(self.internship_experience)
 
 class ContactInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
@@ -955,44 +942,47 @@ class Media(models.Model):
             })
 
     def clean(self):
-        """Validate all images before saving"""
-        # Validate headshot
+        super().clean()
+        
+        professions = self.profile.professional_qualifications.professions if hasattr(self.profile, 'professional_qualifications') else []
+        
+        # Validate images
         if self.photo:
             self._validate_image(self.photo, 'photo')
-        
-        # Validate natural photos
         if self.natural_photo_1:
             self._validate_image(self.natural_photo_1, 'natural_photo_1')
-        else:
-            raise ValidationError({
-                'natural_photo_1': 'First natural photo is required.'
-            })
-            
         if self.natural_photo_2:
             self._validate_image(self.natural_photo_2, 'natural_photo_2')
-        else:
-            raise ValidationError({
-                'natural_photo_2': 'Second natural photo is required.'
-            })
+            
+        # Conditional validation based on profession
+        if 'actor' in professions:
+            if not self.photo:
+                raise ValidationError({
+                    'photo': 'Professional headshot is required for actors.'
+                })
+            # if not self.natural_photo_1:
+            #     raise ValidationError({
+            #         'natural_photo_1': 'First natural photo is required.'
+            #     })
+            # if not self.natural_photo_2:
+            #     raise ValidationError({
+            #         'natural_photo_2': 'Second natural photo is required.'
+            #     })
 
     def save(self, *args, **kwargs):
-        """Process and save images"""
-        self.clean()
-        
-        # Process images if not already processed
-        if self.photo and not self.photo_processed:
-            self._process_image(self.photo, 'photo')
-        
-        if self.natural_photo_1 and not self.natural_photo_1_processed:
-            self._process_image(self.natural_photo_1, 'natural_photo_1')
-        
-        if self.natural_photo_2 and not self.natural_photo_2_processed:
-            self._process_image(self.natural_photo_2, 'natural_photo_2')
-        
-        # Cleanup old files if needed
-        self._cleanup_old_files()
-        
+        is_new = self._state.adding
         super().save(*args, **kwargs)
+        if is_new:
+            if self.photo and not self.photo_processed:
+                self._process_image(self.photo, 'photo')
+            if self.natural_photo_1 and not self.natural_photo_1_processed:
+                self._process_image(self.natural_photo_1, 'natural_photo_1')
+            if self.natural_photo_2 and not self.natural_photo_2_processed:
+                self._process_image(self.natural_photo_2, 'natural_photo_2')
+        if self.last_cleanup is None or timezone.now() > self.last_cleanup + timedelta(days=7):
+            self._cleanup_old_files()
+            self.last_cleanup = timezone.now()
+            super().save(update_fields=['last_cleanup'])
 
     def _cleanup_old_files(self):
         """Clean up old and unused files"""
@@ -1110,32 +1100,48 @@ class LocationData(models.Model):
         verbose_name = "Location Data"
         verbose_name_plural = "Location Data"
 
-class ChoiceData(models.Model):
-    choice_type = models.CharField(max_length=50, unique=True)
+class Choices(models.Model):
+    """
+    Consolidated model for all choice data
+    """
+    category = models.CharField(max_length=50)  # e.g., 'personal', 'professional', etc.
+    subcategory = models.CharField(max_length=50)  # e.g., 'marital_statuses', 'professions', etc.
     choices = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.choice_type} Choices"
-
     class Meta:
-        verbose_name = 'Choice Data'
-        verbose_name_plural = 'Choice Data'
-
-class ProfessionalChoices(models.Model):
-    company_sizes = models.JSONField(default=list)
-    industries = models.JSONField(default=list)
-    leadership_styles = models.JSONField(default=list)
-    communication_styles = models.JSONField(default=list)
-    motivations = models.JSONField(default=list)
-
-    class Meta:
-        verbose_name = 'Professional Choices'
-        verbose_name_plural = 'Professional Choices'
+        verbose_name = 'Choice'
+        verbose_name_plural = 'Choices'
+        unique_together = ['category', 'subcategory']
+        indexes = [
+            models.Index(fields=['category', 'subcategory'])
+        ]
 
     def __str__(self):
-        return "Professional Choices"
+        return f"{self.category} - {self.subcategory}"
+
+    @classmethod
+    def get_choices(cls, category, subcategory):
+        """
+        Get choices for a specific category and subcategory
+        """
+        try:
+            choice_obj = cls.objects.get(category=category, subcategory=subcategory)
+            return choice_obj.choices
+        except cls.DoesNotExist:
+            return []
+
+    @classmethod
+    def get_choice_display(cls, category, subcategory, code):
+        """
+        Get display name for a choice code
+        """
+        choices = cls.get_choices(category, subcategory)
+        for choice in choices:
+            if choice['code'] == code:
+                return choice['name']
+        return code  # Return the code if no match found
 
 class GenderChoices(models.Model):
     choices = models.JSONField(default=list)

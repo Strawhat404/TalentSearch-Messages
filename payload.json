@@ -1,77 +1,171 @@
 {
-    "name": "John Doe",
-    "birthdate": "1995-04-12",
-    "profession": "actor",
-    "nationality": "ethiopian",
-    "location": "Addis Ababa",
-  
-    "personal_info": {
-      "first_name": "John",
-      "last_name": "Doe",
-      "date_of_birth": "1995-04-12",
-      "gender": "male",
-      "marital_status": "single",
-      "nationality": "ethiopian",
-      "id_type": "national_id",
-      "id_number": "123456789012",
-      "hobbies": ["reading", "sports"],
-      "language_proficiency": ["english", "amharic"],
-      "social_media": { "facebook": "john.doe" }
+  "name": "John Doe",
+  "birthdate": "1990-01-01",
+  "profession": "actor",
+  "nationality": "ET",
+  "location": "Addis Ababa",
+  "availability_status": true,
+  "status": "active",
+
+  "identity_verification": {
+    "id_type": "national_id",
+    "id_number": "123456789012",
+    "id_expiry_date": "2028-01-01",
+    "id_front": null,
+    "id_back": null
+  },
+
+  "professional_qualifications": {
+    "experience_level": "intermediate",
+    "skills": ["acting", "modeling", "dancing"],
+    "work_authorization": "citizen",
+    "industry_experience": ["film", "television", "theater"],
+    "min_salary": 5000,
+    "max_salary": 10000,
+    "availability": "immediate",
+    "preferred_work_location": "addis_ababa",
+    "shift_preference": "morning",
+    "willingness_to_relocate": true,
+    "overtime_availability": true,
+    "travel_willingness": true,
+    "role_title": "Lead Actor",
+    "portfolio_url": "https://portfolio.example.com",
+    "union_membership": false,
+    "reference": "Jane Smith - Director (+251911234567)",
+    "available_start_date": "2024-04-01",
+    "preferred_company_size": "medium",
+    "preferred_industry": "film_and_television",
+    "leadership_style": "collaborative",
+    "communication_style": "direct",
+    "motivation": "artistic_expression",
+    "professions": ["actor", "model"]
+  },
+
+  "physical_attributes": {
+    "weight": 70,
+    "height": 175,
+    "gender": "M",
+    "hair_color": "BLACK",
+    "eye_color": "BROWN",
+    "body_type": "ATHLETIC",
+    "skin_tone": "MEDIUM",
+    "facial_hair": "none",
+    "tattoos_visible": false,
+    "piercings_visible": false,
+    "physical_condition": "excellent"
+  },
+
+  "medical_info": {
+    "health_conditions": ["NONE"],
+    "medications": ["NONE"],
+    "disability_status": "no",
+    "disability_type": "none",
+    "blood_type": "O+"
+  },
+
+  "education": {
+    "education_level": "bachelors",
+    "degree_type": "BA",
+    "field_of_study": "Performing Arts",
+    "institution_name": "Addis Ababa University",
+    "scholarships": [
+      {
+        "name": "Arts Excellence Scholarship",
+        "year": "2018"
+      }
+    ],
+    "academic_achievements": [
+      {
+        "title": "Dean's List",
+        "year": "2019"
+      }
+    ],
+    "certifications": [
+      {
+        "name": "Method Acting Certificate",
+        "issuer": "Drama Academy",
+        "year": "2020"
+      }
+    ],
+    "online_courses": [
+      {
+        "name": "Advanced Scene Study",
+        "platform": "Masterclass",
+        "completion_date": "2021-06"
+      }
+    ],
+    "start_date": "2015-09-01",
+    "end_date": "2019-07-30",
+    "status": "completed"
+  },
+
+  "work_experience": {
+    "years_of_experience": "3_to_5_years",
+    "current_employer": "National Theater",
+    "employment_status": "employed",
+    "job_title": "Actor",
+    "start_date": "2019-08-01",
+    "end_date": null,
+    "responsibilities": [
+      "Lead role performances",
+      "Script analysis",
+      "Character development"
+    ],
+    "achievements": [
+      "Best Actor Award 2022",
+      "Featured in 10+ major productions"
+    ]
+  },
+
+  "contact_info": {
+    "email": "john.doe@example.com",
+    "phone_number": "+251911234567",
+    "alternative_phone": "+251922345678",
+    "emergency_contact": "Jane Doe",
+    "emergency_phone": "+251933456789",
+    "address": "Bole Road",
+    "city": "Addis Ababa",
+    "region": "Addis Ababa",
+    "country": "ET",
+    "specific_area": "Bole",
+    "sub_city": "Bole",
+    "woreda": "05",
+    "house_number": "123",
+    "specific_location": "Near Bole Medhanialem",
+    "housing_status": "rented",
+    "residence_duration": "1_to_3_years"
+  },
+
+  "personal_info": {
+    "first_name": "John",
+    "last_name": "Doe",
+    "date_of_birth": "1990-01-01",
+    "gender": "male",
+    "marital_status": "single",
+    "nationality": "ET",
+    "id_type": "national_id",
+    "id_number": "123456789012",
+    "hobbies": ["READING", "SPORTS", "MUSIC"],
+    "language_proficiency": ["EN", "AM"],
+    "social_media": {
+      "facebook": {
+        "url": "https://facebook.com/johndoe",
+        "followers": 1000
+      },
+      "instagram": {
+        "url": "https://instagram.com/johndoe",
+        "followers": 2000
+      }
     },
-  
-    "professional_qualifications": {
-      "professions": ["actor"],
-      "experience_level": "mid",
-      "work_authorization": "ethiopia",
-      "availability": "full_time",
-      "preferred_work_location": "ethiopia",
-      "shift_preference": "day",
-      "role_title": "Lead Actor",
-      "main_skill": "acting",
-  
-      "preferred_company_size": "small",
-      "preferred_industry": "film",
-      "leadership_style": "collaborative",
-      "communication_style": "open",
-      "motivation": "growth"
-    },
-  
-    "contact_info": {
-      "address": "123 Churchill Ave",
-      "specific_area": "Kazanchis",
-      "city": "Addis Ababa",
-      "region": "AA",
-      "country": "ET",
-      "housing_status": "rented",
-      "residence_duration": "1_to_3_years",
-      "emergency_contact": "Jane Doe",
-      "emergency_phone": "+251911000000"
-    },
-  
-    "physical_attributes": {
-      "height": 180.0,
-      "weight": 75.0,
-      "gender": "male",
-      "hair_color": "black",
-      "eye_color": "brown",
-      "body_type": "athletic",
-      "skin_tone": "medium"
-    },
-  
-    "medical_info": { "health_conditions": ["none"], "medications": ["none"] },
-  
-    "education": {
-      "education_level": "bachelor",
-      "degree_type": "BA",
-      "field_of_study": "Theatre Arts",
-      "institution_name": "Addis Ababa University"
-    },
-  
-    "work_experience": {
-      "years_of_experience": "5",
-      "employment_status": "freelance",
-      "previous_employers": [
-        { "name": "Arts Plc", "position": "Actor", "duration": "2018-2020" }
-      ]
-    }
+    "custom_hobby": "photography",
+    "custom_language": "french",
+    "custom_social_media": "tiktok"
+  },
+
+  "media": {
+    "video": null,
+    "photo": null,
+    "natural_photo_1": null,
+    "natural_photo_2": null
   }
+}
