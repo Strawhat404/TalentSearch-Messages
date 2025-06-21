@@ -255,14 +255,14 @@ class PhysicalAttributesSerializer(serializers.ModelSerializer):
                     'weight': 'Weight must be between 30 and 500 kilograms.'
                 })
 
-        # Membership validation using static lists
-        if data.get('hair_color') and data['hair_color'] not in HAIR_COLORS:
+        # Membership validation using static lists (case-insensitive)
+        if data.get('hair_color') and data['hair_color'].lower() not in [color.lower() for color in HAIR_COLORS]:
             raise serializers.ValidationError({'hair_color': 'Invalid hair color.'})
-        if data.get('eye_color') and data['eye_color'] not in EYE_COLORS:
+        if data.get('eye_color') and data['eye_color'].lower() not in [color.lower() for color in EYE_COLORS]:
             raise serializers.ValidationError({'eye_color': 'Invalid eye color.'})
-        if data.get('skin_tone') and data['skin_tone'] not in SKIN_TONES:
+        if data.get('skin_tone') and data['skin_tone'].lower() not in [tone.lower() for tone in SKIN_TONES]:
             raise serializers.ValidationError({'skin_tone': 'Invalid skin tone.'})
-        if data.get('body_type') and data['body_type'] not in BODY_TYPES:
+        if data.get('body_type') and data['body_type'].lower() not in [type_.lower() for type_ in BODY_TYPES]:
             raise serializers.ValidationError({'body_type': 'Invalid body type.'})
 
         return data
@@ -283,12 +283,12 @@ class MedicalInfoSerializer(serializers.ModelSerializer):
         if not data.get('medications'):
             raise serializers.ValidationError({"medications": "Medications are required."})
 
-        # Membership checks
-        invalid_conditions = [c for c in data.get('health_conditions', []) if c not in KNOWN_MED_CONDITIONS]
+        # Membership checks (case-insensitive)
+        invalid_conditions = [c for c in data.get('health_conditions', []) if c.lower() not in [cond.lower() for cond in KNOWN_MED_CONDITIONS]]
         if invalid_conditions:
             raise serializers.ValidationError({'health_conditions': f'Invalid condition(s): {", ".join(invalid_conditions)}'})
 
-        invalid_meds = [m for m in data.get('medications', []) if m not in KNOWN_MEDICINE_TYPES]
+        invalid_meds = [m for m in data.get('medications', []) if m.lower() not in [med.lower() for med in KNOWN_MEDICINE_TYPES]]
         if invalid_meds:
             raise serializers.ValidationError({'medications': f'Invalid medication type(s): {", ".join(invalid_meds)}'})
 
@@ -474,8 +474,8 @@ class PersonalInfoSerializer(serializers.ModelSerializer):
         elif id_number and not id_type:
             raise serializers.ValidationError({'id_type': 'ID type must be specified when providing an ID number.'})
 
-        # Validate languages membership
-        invalid_langs = [lng for lng in data.get('language_proficiency', []) if lng not in ALLOWED_LANGUAGES]
+        # Validate languages membership (case-insensitive)
+        invalid_langs = [lng for lng in data.get('language_proficiency', []) if lng.lower() not in [lang.lower() for lang in ALLOWED_LANGUAGES]]
         if invalid_langs:
             raise serializers.ValidationError({'language_proficiency': f'Invalid language codes: {", ".join(invalid_langs)}'})
 

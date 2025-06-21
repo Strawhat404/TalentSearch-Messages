@@ -51,6 +51,7 @@ else:
 
 # CORS settings for local frontend devs
 CORS_ALLOWED_ORIGINS = [
+    "https://talentdiscovery1.netlify.app",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",

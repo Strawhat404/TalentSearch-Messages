@@ -193,11 +193,26 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
 CORS_ALLOWED_ORIGINS = [
+    "https://talentdiscovery1.netlify.app",
     "https://myfrontend.com",
     "https://my-frontend.vercel.app",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
+]
+
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_ALL_HEADERS = True
+CORS_ALLOWED_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
 ]
 
 logger = logging.getLogger("django")
