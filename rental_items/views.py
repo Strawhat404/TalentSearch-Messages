@@ -110,8 +110,8 @@ class RentalItemViewSet(viewsets.ModelViewSet):
 
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RentalItemRatingSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'delete']  # Only allow GET, POST, DELETE
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    http_method_names = ['get', 'post', 'delete', 'put', 'patch']  # Only allow GET, POST, DELETE, PUT
 
     def get_queryset(self):
         queryset = RentalItemRating.objects.all()
