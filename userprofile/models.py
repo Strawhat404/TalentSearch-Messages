@@ -85,28 +85,28 @@ class Profile(models.Model):
         if self.status:
             self.status = sanitize_string(self.status)
 
-        # Validate profession
+        # Validate profession (case-insensitive)
         try:
             profession_choices = ProfessionChoices.objects.first()
             if profession_choices:
-                valid_professions = [choice['code'] for choice in profession_choices.choices]
-                if self.profession not in valid_professions:
+                valid_professions = [choice['code'].lower() for choice in profession_choices.choices]
+                if self.profession.lower() not in valid_professions:
                     raise ValidationError({
-                        'profession': f'Invalid profession selected. Please choose from: {", ".join(valid_professions)}'
+                        'profession': f'Invalid profession selected. Please choose from: {", ".join([choice["code"] for choice in profession_choices.choices])}'
                     })
         except Exception as e:
             raise ValidationError({
                 'profession': 'Error validating profession. Please try again.'
             })
 
-        # Validate nationality
+        # Validate nationality (case-insensitive)
         try:
             nationality_choices = NationalityChoices.objects.first()
             if nationality_choices:
-                valid_nationalities = [choice['code'] for choice in nationality_choices.choices]
-                if self.nationality not in valid_nationalities:
+                valid_nationalities = [choice['code'].lower() for choice in nationality_choices.choices]
+                if self.nationality.lower() not in valid_nationalities:
                     raise ValidationError({
-                        'nationality': f'Invalid nationality selected. Please choose from: {", ".join(valid_nationalities)}'
+                        'nationality': f'Invalid nationality selected. Please choose from: {", ".join([choice["code"] for choice in nationality_choices.choices])}'
                     })
         except Exception as e:
             raise ValidationError({
@@ -166,14 +166,14 @@ class IdentityVerification(models.Model):
     id_front = models.ImageField(
         upload_to='id_fronts/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Front photo of ID document (required)",
+        help_text="Front photo of ID document (optional)",
         null=True,
         blank=True
     )
     id_back = models.ImageField(
         upload_to='id_backs/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Back photo of ID document (required)",
+        help_text="Back photo of ID document (optional)",
         null=True,
         blank=True
     )
@@ -184,12 +184,12 @@ class IdentityVerification(models.Model):
         if self.id_type:
             self.id_type = sanitize_string(self.id_type)
 
-        # Validate id_type
+        # Validate id_type (case-insensitive)
         id_type_choices = IDTypeChoices.objects.first()
         if id_type_choices:
-            valid_types = [choice['code'] for choice in id_type_choices.choices]
-            if self.id_type not in valid_types:
-                raise ValidationError({'id_type': f'Invalid ID type. Choose from: {", ".join(valid_types)}'})
+            valid_types = [choice['code'].lower() for choice in id_type_choices.choices]
+            if self.id_type.lower() not in valid_types:
+                raise ValidationError({'id_type': f'Invalid ID type. Choose from: {", ".join([choice["code"] for choice in id_type_choices.choices])}'})
 
     def save(self, *args, **kwargs):
         if not self.id_type:
@@ -281,9 +281,6 @@ class ProfessionalQualifications(models.Model):
     willingness_to_relocate = models.BooleanField(default=False)
     overtime_availability = models.BooleanField(default=False)
     travel_willingness = models.BooleanField(default=False)
-    software_proficiency = models.JSONField(default=list)
-    typing_speed = models.IntegerField(null=True, blank=True)
-    driving_skills = models.BooleanField(default=False)
     equipment_experience = models.JSONField(default=list)
     role_title = models.CharField(max_length=100)
     portfolio_url = models.URLField(blank=True, null=True)
@@ -373,47 +370,47 @@ class ProfessionalQualifications(models.Model):
                     'video_url': 'Demo video URL is required for Voice-Over profession.'
                 })
 
-        # Validate experience_level
+        # Validate experience_level (case-insensitive)
         experience_level_choices = ExperienceLevelChoices.objects.first()
         if experience_level_choices:
-            valid_levels = [choice['code'] for choice in experience_level_choices.choices]
-            if self.experience_level not in valid_levels:
-                raise ValidationError({'experience_level': f'Invalid experience level. Choose from: {", ".join(valid_levels)}'})
+            valid_levels = [choice['code'].lower() for choice in experience_level_choices.choices]
+            if self.experience_level.lower() not in valid_levels:
+                raise ValidationError({'experience_level': f'Invalid experience level. Choose from: {", ".join([choice["code"] for choice in experience_level_choices.choices])}'})
 
-        # Validate years_of_experience
+        # Validate years_of_experience (case-insensitive)
         years_choices = YearsChoices.objects.first()
         if years_choices:
-            valid_years = [choice['code'] for choice in years_choices.choices]
-            if self.years_of_experience and self.years_of_experience not in valid_years:
-                raise ValidationError({'years_of_experience': f'Invalid years of experience. Choose from: {", ".join(valid_years)}'})
+            valid_years = [choice['code'].lower() for choice in years_choices.choices]
+            if self.years_of_experience and self.years_of_experience.lower() not in valid_years:
+                raise ValidationError({'years_of_experience': f'Invalid years of experience. Choose from: {", ".join([choice["code"] for choice in years_choices.choices])}'})
 
-        # Validate availability
+        # Validate availability (case-insensitive)
         availability_choices = AvailabilityChoices.objects.first()
         if availability_choices:
-            valid_availability = [choice['code'] for choice in availability_choices.choices]
-            if self.availability not in valid_availability:
-                raise ValidationError({'availability': f'Invalid availability. Choose from: {", ".join(valid_availability)}'})
+            valid_availability = [choice['code'].lower() for choice in availability_choices.choices]
+            if self.availability.lower() not in valid_availability:
+                raise ValidationError({'availability': f'Invalid availability. Choose from: {", ".join([choice["code"] for choice in availability_choices.choices])}'})
 
-        # Validate employment_status
+        # Validate employment_status (case-insensitive)
         employment_status_choices = EmploymentStatusChoices.objects.first()
         if employment_status_choices:
-            valid_statuses = [choice['code'] for choice in employment_status_choices.choices]
-            if self.employment_status and self.employment_status not in valid_statuses:
-                raise ValidationError({'employment_status': f'Invalid employment status. Choose from: {", ".join(valid_statuses)}'})
+            valid_statuses = [choice['code'].lower() for choice in employment_status_choices.choices]
+            if self.employment_status and self.employment_status.lower() not in valid_statuses:
+                raise ValidationError({'employment_status': f'Invalid employment status. Choose from: {", ".join([choice["code"] for choice in employment_status_choices.choices])}'})
 
-        # Validate preferred_work_location
+        # Validate preferred_work_location (case-insensitive)
         work_location_choices = WorkLocationChoices.objects.first()
         if work_location_choices:
-            valid_locations = [choice['code'] for choice in work_location_choices.choices]
-            if self.preferred_work_location not in valid_locations:
-                raise ValidationError({'preferred_work_location': f'Invalid work location. Choose from: {", ".join(valid_locations)}'})
+            valid_locations = [choice['code'].lower() for choice in work_location_choices.choices]
+            if self.preferred_work_location.lower() not in valid_locations:
+                raise ValidationError({'preferred_work_location': f'Invalid work location. Choose from: {", ".join([choice["code"] for choice in work_location_choices.choices])}'})
 
-        # Validate shift_preference
+        # Validate shift_preference (case-insensitive)
         shift_choices = ShiftChoices.objects.first()
         if shift_choices:
-            valid_shifts = [choice['code'] for choice in shift_choices.choices]
-            if self.shift_preference not in valid_shifts:
-                raise ValidationError({'shift_preference': f'Invalid shift preference. Choose from: {", ".join(valid_shifts)}'})
+            valid_shifts = [choice['code'].lower() for choice in shift_choices.choices]
+            if self.shift_preference.lower() not in valid_shifts:
+                raise ValidationError({'shift_preference': f'Invalid shift preference. Choose from: {", ".join([choice["code"] for choice in shift_choices.choices])}'})
 
     def save(self, *args, **kwargs):
         # Validate that at least one professional qualification is provided
@@ -496,12 +493,50 @@ class PhysicalAttributes(models.Model):
             self.facial_hair = sanitize_string(self.facial_hair)
         if self.physical_condition:
             self.physical_condition = sanitize_string(self.physical_condition)
-        # Validate gender
+            
+        # Validate gender (case-insensitive)
         gender_choices = GenderChoices.objects.first()
         if gender_choices:
-            valid_genders = [choice['code'] for choice in gender_choices.choices]
-            if self.gender not in valid_genders:
-                raise ValidationError({'gender': f'Invalid gender. Choose from: {", ".join(valid_genders)}'})
+            valid_genders = [choice['code'].lower() for choice in gender_choices.choices]
+            if self.gender.lower() not in valid_genders:
+                raise ValidationError({'gender': f'Invalid gender. Choose from: {", ".join([choice["code"] for choice in gender_choices.choices])}'})
+
+        # Load and validate physical attributes (case-insensitive)
+        try:
+            data_dir = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
+            with open(os.path.join(data_dir, 'physical_attributes.json'), 'r') as f:
+                physical_data = json.load(f)
+                
+            # Validate hair_color
+            if self.hair_color and 'hair_colors' in physical_data:
+                valid_hair_colors = [item['code'].lower() for item in physical_data['hair_colors']]
+                if self.hair_color.lower() not in valid_hair_colors:
+                    display_options = [item['code'] for item in physical_data['hair_colors']]
+                    raise ValidationError({'hair_color': f'Invalid hair color. Choose from: {", ".join(display_options)}'})
+                    
+            # Validate eye_color
+            if self.eye_color and 'eye_colors' in physical_data:
+                valid_eye_colors = [item['code'].lower() for item in physical_data['eye_colors']]
+                if self.eye_color.lower() not in valid_eye_colors:
+                    display_options = [item['code'] for item in physical_data['eye_colors']]
+                    raise ValidationError({'eye_color': f'Invalid eye color. Choose from: {", ".join(display_options)}'})
+                    
+            # Validate body_type
+            if self.body_type and 'body_types' in physical_data:
+                valid_body_types = [item['code'].lower() for item in physical_data['body_types']]
+                if self.body_type.lower() not in valid_body_types:
+                    display_options = [item['code'] for item in physical_data['body_types']]
+                    raise ValidationError({'body_type': f'Invalid body type. Choose from: {", ".join(display_options)}'})
+                    
+            # Validate skin_tone
+            if self.skin_tone and 'skin_tones' in physical_data:
+                valid_skin_tones = [item['code'].lower() for item in physical_data['skin_tones']]
+                if self.skin_tone.lower() not in valid_skin_tones:
+                    display_options = [item['code'] for item in physical_data['skin_tones']]
+                    raise ValidationError({'skin_tone': f'Invalid skin tone. Choose from: {", ".join(display_options)}'})
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
+            # If data file is not available, skip validation
+            pass
 
         # Existing validations
         if self.height is not None:
@@ -564,8 +599,6 @@ class Education(models.Model):
     education_level = models.CharField(max_length=50, blank=True)
     degree_type = models.CharField(max_length=50, blank=True)
     field_of_study = models.CharField(max_length=100, blank=True)
-    graduation_year = models.CharField(max_length=4, blank=True)
-    gpa = models.FloatField(null=True, blank=True)
     institution_name = models.CharField(max_length=100, blank=True)
     scholarships = models.JSONField(default=list)
     academic_achievements = models.JSONField(default=list)
@@ -580,8 +613,6 @@ class Education(models.Model):
             self.degree_type = sanitize_string(self.degree_type)
         if self.field_of_study:
             self.field_of_study = sanitize_string(self.field_of_study)
-        if self.graduation_year:
-            self.graduation_year = sanitize_string(self.graduation_year)
         if self.institution_name:
             self.institution_name = sanitize_string(self.institution_name)
 
@@ -589,10 +620,6 @@ class WorkExperience(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='work_experience')
     years_of_experience = models.CharField(max_length=50, blank=True)
     employment_status = models.CharField(max_length=50, blank=True)
-    previous_employers = models.JSONField(default=list)
-    projects = models.JSONField(default=list)
-    training = models.JSONField(default=list)
-    internship_experience = models.CharField(max_length=50, blank=True)
 
     def clean(self):
         # Sanitize string fields
@@ -600,8 +627,6 @@ class WorkExperience(models.Model):
             self.years_of_experience = sanitize_string(self.years_of_experience)
         if self.employment_status:
             self.employment_status = sanitize_string(self.employment_status)
-        if self.internship_experience:
-            self.internship_experience = sanitize_string(self.internship_experience)
 
 class ContactInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
@@ -955,44 +980,47 @@ class Media(models.Model):
             })
 
     def clean(self):
-        """Validate all images before saving"""
-        # Validate headshot
+        super().clean()
+        
+        professions = self.profile.professional_qualifications.professions if hasattr(self.profile, 'professional_qualifications') else []
+        
+        # Validate images
         if self.photo:
             self._validate_image(self.photo, 'photo')
-        
-        # Validate natural photos
         if self.natural_photo_1:
             self._validate_image(self.natural_photo_1, 'natural_photo_1')
-        else:
-            raise ValidationError({
-                'natural_photo_1': 'First natural photo is required.'
-            })
-            
         if self.natural_photo_2:
             self._validate_image(self.natural_photo_2, 'natural_photo_2')
-        else:
-            raise ValidationError({
-                'natural_photo_2': 'Second natural photo is required.'
-            })
+            
+        # Conditional validation based on profession
+        if 'actor' in professions:
+            if not self.photo:
+                raise ValidationError({
+                    'photo': 'Professional headshot is required for actors.'
+                })
+            # if not self.natural_photo_1:
+            #     raise ValidationError({
+            #         'natural_photo_1': 'First natural photo is required.'
+            #     })
+            # if not self.natural_photo_2:
+            #     raise ValidationError({
+            #         'natural_photo_2': 'Second natural photo is required.'
+            #     })
 
     def save(self, *args, **kwargs):
-        """Process and save images"""
-        self.clean()
-        
-        # Process images if not already processed
-        if self.photo and not self.photo_processed:
-            self._process_image(self.photo, 'photo')
-        
-        if self.natural_photo_1 and not self.natural_photo_1_processed:
-            self._process_image(self.natural_photo_1, 'natural_photo_1')
-        
-        if self.natural_photo_2 and not self.natural_photo_2_processed:
-            self._process_image(self.natural_photo_2, 'natural_photo_2')
-        
-        # Cleanup old files if needed
-        self._cleanup_old_files()
-        
+        is_new = self._state.adding
         super().save(*args, **kwargs)
+        if is_new:
+            if self.photo and not self.photo_processed:
+                self._process_image(self.photo, 'photo')
+            if self.natural_photo_1 and not self.natural_photo_1_processed:
+                self._process_image(self.natural_photo_1, 'natural_photo_1')
+            if self.natural_photo_2 and not self.natural_photo_2_processed:
+                self._process_image(self.natural_photo_2, 'natural_photo_2')
+        if self.last_cleanup is None or timezone.now() > self.last_cleanup + timedelta(days=7):
+            self._cleanup_old_files()
+            self.last_cleanup = timezone.now()
+            super().save(update_fields=['last_cleanup'])
 
     def _cleanup_old_files(self):
         """Clean up old and unused files"""
@@ -1110,32 +1138,48 @@ class LocationData(models.Model):
         verbose_name = "Location Data"
         verbose_name_plural = "Location Data"
 
-class ChoiceData(models.Model):
-    choice_type = models.CharField(max_length=50, unique=True)
+class Choices(models.Model):
+    """
+    Consolidated model for all choice data
+    """
+    category = models.CharField(max_length=50)  # e.g., 'personal', 'professional', etc.
+    subcategory = models.CharField(max_length=50)  # e.g., 'marital_statuses', 'professions', etc.
     choices = models.JSONField()
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    def __str__(self):
-        return f"{self.choice_type} Choices"
-
     class Meta:
-        verbose_name = 'Choice Data'
-        verbose_name_plural = 'Choice Data'
-
-class ProfessionalChoices(models.Model):
-    company_sizes = models.JSONField(default=list)
-    industries = models.JSONField(default=list)
-    leadership_styles = models.JSONField(default=list)
-    communication_styles = models.JSONField(default=list)
-    motivations = models.JSONField(default=list)
-
-    class Meta:
-        verbose_name = 'Professional Choices'
-        verbose_name_plural = 'Professional Choices'
+        verbose_name = 'Choice'
+        verbose_name_plural = 'Choices'
+        unique_together = ['category', 'subcategory']
+        indexes = [
+            models.Index(fields=['category', 'subcategory'])
+        ]
 
     def __str__(self):
-        return "Professional Choices"
+        return f"{self.category} - {self.subcategory}"
+
+    @classmethod
+    def get_choices(cls, category, subcategory):
+        """
+        Get choices for a specific category and subcategory
+        """
+        try:
+            choice_obj = cls.objects.get(category=category, subcategory=subcategory)
+            return choice_obj.choices
+        except cls.DoesNotExist:
+            return []
+
+    @classmethod
+    def get_choice_display(cls, category, subcategory, code):
+        """
+        Get display name for a choice code
+        """
+        choices = cls.get_choices(category, subcategory)
+        for choice in choices:
+            if choice['code'] == code:
+                return choice['name']
+        return code  # Return the code if no match found
 
 class GenderChoices(models.Model):
     choices = models.JSONField(default=list)

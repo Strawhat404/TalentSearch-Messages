@@ -1,8 +1,0 @@
-{
-    "experience_levels": [
-        {"code": "entry", "label": "Entry Level"},
-        {"code": "intermediate", "label": "Intermediate"},
-        {"code": "advanced", "label": "Advanced"},
-        {"code": "expert", "label": "Expert"}
-    ]
-} 

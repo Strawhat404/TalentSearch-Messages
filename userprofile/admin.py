@@ -86,8 +86,8 @@ class ProfessionalQualificationsForm(forms.ModelForm):
         model = ProfessionalQualifications
         fields = [
             'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
-            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
+            'willingness_to_relocate', 'overtime_availability', 'travel_willingness',
+            'equipment_experience', 'role_title', 'portfolio_url',
             'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
             'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
             'work_authorization'
@@ -125,8 +125,8 @@ class EducationForm(forms.ModelForm):
     class Meta:
         model = Education
         fields = [
-            'education_level', 'degree_type', 'field_of_study', 'graduation_year',
-            'gpa', 'institution_name', 'scholarships', 'academic_achievements',
+            'education_level', 'degree_type', 'field_of_study',
+            'institution_name', 'scholarships', 'academic_achievements',
             'certifications', 'online_courses'
         ]
 
@@ -138,10 +138,7 @@ class EducationForm(forms.ModelForm):
 class WorkExperienceForm(forms.ModelForm):
     class Meta:
         model = WorkExperience
-        fields = [
-            'years_of_experience', 'employment_status', 'previous_employers',
-            'projects', 'training', 'internship_experience'
-        ]
+        fields = ['years_of_experience', 'employment_status']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -207,8 +204,8 @@ class ProfessionalQualificationsInline(admin.StackedInline):
     extra = 0
     fields = [
         'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
-        'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-        'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
+        'willingness_to_relocate', 'overtime_availability', 'travel_willingness',
+        'equipment_experience', 'role_title', 'portfolio_url',
         'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
         'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
         'work_authorization'
@@ -237,8 +234,8 @@ class EducationInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'education_level', 'degree_type', 'field_of_study', 'graduation_year',
-        'gpa', 'institution_name', 'scholarships', 'academic_achievements',
+        'education_level', 'degree_type', 'field_of_study',
+        'institution_name', 'scholarships', 'academic_achievements',
         'certifications', 'online_courses'
     ]
 
@@ -247,10 +244,7 @@ class WorkExperienceInline(admin.StackedInline):
     form = WorkExperienceForm
     can_delete = True
     extra = 0
-    fields = [
-        'years_of_experience', 'employment_status', 'previous_employers',
-        'projects', 'training', 'internship_experience'
-    ]
+    fields = ['years_of_experience', 'employment_status']
 
 class ContactInfoInline(admin.StackedInline):
     model = ContactInfo

@@ -16,6 +16,13 @@ DATABASES = {
 }
 
 # Email settings for development
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'localhost'
+# EMAIL_PORT = 1025
+# EMAIL_HOST_USER = 'dev@example.com'
+# EMAIL_HOST_PASSWORD = 'dev_password'
+# EMAIL_USE_TLS = False
+# DEFAULT_FROM_EMAIL = 'dev@example.com'
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
@@ -52,6 +59,7 @@ else:
 
 # CORS settings for local frontend devs
 CORS_ALLOWED_ORIGINS = [
+    "https://talentdiscovery1.netlify.app",
     "http://localhost:5173",
     "http://localhost:5174",
     "http://localhost:5175",
