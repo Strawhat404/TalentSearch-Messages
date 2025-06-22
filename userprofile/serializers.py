@@ -1,7 +1,8 @@
 from rest_framework import serializers
 from .models import (
     Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
-    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog
+    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, VerificationStatus, VerificationAuditLog, LocationData,
+    HOUSING_STATUS_CHOICES, RESIDENCE_DURATION_CHOICES, Choices
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -10,6 +11,8 @@ import re
 import magic
 from datetime import date
 import bleach
+import json
+from django.conf import settings
 
 # Helper function to sanitize strings
 def sanitize_string(value):
@@ -25,11 +28,46 @@ def sanitize_string(value):
     cleaned_value = re.sub(r'\s+', ' ', cleaned_value).strip()
     return cleaned_value
 
+# --- Load static choice lists once -------------------------------------------------
+DATA_DIR = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
+
+def _safe_load(filename, key):
+    try:
+        with open(os.path.join(DATA_DIR, filename), 'r') as _f:
+            data = json.load(_f)
+            if key:
+                return [item['code'] for item in data.get(key, [])]
+            return data
+    except Exception:
+        return []
+
+ALLOWED_LANGUAGES = _safe_load('languages.json', 'languages')
+PHYSICAL_DATA = _safe_load('physical_attributes.json', None)
+if isinstance(PHYSICAL_DATA, dict):
+    HAIR_COLORS   = [item['code'] for item in PHYSICAL_DATA.get('hair_colors', [])]
+    EYE_COLORS    = [item['code'] for item in PHYSICAL_DATA.get('eye_colors', [])]
+    SKIN_TONES    = [item['code'] for item in PHYSICAL_DATA.get('skin_tones', [])]
+    BODY_TYPES    = [item['code'] for item in PHYSICAL_DATA.get('body_types', [])]
+else:
+    HAIR_COLORS = EYE_COLORS = SKIN_TONES = BODY_TYPES = []
+
+MEDICAL_DATA = _safe_load('medical_info.json', None)
+if isinstance(MEDICAL_DATA, dict):
+    conditions = [item['code'] for item in MEDICAL_DATA.get('medical_conditions', [])]
+    disabilities = [item['code'] for item in MEDICAL_DATA.get('disability_statuses', [])]
+    KNOWN_MED_CONDITIONS = conditions + disabilities
+    KNOWN_MEDICINE_TYPES = [item['code'] for item in MEDICAL_DATA.get('medicine_types', [])]
+else:
+    KNOWN_MED_CONDITIONS = KNOWN_MEDICINE_TYPES = []
+
 class IdentityVerificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = IdentityVerification
         fields = ['id_type', 'id_number', 'id_expiry_date', 'id_front', 'id_back', 'id_verified']
         read_only_fields = ['id_verified']
+
+    def validate(self, data):
+        return data
 
     def get_id_number(self, obj):
         id_number = obj.id_number
@@ -88,419 +126,360 @@ class IdentityVerificationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid ID back image. Must be a valid image format (jpg, jpeg, png, gif).")
         return value
 
+class ActorCategorySerializer(serializers.Serializer):
+    id = serializers.CharField()
+    name = serializers.CharField()
+    description = serializers.CharField()
+
 class ProfessionalQualificationsSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfessionalQualifications
         fields = [
-            'experience_level', 'skills', 'work_authorization', 'industry_experience',
-            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
-            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
-            'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+            'id', 'main_skill', 'model_categories', 'performer_categories', 'professions',
+            'skill_description', 'video_url', 'experience_level', 'work_authorization',
+            'availability', 'preferred_work_location', 'shift_preference', 'role_title',
+            'preferred_company_size', 'preferred_industry', 'leadership_style',
+            'communication_style', 'motivation', 'min_salary', 'max_salary', 'willingness_to_relocate',
+            'overtime_availability', 'travel_willingness', 'equipment_experience', 'portfolio_url',
+            'union_membership', 'reference', 'available_start_date', 'has_driving_license'
         ]
+        read_only_fields = ['id']
 
-    def validate_experience_level(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('professions'):
+            raise serializers.ValidationError({"professions": "At least one profession is required."})
+        if not data.get('experience_level'):
+            raise serializers.ValidationError({"experience_level": "Experience level is required."})
+        if not data.get('work_authorization'):
+            raise serializers.ValidationError({"work_authorization": "Work authorization is required."})
+        if not data.get('availability'):
+            raise serializers.ValidationError({"availability": "Availability is required."})
+        if not data.get('preferred_work_location'):
+            raise serializers.ValidationError({"preferred_work_location": "Preferred work location is required."})
+        if not data.get('shift_preference'):
+            raise serializers.ValidationError({"shift_preference": "Shift preference is required."})
 
-    def validate_work_authorization(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Validate salary range if provided
+        min_salary = data.get('min_salary')
+        max_salary = data.get('max_salary')
+        if min_salary is not None and max_salary is not None:
+            if min_salary > max_salary:
+                raise serializers.ValidationError({"min_salary": "Minimum salary cannot be greater than maximum salary."})
 
-    def validate_industry_experience(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        professions = data.get('professions', [])
+        professions_lower = [p.lower() for p in professions]
 
-    def validate_availability(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Stuntman-specific validations
+        if 'stuntman' in professions_lower:
+            if not data.get('skill_description'):
+                raise serializers.ValidationError({
+                    'skill_description': 'Skill description is required for Stuntman profession.'
+                })
+            if not data.get('video_url'):
+                raise serializers.ValidationError({
+                    'video_url': 'Showcase video URL is required for Stuntman profession.'
+                })
+            if not data.get('main_skill'):
+                raise serializers.ValidationError({
+                    'main_skill': 'Main skill is required for Stuntman profession.'
+                })
+            if not data.get('skills'):
+                raise serializers.ValidationError({
+                    'skills': 'At least one skill is required for Stuntman profession.'
+                })
+            if data.get('main_skill') not in data.get('skills', []):
+                raise serializers.ValidationError({
+                    'main_skill': 'Main skill must be one of the selected skills.'
+                })
 
-    def validate_preferred_work_location(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Cameraman-specific validations
+        if 'cameraman' in professions_lower:
+            if not data.get('portfolio_url'):
+                raise serializers.ValidationError({
+                    'portfolio_url': 'Portfolio URL is required for Cameraman profession.'
+                })
 
-    def validate_shift_preference(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Voice-Over specific validations
+        if 'voice over artist' in professions_lower:
+            if not data.get('video_url'):
+                raise serializers.ValidationError({
+                    'video_url': 'Demo video URL is required for Voice-Over profession.'
+                })
 
-    def validate_willingness_to_relocate(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # travel_willingness must be present per consultant
+        if 'travel_willingness' not in data:
+            raise serializers.ValidationError({"travel_willingness": "Willingness to travel must be specified (true/false)."})
 
-    def validate_overtime_availability(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_travel_willingness(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_driving_skills(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_role_title(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_union_membership(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_preferred_company_size(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_leadership_style(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_communication_style(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_motivation(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_min_salary(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError("Minimum salary cannot be negative.")
-        return value
-
-    def validate_max_salary(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError("Maximum salary cannot be negative.")
-        return value
+        return data
 
 class PhysicalAttributesSerializer(serializers.ModelSerializer):
     class Meta:
         model = PhysicalAttributes
         fields = [
-            'weight', 'height', 'gender', 'hair_color', 'eye_color', 'body_type',
-            'skin_tone', 'facial_hair', 'tattoos_visible', 'piercings_visible', 'physical_condition'
+            'id', 'height', 'weight', 'gender', 'hair_color', 'eye_color',
+            'body_type', 'skin_tone', 'facial_hair', 'tattoos_visible',
+            'piercings_visible', 'physical_condition'
         ]
+        read_only_fields = ['id']
 
-    def validate_gender(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('height'):
+            raise serializers.ValidationError({"height": "Height is required."})
+        if not data.get('weight'):
+            raise serializers.ValidationError({"weight": "Weight is required."})
+        if not data.get('gender'):
+            raise serializers.ValidationError({"gender": "Gender is required."})
+        if not data.get('hair_color'):
+            raise serializers.ValidationError({"hair_color": "Hair color is required."})
+        if not data.get('eye_color'):
+            raise serializers.ValidationError({"eye_color": "Eye color is required."})
+        if not data.get('body_type'):
+            raise serializers.ValidationError({"body_type": "Body type is required."})
+        if not data.get('skin_tone'):
+            raise serializers.ValidationError({"skin_tone": "Skin tone is required."})
 
-    def validate_hair_color(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Validate height and weight if provided
+        height = data.get('height')
+        if height is not None:
+            if height < 100 or height > 300:
+                raise serializers.ValidationError({
+                    'height': 'Height must be between 100 and 300 centimeters.'
+                })
 
-    def validate_eye_color(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        weight = data.get('weight')
+        if weight is not None:
+            if weight < 30 or weight > 500:
+                raise serializers.ValidationError({
+                    'weight': 'Weight must be between 30 and 500 kilograms.'
+                })
 
-    def validate_body_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Membership validation using static lists (case-insensitive)
+        if data.get('hair_color') and data['hair_color'].lower() not in [color.lower() for color in HAIR_COLORS]:
+            raise serializers.ValidationError({'hair_color': 'Invalid hair color.'})
+        if data.get('eye_color') and data['eye_color'].lower() not in [color.lower() for color in EYE_COLORS]:
+            raise serializers.ValidationError({'eye_color': 'Invalid eye color.'})
+        if data.get('skin_tone') and data['skin_tone'].lower() not in [tone.lower() for tone in SKIN_TONES]:
+            raise serializers.ValidationError({'skin_tone': 'Invalid skin tone.'})
+        if data.get('body_type') and data['body_type'].lower() not in [type_.lower() for type_ in BODY_TYPES]:
+            raise serializers.ValidationError({'body_type': 'Invalid body type.'})
 
-    def validate_skin_tone(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_facial_hair(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_physical_condition(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_weight(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError("Weight cannot be negative.")
-        return value
-
-    def validate_height(self, value):
-        if value is not None and value < 0:
-            raise serializers.ValidationError("Height cannot be negative.")
-        return value
+        return data
 
 class MedicalInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = MedicalInfo
-        fields = ['health_conditions', 'medications', 'disability_status', 'disability_type']
+        fields = [
+            'id', 'health_conditions', 'medications', 'disability_status',
+            'disability_type'
+        ]
+        read_only_fields = ['id']
 
-    def validate_disability_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('health_conditions'):
+            raise serializers.ValidationError({"health_conditions": "Health conditions are required."})
+        if not data.get('medications'):
+            raise serializers.ValidationError({"medications": "Medications are required."})
 
-    def validate_disability_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return "None"
-        return value
+        # Membership checks (case-insensitive)
+        invalid_conditions = [c for c in data.get('health_conditions', []) if c.lower() not in [cond.lower() for cond in KNOWN_MED_CONDITIONS]]
+        if invalid_conditions:
+            raise serializers.ValidationError({'health_conditions': f'Invalid condition(s): {", ".join(invalid_conditions)}'})
+
+        invalid_meds = [m for m in data.get('medications', []) if m.lower() not in [med.lower() for med in KNOWN_MEDICINE_TYPES]]
+        if invalid_meds:
+            raise serializers.ValidationError({'medications': f'Invalid medication type(s): {", ".join(invalid_meds)}'})
+
+        return data
 
 class EducationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Education
         fields = [
-            'education_level', 'degree_type', 'field_of_study', 'graduation_year',
-            'gpa', 'institution_name', 'scholarships', 'academic_achievements',
+            'id', 'education_level', 'degree_type', 'field_of_study',
+            'institution_name', 'scholarships', 'academic_achievements',
             'certifications', 'online_courses'
         ]
+        read_only_fields = ['id']
 
-    def validate_education_level(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('education_level'):
+            raise serializers.ValidationError({"education_level": "Education level is required."})
+        if not data.get('institution_name'):
+            raise serializers.ValidationError({"institution_name": "Institution name is required."})
 
-    def validate_degree_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_field_of_study(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_graduation_year(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_institution_name(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        return data
 
 class WorkExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkExperience
         fields = [
-            'years_of_experience', 'employment_status', 'previous_employers',
-            'projects', 'training', 'internship_experience'
+            'id', 'years_of_experience', 'employment_status'
         ]
+        read_only_fields = ['id']
 
-    def validate_years_of_experience(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('years_of_experience'):
+            raise serializers.ValidationError({"years_of_experience": "Years of experience is required."})
+        if not data.get('employment_status'):
+            raise serializers.ValidationError({"employment_status": "Employment status is required."})
 
-    def validate_employment_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_internship_experience(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        return data
 
 class ContactInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'city', 'region', 'postal_code', 'residence_type',
-            'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+            'id', 'address', 'city', 'region', 'country', 'specific_area',
+            'emergency_contact', 'emergency_phone', 'housing_status',
+            'residence_duration'
         ]
+        read_only_fields = ['id']
 
-    def validate_address(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('address'):
+            raise serializers.ValidationError({"address": "Address is required."})
+        if not data.get('city'):
+            raise serializers.ValidationError({"city": "City is required."})
+        if not data.get('region'):
+            raise serializers.ValidationError({"region": "Region is required."})
+        if not data.get('country'):
+            raise serializers.ValidationError({"country": "Country is required."})
+        if not data.get('emergency_contact'):
+            raise serializers.ValidationError({"emergency_contact": "Emergency contact is required."})
+        if not data.get('emergency_phone'):
+            raise serializers.ValidationError({"emergency_phone": "Emergency phone is required."})
+        if not data.get('housing_status'):
+            raise serializers.ValidationError({"housing_status": "Housing status is required."})
+        if not data.get('residence_duration'):
+            raise serializers.ValidationError({"residence_duration": "Residence duration is required."})
 
-    def validate_city(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Validate phone number format
+        emergency_phone = data.get('emergency_phone')
+        if emergency_phone:
+            if not re.match(r'^\+251[0-9]{9}$', emergency_phone):
+                    raise serializers.ValidationError({
+                    'emergency_phone': 'Phone must start with +251 followed by 9 digits.'
+                })
 
-    def validate_region(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Validate housing status
+        housing_status = data.get('housing_status')
+        if housing_status:
+            valid_statuses = [choice[0] for choice in HOUSING_STATUS_CHOICES]
+            if housing_status not in valid_statuses:
+                raise serializers.ValidationError({
+                    'housing_status': f'Invalid housing status. Must be one of: {", ".join(valid_statuses)}'
+                })
 
-    def validate_residence_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Validate residence duration
+        residence_duration = data.get('residence_duration')
+        if residence_duration:
+            valid_durations = [choice[0] for choice in RESIDENCE_DURATION_CHOICES]
+            if residence_duration not in valid_durations:
+                raise serializers.ValidationError({
+                    'residence_duration': f'Invalid residence duration. Must be one of: {", ".join(valid_durations)}'
+                })
 
-    def validate_residence_duration(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_housing_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_emergency_contact(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        return data
 
 class PersonalInfoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PersonalInfo
         fields = [
-            'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-            'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-            'award_recognitions'
+            'id', 'first_name', 'last_name', 'date_of_birth', 'gender', 'marital_status',
+            'nationality', 'id_type', 'id_number', 'hobbies', 'language_proficiency',
+            'social_media', 'custom_hobby', 'custom_language', 'custom_social_media',
+            'created_at', 'updated_at'
         ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
-    def validate_marital_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+    def validate(self, data):
+        # Validate required fields
+        if not data.get('date_of_birth'):
+            raise serializers.ValidationError({"date_of_birth": "Date of birth is required."})
+        if not data.get('gender'):
+            raise serializers.ValidationError({"gender": "Gender is required."})
+        if not data.get('marital_status'):
+            raise serializers.ValidationError({"marital_status": "Marital status is required."})
+        if not data.get('nationality'):
+            raise serializers.ValidationError({"nationality": "Nationality is required."})
+        if not data.get('hobbies'):
+            raise serializers.ValidationError({"hobbies": "At least one hobby is required."})
+        if not data.get('language_proficiency'):
+            raise serializers.ValidationError({"language_proficiency": "At least one language proficiency is required."})
+        if not data.get('custom_hobby'):
+            raise serializers.ValidationError({"custom_hobby": "Custom hobby is required."})
+        
+        # Validate social media structure
+        social_media = data.get('social_media', {})
+        if not social_media:
+            raise serializers.ValidationError({
+                "social_media": "At least one social media account is required."
+            })
 
-    def validate_ethnicity(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        valid_platforms = [choice[0] for choice in PersonalInfo.SOCIAL_MEDIA_CHOICES]
+        
+        for platform, details in social_media.items():
+            if platform.lower() not in [p.lower() for p in valid_platforms] and platform.lower() != 'other':
+                raise serializers.ValidationError({
+                    'social_media': f'Invalid social media platform: {platform}. Must be one of: {", ".join(valid_platforms)}'
+                })
+            
+            if not isinstance(details, dict):
+                raise serializers.ValidationError({
+                    'social_media': f'Details for {platform} must be a dictionary with "url" and "followers" fields.'
+                })
+            
+            if 'url' not in details:
+                raise serializers.ValidationError({
+                    'social_media': f'URL is required for {platform}.'
+                })
+            
+            if 'followers' not in details:
+                raise serializers.ValidationError({
+                    'social_media': f'Follower count is required for {platform}.'
+                })
+            
+            try:
+                followers = int(details['followers'])
+                if followers < 0:
+                    raise serializers.ValidationError({
+                        'social_media': f'Follower count for {platform} cannot be negative.'
+                    })
+            except (ValueError, TypeError):
+                raise serializers.ValidationError({
+                    'social_media': f'Follower count for {platform} must be a valid number.'
+                })
+        
+        # Validate ID number based on ID type
+        id_type = data.get('id_type')
+        id_number = data.get('id_number')
+        if id_type and id_number:
+            if id_type == 'national_id':
+                if not re.match(r'^\d{12}$', id_number):
+                    raise serializers.ValidationError({'id_number': 'National ID must be exactly 12 digits.'})
+            elif id_type == 'passport':
+                if not re.match(r'^E[P]?\d{7,8}$', id_number):
+                    raise serializers.ValidationError({'id_number': 'Passport must start with "E" or "EP" followed by 7-8 digits.'})
+            elif id_type == 'drivers_license':
+                if not re.match(r'^[A-Za-z0-9]+$', id_number):
+                    raise serializers.ValidationError({'id_number': "Driver's License must contain only letters and numbers."})
+        elif id_type and not id_number:
+            raise serializers.ValidationError({'id_number': f'{id_type} requires a valid ID number.'})
+        elif id_number and not id_type:
+            raise serializers.ValidationError({'id_type': 'ID type must be specified when providing an ID number.'})
 
-    def validate_personality_type(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
+        # Validate languages membership (case-insensitive)
+        invalid_langs = [lng for lng in data.get('language_proficiency', []) if lng.lower() not in [lang.lower() for lang in ALLOWED_LANGUAGES]]
+        if invalid_langs:
+            raise serializers.ValidationError({'language_proficiency': f'Invalid language codes: {", ".join(invalid_langs)}'})
 
-    def validate_work_preference(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_volunteer_experience(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_company_culture_preference(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_social_media_links(self, value):
-        sanitized_value = {}
-        for platform, url in value.items():
-            if url:
-                sanitized_url = sanitize_string(url)
-                if not (sanitized_url.startswith('http://') or sanitized_url.startswith('https://')):
-                    raise serializers.ValidationError({platform: "Invalid URL. Must start with http:// or https://"})
-                sanitized_value[platform] = sanitized_url
-            else:
-                sanitized_value[platform] = url
-        return sanitized_value
+        return data
 
 class MediaSerializer(serializers.ModelSerializer):
     class Meta:
@@ -545,13 +524,13 @@ class ProfileSerializer(serializers.ModelSerializer):
     email = serializers.EmailField(source='user.email', read_only=True)
     age = serializers.IntegerField(read_only=True)
     identity_verification = IdentityVerificationSerializer(required=False)
-    professional_qualifications = ProfessionalQualificationsSerializer(required=False)
-    physical_attributes = PhysicalAttributesSerializer(required=False)
-    medical_info = MedicalInfoSerializer(required=False)
+    professional_qualifications = ProfessionalQualificationsSerializer(required=True)
+    physical_attributes = PhysicalAttributesSerializer(required=True)
+    medical_info = MedicalInfoSerializer(required=True)
     education = EducationSerializer(required=False)
     work_experience = WorkExperienceSerializer(required=False)
-    contact_info = ContactInfoSerializer(required=False)
-    personal_info = PersonalInfoSerializer(required=False)
+    contact_info = ContactInfoSerializer(required=True)
+    personal_info = PersonalInfoSerializer(required=True)
     media = MediaSerializer(required=False)
 
     class Meta:
@@ -565,144 +544,29 @@ class ProfileSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['id', 'age', 'created_at', 'verified', 'flagged', 'email']
 
-    def to_representation(self, instance):
-        representation = super(serializers.ModelSerializer, self).to_representation(instance)
-        nested_serializers = [
-            ('identity_verification', IdentityVerificationSerializer),
-            ('professional_qualifications', ProfessionalQualificationsSerializer),
-            ('physical_attributes', PhysicalAttributesSerializer),
-            ('medical_info', MedicalInfoSerializer),
-            ('education', EducationSerializer),
-            ('work_experience', WorkExperienceSerializer),
-            ('contact_info', ContactInfoSerializer),
-            ('personal_info', PersonalInfoSerializer),
-            ('media', MediaSerializer),
-        ]
-        file_fields = [
-            ('media', 'photo'), ('media', 'video'),
-            ('identity_verification', 'id_front'), ('identity_verification', 'id_back')
-        ]
-        for field_name, serializer_class in nested_serializers:
-            related_instance = getattr(instance, field_name, None)
-            if related_instance:
-                serializer = serializer_class(related_instance)
-                representation[field_name] = serializer.data
-            else:
-                serializer = serializer_class()
-                empty_data = {}
-                for field in serializer.fields.values():
-                    if field.read_only:
-                        continue
-                    if isinstance(field, serializers.BooleanField):
-                        empty_data[field.field_name] = False
-                    elif isinstance(field, (serializers.IntegerField, serializers.FloatField, serializers.DecimalField)):
-                        empty_data[field.field_name] = None
-                    elif isinstance(field, serializers.ListField) or field.field_name in [
-                        'skills', 'software_proficiency', 'equipment_experience', 'reference', 'preferred_industry',
-                        'health_conditions', 'medications', 'scholarships', 'academic_achievements', 'certifications',
-                        'online_courses', 'previous_employers', 'projects', 'training', 'hobbies', 'social_media_handles',
-                        'language_proficiency', 'special_skills', 'tools_experience', 'award_recognitions'
-                    ]:
-                        empty_data[field.field_name] = []
-                    elif isinstance(field, serializers.DictField) or field.field_name == 'social_media_links':
-                        empty_data[field.field_name] = {}
-                    else:
-                        empty_data[field.field_name] = None
-                representation[field_name] = empty_data
-        for model_field, field in file_fields:
-            if representation[model_field] is None:
-                continue
-            file_obj = None
-            related_instance = getattr(instance, model_field, None)
-            if related_instance:
-                file_obj = getattr(related_instance, field, None)
-            if file_obj and default_storage.exists(file_obj.name):
-                representation[model_field][field] = file_obj.url
-            else:
-                if file_obj and related_instance:
-                    setattr(related_instance, field, None)
-                    related_instance.save()
-                representation[model_field][field] = None
-        if representation['identity_verification'] and representation['identity_verification']['id_number']:
-            id_number = representation['identity_verification']['id_number']
-            if len(id_number) > 4:
-                representation['identity_verification']['id_number'] = '*' * (len(id_number) - 4) + id_number[-4:]
-        return representation
-
-    def validate_name(self, value):
-        if not value or not value.strip():
-            raise serializers.ValidationError("Name cannot be blank.")
-        return sanitize_string(value)
-
-    def validate_birthdate(self, value):
-        if value is None:
-            raise serializers.ValidationError("Birthdate is required.")
-        try:
-            if value > date.today():
-                raise serializers.ValidationError("Birthdate cannot be in the future.")
-        except TypeError:
-            raise serializers.ValidationError("Invalid date format. Use YYYY-MM-DD.")
-        return value
-
-    def validate_profession(self, value):
-        if not value or not value.strip():
-            raise serializers.ValidationError("Profession cannot be blank.")
-        return sanitize_string(value)
-
-    def validate_nationality(self, value):
-        if not value or not value.strip():
-            raise serializers.ValidationError("Nationality cannot be blank.")
-        return sanitize_string(value)
-
-    def validate_location(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
-    def validate_status(self, value):
-        if value:
-            value = sanitize_string(value)
-            if not value.strip():
-                return ""
-        return value
-
     def validate(self, data):
-        id_data = data.get('identity_verification', {})
-        id_type = id_data.get('id_type')
-        id_number = id_data.get('id_number')
-        if id_type and id_number:
-            if id_type == 'kebele_id':
-                if not id_number.strip():
-                    raise serializers.ValidationError({'identity_verification.id_number': 'Kebele ID must not be empty.'})
-            elif id_type == 'national_id':
-                if not re.match(r'^\d{12}$', id_number):
-                    raise serializers.ValidationError({'identity_verification.id_number': 'National ID must be exactly 12 digits.'})
-            elif id_type == 'passport':
-                if not re.match(r'^E[P]?\d{7,8}$', id_number):
-                    raise serializers.ValidationError({'identity_verification.id_number': 'Passport must start with "E" or "EP" followed by 7-8 digits.'})
-            elif id_type == 'drivers_license':
-                if not re.match(r'^[A-Za-z0-9]+$', id_number):
-                    raise serializers.ValidationError({'identity_verification.id_number': "Driver's License must contain only letters and numbers."})
-        elif id_type and not id_number:
-            raise serializers.ValidationError({'identity_verification.id_number': f'{id_type} requires a valid ID number.'})
-        elif id_number and not id_type:
-            raise serializers.ValidationError({'identity_verification.id_type': 'ID type must be specified when providing an ID number.'})
-        prof_data = data.get('professional_qualifications', {})
-        min_salary = prof_data.get('min_salary')
-        max_salary = prof_data.get('max_salary')
-        if min_salary is not None and max_salary is not None:
-            if min_salary > max_salary:
-                raise serializers.ValidationError({'professional_qualifications.min_salary': 'Minimum salary cannot be greater than maximum salary.'})
-        contact_data = data.get('contact_info', {})
-        postal_code = contact_data.get('postal_code')
-        if postal_code:
-            postal_pattern = r'^\d{4}$'
-            if not re.match(postal_pattern, postal_code.strip()):
-                raise serializers.ValidationError({'contact_info.postal_code': 'Postal code must be exactly 4 digits (e.g., "1234").'})
-            if not contact_data.get('city') or not contact_data.get('region'):
-                raise serializers.ValidationError({'contact_info.postal_code': 'City and region must be provided when postal code is set.'})
+        # Validate required fields
+        if not data.get('birthdate'):
+            raise serializers.ValidationError({"birthdate": "Date of birth is required."})
+        if not data.get('profession'):
+            raise serializers.ValidationError({"profession": "Profession is required."})
+        if not data.get('nationality'):
+            raise serializers.ValidationError({"nationality": "Nationality is required."})
+        if not data.get('location'):
+            raise serializers.ValidationError({"location": "Location is required."})
+
+        # Validate that required nested data is provided
+        if not data.get('professional_qualifications'):
+            raise serializers.ValidationError({"professional_qualifications": "Professional qualifications are required."})
+        if not data.get('physical_attributes'):
+            raise serializers.ValidationError({"physical_attributes": "Physical attributes are required."})
+        if not data.get('medical_info'):
+            raise serializers.ValidationError({"medical_info": "Medical information is required."})
+        if not data.get('contact_info'):
+            raise serializers.ValidationError({"contact_info": "Contact information is required."})
+        if not data.get('personal_info'):
+            raise serializers.ValidationError({"personal_info": "Personal information is required."})
+
         return data
 
     def create(self, validated_data):
@@ -718,23 +582,36 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('personal_info', PersonalInfo, PersonalInfoSerializer),
             ('media', Media, MediaSerializer)
         ]
-        nested_validated_data = {key: validated_data.pop(key, {}) for key, _, _ in nested_data}
-        for key, model, serializer_class in nested_data:
-            if nested_validated_data[key]:
-                serializer = serializer_class(data=nested_validated_data[key])
+        
+        # Extract nested data and remove them from validated_data to avoid unknown field errors
+        nested_validated_data = {}
+        for key, _, serializer_class in nested_data:
+            nested_payload = validated_data.pop(key, None)  # remove from validated_data
+            if nested_payload is not None:
+                serializer = serializer_class(data=nested_payload)
                 serializer.is_valid(raise_exception=True)
                 nested_validated_data[key] = serializer.validated_data
+            else:
+                nested_validated_data[key] = None
+
         if Profile.objects.filter(user=user).exists():
             raise serializers.ValidationError({"error": "A profile already exists for this user."})
+
         try:
             with transaction.atomic():
+                # Create the profile
                 profile = Profile.objects.create(user=user, **validated_data)
+                
+                # Create nested objects - only create if data exists
                 for key, model, _ in nested_data:
-                    if nested_validated_data[key]:
+                    if nested_validated_data[key] is not None:
                         model.objects.create(profile=profile, **nested_validated_data[key])
+                
                 return profile
         except (ValueError, IntegrityError) as e:
-            raise serializers.ValidationError({"error": str(e) if isinstance(e, ValueError) else "A profile already exists for this user or a database constraint was violated."})
+            raise serializers.ValidationError({
+                "error": str(e) if isinstance(e, ValueError) else "A profile already exists for this user or a database constraint was violated."
+            })
 
     def update(self, instance, validated_data):
         nested_data = [
@@ -812,3 +689,25 @@ class VerificationAuditLogSerializer(serializers.ModelSerializer):
             'verification_method', 'notes', 'ip_address', 'user_agent'
         ]
         read_only_fields = ['changed_at', 'changed_by', 'ip_address', 'user_agent']
+
+class ChoicesSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Choices
+        fields = ['category', 'subcategory', 'choices']
+        read_only_fields = ['created_at', 'updated_at']
+
+    def validate(self, data):
+        # Ensure choices is a list of dictionaries with name and code
+        choices = data.get('choices', [])
+        if not isinstance(choices, list):
+            raise serializers.ValidationError({'choices': 'Must be a list'})
+        
+        for choice in choices:
+            if not isinstance(choice, dict):
+                raise serializers.ValidationError({'choices': 'Each choice must be a dictionary'})
+            if 'name' not in choice or 'code' not in choice:
+                raise serializers.ValidationError({'choices': 'Each choice must have name and code'})
+            if not isinstance(choice['name'], str) or not isinstance(choice['code'], str):
+                raise serializers.ValidationError({'choices': 'Name and code must be strings'})
+        
+        return data

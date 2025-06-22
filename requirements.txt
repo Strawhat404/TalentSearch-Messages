@@ -6,15 +6,19 @@ autobahn==24.4.2
 Automat==25.4.16
 black==24.2.0
 bleach==6.2.0
+certifi==2025.4.26
 cffi==1.17.1
+charset-normalizer==3.4.2
 click==8.1.8
+cloudinary==1.44.0
 constantly==23.10.4
 coverage==7.4.3
 cryptography==45.0.2
 daphne==4.2.0
 decorator==5.2.1
 dj-database-url==2.3.0
-Django==5.2
+Django==5.2.1
+django-cloudinary-storage==0.3.0
 django-cors-headers==4.7.0
 django-debug-toolbar==4.3.0
 django-environ==0.12.0
@@ -74,6 +78,7 @@ pytz==2025.2
 PyYAML==6.0.2
 redis==6.0.0
 referencing==0.36.2
+requests==2.32.4
 rpds-py==0.24.0
 service-identity==24.2.0
 setuptools==80.8.0
@@ -87,6 +92,7 @@ Twisted==24.11.0
 txaio==23.1.1
 typing_extensions==4.13.2
 uritemplate==4.1.1
+urllib3==2.4.0
 uvicorn==0.27.1
 uvloop==0.21.0
 watchfiles==1.0.5
