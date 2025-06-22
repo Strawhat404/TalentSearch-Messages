@@ -1,0 +1,291 @@
+{
+    "personal": {
+        "marital_statuses": [
+            {"name": "Single", "code": "SINGLE"},
+            {"name": "Married", "code": "MARRIED"},
+            {"name": "Divorced", "code": "DIVORCED"},
+            {"name": "Widowed", "code": "WIDOWED"},
+            {"name": "Other", "code": "OTHER"}
+        ],
+        "genders": [
+            {"name": "Male", "code": "MALE"},
+            {"name": "Female", "code": "FEMALE"},
+            {"name": "Other", "code": "OTHER"}
+        ],
+        "hobbies": [
+            {"name": "Reading", "code": "READING"},
+            {"name": "Sports", "code": "SPORTS"},
+            {"name": "Music", "code": "MUSIC"},
+            {"name": "Traveling", "code": "TRAVELING"},
+            {"name": "Cooking", "code": "COOKING"},
+            {"name": "Gaming", "code": "GAMING"},
+            {"name": "Photography", "code": "PHOTOGRAPHY"},
+            {"name": "Painting", "code": "PAINTING"},
+            {"name": "Dancing", "code": "DANCING"},
+            {"name": "Writing", "code": "WRITING"}
+        ],
+        "languages": [
+            {"name": "English", "code": "ENGLISH"},
+            {"name": "Amharic", "code": "AMHARIC"},
+            {"name": "Oromo", "code": "OROMO"},
+            {"name": "Tigrinya", "code": "TIGRINYA"},
+            {"name": "Somali", "code": "SOMALI"},
+            {"name": "Arabic", "code": "ARABIC"}
+        ]
+    },
+    "professional": {
+        "professions": [
+            {"name": "Software Engineer", "code": "SOFTWARE_ENGINEER"},
+            {"name": "Actor", "code": "ACTOR"},
+            {"name": "Model", "code": "MODEL"},
+            {"name": "Performer", "code": "PERFORMER"},
+            {"name": "Influencer", "code": "INFLUENCER"}
+        ],
+        "experience_levels": [
+            {"name": "Entry Level", "code": "ENTRY"},
+            {"name": "Junior", "code": "JUNIOR"},
+            {"name": "Mid Level", "code": "MID"},
+            {"name": "Senior", "code": "SENIOR"},
+            {"name": "Expert", "code": "EXPERT"}
+        ],
+        "skills": [
+            {"name": "Programming", "code": "PROGRAMMING"},
+            {"name": "Acting", "code": "ACTING"},
+            {"name": "Modeling", "code": "MODELING"},
+            {"name": "Dancing", "code": "DANCING"},
+            {"name": "Singing", "code": "SINGING"}
+        ]
+    },
+    "physical": {
+        "hair_colors": [
+            {"name": "Black", "code": "BLACK"},
+            {"name": "Brown", "code": "BROWN"},
+            {"name": "Blonde", "code": "BLONDE"},
+            {"name": "Red", "code": "RED"}
+        ],
+        "eye_colors": [
+            {"name": "Brown", "code": "BROWN"},
+            {"name": "Blue", "code": "BLUE"},
+            {"name": "Green", "code": "GREEN"},
+            {"name": "Hazel", "code": "HAZEL"}
+        ],
+        "body_types": [
+            {"name": "Slim", "code": "SLIM"},
+            {"name": "Athletic", "code": "ATHLETIC"},
+            {"name": "Average", "code": "AVERAGE"},
+            {"name": "Muscular", "code": "MUSCULAR"}
+        ],
+        "skin_tones": [
+            {"name": "Fair", "code": "FAIR"},
+            {"name": "Medium", "code": "MEDIUM"},
+            {"name": "Olive", "code": "OLIVE"},
+            {"name": "Dark", "code": "DARK"}
+        ]
+    },
+    "medical": {
+        "conditions": [
+            {"name": "None", "code": "NONE"},
+            {"name": "Asthma", "code": "ASTHMA"},
+            {"name": "Diabetes", "code": "DIABETES"},
+            {"name": "Hypertension", "code": "HYPERTENSION"},
+            {"name": "Other", "code": "OTHER"}
+        ],
+        "medications": [
+            {"name": "None", "code": "NONE"},
+            {"name": "Prescription", "code": "PRESCRIPTION"},
+            {"name": "Over-the-counter", "code": "OTC"},
+            {"name": "Other", "code": "OTHER"}
+        ]
+    },
+    "education": {
+        "levels": [
+            {"name": "High School", "code": "HIGH_SCHOOL"},
+            {"name": "Bachelor's", "code": "BACHELORS"},
+            {"name": "Master's", "code": "MASTERS"},
+            {"name": "PhD", "code": "PHD"}
+        ],
+        "fields": [
+            {"name": "Computer Science", "code": "COMPUTER_SCIENCE"},
+            {"name": "Engineering", "code": "ENGINEERING"},
+            {"name": "Arts", "code": "ARTS"},
+            {"name": "Business", "code": "BUSINESS"}
+        ]
+    },
+    "location": {
+        "regions": [
+            {"name": "Addis Ababa", "code": "ADDIS_ABABA"},
+            {"name": "Oromia", "code": "OROMIA"},
+            {"name": "Amhara", "code": "AMHARA"},
+            {"name": "Tigray", "code": "TIGRAY"}
+        ],
+        "cities": [
+            {"name": "Addis Ababa", "code": "ADDIS_ABABA"},
+            {"name": "Dire Dawa", "code": "DIRE_DAWA"},
+            {"name": "Bahir Dar", "code": "BAHIR_DAR"},
+            {"name": "Mekelle", "code": "MEKELLE"}
+        ]
+    },
+    "choices_data": [
+        {
+            "category": "professional",
+            "subcategory": "skills",
+            "choices": {
+                "items": [
+                    {"code": "acting", "label": "Acting"},
+                    {"code": "modeling", "label": "Modeling"},
+                    {"code": "dancing", "label": "Dancing"},
+                    {"code": "singing", "label": "Singing"},
+                    {"code": "playing_instruments", "label": "Playing Instruments"},
+                    {"code": "public_speaking", "label": "Public Speaking"},
+                    {"code": "hosting", "label": "Hosting"},
+                    {"code": "voice_over", "label": "Voice Over"},
+                    {"code": "stunt_work", "label": "Stunt Work"},
+                    {"code": "martial_arts", "label": "Martial Arts"},
+                    {"code": "swimming", "label": "Swimming"},
+                    {"code": "horse_riding", "label": "Horse Riding"},
+                    {"code": "driving", "label": "Driving"},
+                    {"code": "acrobatics", "label": "Acrobatics"},
+                    {"code": "gymnastics", "label": "Gymnastics"},
+                    {"code": "makeup_application", "label": "Makeup Application"},
+                    {"code": "hair_styling", "label": "Hair Styling"},
+                    {"code": "costume_design", "label": "Costume Design"},
+                    {"code": "set_design", "label": "Set Design"},
+                    {"code": "lighting", "label": "Lighting"},
+                    {"code": "sound_design", "label": "Sound Design"},
+                    {"code": "camera_operation", "label": "Camera Operation"},
+                    {"code": "video_editing", "label": "Video Editing"},
+                    {"code": "photo_editing", "label": "Photo Editing"},
+                    {"code": "script_writing", "label": "Script Writing"},
+                    {"code": "storyboarding", "label": "Storyboarding"},
+                    {"code": "directing", "label": "Directing"},
+                    {"code": "producing", "label": "Producing"},
+                    {"code": "casting", "label": "Casting"},
+                    {"code": "location_scouting", "label": "Location Scouting"},
+                    {"code": "prop_management", "label": "Prop Management"},
+                    {"code": "wardrobe_management", "label": "Wardrobe Management"},
+                    {"code": "special_effects", "label": "Special Effects"},
+                    {"code": "stunt_coordination", "label": "Stunt Coordination"},
+                    {"code": "fight_choreography", "label": "Fight Choreography"},
+                    {"code": "dance_choreography", "label": "Dance Choreography"},
+                    {"code": "music_composition", "label": "Music Composition"},
+                    {"code": "sound_mixing", "label": "Sound Mixing"},
+                    {"code": "color_grading", "label": "Color Grading"},
+                    {"code": "visual_effects", "label": "Visual Effects"}
+                ]
+            }
+        },
+        {
+            "category": "professional",
+            "subcategory": "company_sizes",
+            "choices": {
+                "items": [
+                    {"code": "individual", "label": "Individual/Freelancer"},
+                    {"code": "small", "label": "Small Production (1-10)"},
+                    {"code": "medium", "label": "Medium Production (11-50)"},
+                    {"code": "large", "label": "Large Production (51-200)"},
+                    {"code": "enterprise", "label": "Major Studio (200+)"}
+                ]
+            }
+        },
+        {
+            "category": "professional",
+            "subcategory": "industries",
+            "choices": {
+                "items": [
+                    {"code": "film", "label": "Film"},
+                    {"code": "television", "label": "Television"},
+                    {"code": "theater", "label": "Theater"},
+                    {"code": "commercials", "label": "Commercials"},
+                    {"code": "music_videos", "label": "Music Videos"},
+                    {"code": "web_content", "label": "Web Content"},
+                    {"code": "live_events", "label": "Live Events"},
+                    {"code": "modeling", "label": "Modeling"},
+                    {"code": "voice_acting", "label": "Voice Acting"}
+                ]
+            }
+        },
+        {
+            "category": "professional",
+            "subcategory": "leadership_styles",
+            "choices": {
+                "items": [
+                    {"code": "collaborative", "label": "Collaborative"},
+                    {"code": "directive", "label": "Directive"},
+                    {"code": "coaching", "label": "Coaching"},
+                    {"code": "supportive", "label": "Supportive"},
+                    {"code": "visionary", "label": "Visionary"}
+                ]
+            }
+        },
+        {
+            "category": "professional",
+            "subcategory": "communication_styles",
+            "choices": {
+                "items": [
+                    {"code": "direct", "label": "Direct"},
+                    {"code": "expressive", "label": "Expressive"},
+                    {"code": "diplomatic", "label": "Diplomatic"},
+                    {"code": "analytical", "label": "Analytical"},
+                    {"code": "visual", "label": "Visual"}
+                ]
+            }
+        },
+        {
+            "category": "professional",
+            "subcategory": "motivations",
+            "choices": {
+                "items": [
+                    {"code": "artistic_expression", "label": "Artistic Expression"},
+                    {"code": "career_growth", "label": "Career Growth"},
+                    {"code": "creative_collaboration", "label": "Creative Collaboration"},
+                    {"code": "skill_development", "label": "Skill Development"},
+                    {"code": "industry_impact", "label": "Industry Impact"},
+                    {"code": "storytelling", "label": "Storytelling"},
+                    {"code": "entertainment", "label": "Entertainment"}
+                ]
+            }
+        },
+        {
+            "category": "schedule",
+            "subcategory": "shifts",
+            "choices": {
+                "items": [
+                    {"code": "morning", "label": "Morning (6AM-2PM)"},
+                    {"code": "afternoon", "label": "Afternoon (2PM-10PM)"},
+                    {"code": "night", "label": "Night (10PM-6AM)"},
+                    {"code": "rotating", "label": "Rotating"},
+                    {"code": "flexible", "label": "Flexible"},
+                    {"code": "split", "label": "Split Shift"}
+                ]
+            }
+        },
+        {
+            "category": "schedule",
+            "subcategory": "availability",
+            "choices": {
+                "items": [
+                    {"code": "immediate", "label": "Immediate"},
+                    {"code": "1_week", "label": "1 Week"},
+                    {"code": "2_weeks", "label": "2 Weeks"},
+                    {"code": "1_month", "label": "1 Month"},
+                    {"code": "2_months", "label": "2 Months"},
+                    {"code": "3_months", "label": "3 Months"},
+                    {"code": "6_months", "label": "6 Months"},
+                    {"code": "1_year", "label": "1 Year"}
+                ]
+            }
+        },
+        {
+            "category": "experience",
+            "subcategory": "levels",
+            "choices": {
+                "items": [
+                    {"code": "entry", "label": "Entry Level"},
+                    {"code": "intermediate", "label": "Intermediate"},
+                    {"code": "advanced", "label": "Advanced"},
+                    {"code": "expert", "label": "Expert"}
+                ]
+            }
+        }
+    ]
+} 

@@ -38,13 +38,7 @@ class Job(models.Model):
     project_title = models.CharField(max_length=255, blank=True)
     project_start_date = models.DateField(blank=True, null=True)
     project_end_date = models.DateField(blank=True, null=True)
-    COMPENSATION_TYPES = (
-        ('Salary', 'Salary'),
-        ('Hourly', 'Hourly'),
-        ('Fixed', 'Fixed'),
-        ('Other', 'Other'),
-    )
-    compensation_type = models.CharField(max_length=50, blank=True, choices=COMPENSATION_TYPES)
+    compensation_type = models.TextField(blank=True)  # As updated previously
     compensation_amount = models.CharField(max_length=100, blank=True)
     project_details = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -74,3 +68,20 @@ class Job(models.Model):
         Returns the job title and company name.
         """
         return f"{self.job_title} at {self.company_name}"
+
+class Application(models.Model):
+    """
+    Represents a job application submitted by a user.
+    """
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    job = models.ForeignKey(Job, on_delete=models.CASCADE)
+    opportunity_description = models.TextField()
+    applied_at = models.DateTimeField(auto_now_add=True)
+
+
+    def __str__(self):
+        """
+        String representation of the Application instance.
+        Returns the user and job title.
+        """
+        return f"{self.user.email} applied for {self.job.job_title}"

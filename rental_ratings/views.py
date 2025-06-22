@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from .models import Rating
 from .serializers import RatingSerializer
 from rental_items.models import RentalItem
+from rental_items.permissions import IsOwnerOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -13,8 +14,8 @@ from drf_yasg import openapi
 
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RatingSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'delete']  # Only allow GET, POST, DELETE
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    http_method_names = ['get', 'post', 'delete', 'put', 'patch']
 
     def get_queryset(self):
         queryset = Rating.objects.all()

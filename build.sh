@@ -72,10 +72,8 @@ if ! python manage.py migrate authapp --noinput; then
     exit 1
 fi
 
-if ! python manage.py migrate --noinput; then
-    echo "Error: General migrations failed"
-    exit 1
-fi
+python manage.py migrate news 0002_initial --fake || python manage.py migrate news 0001_initial --fake
+python manage.py migrate --fake-initial
 
 # Verify migrations after running them
 echo "Migration status after running migrations:"
@@ -113,7 +111,6 @@ set -e
 echo "Activating virtual environment..."
 source /opt/render/project/src/.venv/bin/activate
 echo "Starting daphne (from venv) ..."
-exec /opt/render/project/src/.venv/bin/daphne talentsearch.asgi:application --host 0.0.0.0 --port 10000 --workers 4
 EOF
 
 # Make start.sh executable
@@ -122,3 +119,5 @@ chmod +x /opt/render/project/src/start.sh
 # Debug: verify start.sh exists and is executable
 echo "Verifying start.sh (wrapper script) ..."
 ls -l /opt/render/project/src/start.sh
+
+gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT

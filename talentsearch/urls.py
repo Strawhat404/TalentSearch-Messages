@@ -48,6 +48,8 @@ urlpatterns = [
     path('api/rental/', include('rental_items.urls')),
     path('api/ratings/', include('rental_ratings.urls')),
     path('api/user_ratings/', include('user_ratings.urls')),
+    path('api/contact/', include('contact_us.urls')),
+    path('api/statstics/', include('platform_stats.urls')),
     path('api/health/', health_check, name='health_check'),
     path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
