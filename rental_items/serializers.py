@@ -106,7 +106,7 @@ class RentalItemUpdateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = RentalItem
-        fields = ['name', 'description', 'daily_rate', 'available', 'image', 'additional_images']
+        fields = ['name', 'type', 'category', 'description', 'daily_rate', 'available', 'image', 'additional_images', 'specs', 'featured_item']
 
     def update(self, instance, validated_data):
         # Handle main image update
