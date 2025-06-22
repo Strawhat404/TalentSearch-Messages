@@ -6,6 +6,8 @@ import re
 from django.core.exceptions import ValidationError
 import bleach
 from django.utils.html import strip_tags
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from django.contrib.auth import authenticate
 
 
 User = get_user_model()
@@ -125,60 +127,38 @@ class UserSerializer(serializers.ModelSerializer):
 
 class LoginSerializer(serializers.Serializer):
     """
-    Serializer for login functionality (using email).
+    Serializer for login functionality (using either username or email).
     """
-    email = serializers.EmailField(
-        required=True,
-        allow_blank=False,
-        error_messages={
-            'required': 'Email is required',
-            'blank': 'Email cannot be blank',
-            'invalid': 'Enter a valid email address'
-        }
-    )
-    password = serializers.CharField(
-        write_only=True,
-        required=True,
-        allow_blank=False,
-        error_messages={
-            'required': 'Password is required',
-            'blank': 'Password cannot be blank'
-        }
-    )
-
-    def validate_email(self, value):
-        """
-        Validate email format and ensure it's not empty.
-        """
-        if not value or not isinstance(value, str):
-            raise serializers.ValidationError("Email is required")
-        
-        value = value.strip().lower()
-        if not value:
-            raise serializers.ValidationError("Email cannot be empty")
-        
-        # Basic email format validation
-        if '@' not in value or '.' not in value:
-            raise serializers.ValidationError("Enter a valid email address")
-        
-        return value
+    login = serializers.CharField(required=False)
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    password = serializers.CharField(write_only=True, required=True)
 
     def validate(self, attrs):
         """
-        Validate both email and password are present and not empty.
+        Validate that either login, username, or email is provided.
         """
+        login = attrs.get('login', '').strip()
+        username = attrs.get('username', '').strip()
         email = attrs.get('email', '').strip()
         password = attrs.get('password', '').strip()
         
-        if not email:
+        if not any([login, username, email]):
             raise serializers.ValidationError({
-                'email': 'Email is required'
+                'login': 'Either login, username, or email must be provided'
             })
         
         if not password:
             raise serializers.ValidationError({
                 'password': 'Password is required'
             })
+        
+        # If login is provided, use it as either username or email
+        if login:
+            if '@' in login:
+                attrs['email'] = login
+            else:
+                attrs['username'] = login
         
         return attrs
 
@@ -189,6 +169,16 @@ class AdminLoginSerializer(serializers.Serializer):
     """
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True)
+
+
+class AdminUserSerializer(serializers.ModelSerializer):
+    """
+    Serializer for listing users in the admin panel.
+    """
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'name', 'email', 'phone_number', 'is_staff', 'is_active', 'is_locked', 'date_joined']
+        read_only_fields = fields
 
 
 class TokenSerializer(serializers.ModelSerializer):
@@ -330,3 +320,53 @@ class ResetPasswordOTPSerializer(serializers.Serializer):
     email = serializers.EmailField()
     otp = serializers.CharField(max_length=6)
     new_password = serializers.CharField()
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    login = serializers.CharField(required=False)
+    username = serializers.CharField(required=False)
+    email = serializers.EmailField(required=False)
+    password = serializers.CharField()
+
+    def validate(self, attrs):
+        login = attrs.get('login')
+        username = attrs.get('username')
+        email = attrs.get('email')
+        password = attrs.get('password')
+
+        if not any([login, username, email]):
+            raise serializers.ValidationError('Either login, username, or email must be provided')
+
+        # Try to authenticate with the provided credentials
+        user = None
+        if login:
+            # Try login as email first
+            try:
+                user = User.objects.get(email=login)
+                user = authenticate(username=user.email, password=password)
+            except User.DoesNotExist:
+                # Try login as username
+                try:
+                    user = User.objects.get(username=login)
+                    user = authenticate(username=user.email, password=password)
+                except User.DoesNotExist:
+                    pass
+        elif email:
+            try:
+                user = User.objects.get(email=email)
+                user = authenticate(username=user.email, password=password)
+            except User.DoesNotExist:
+                pass
+        elif username:
+            try:
+                user = User.objects.get(username=username)
+                user = authenticate(username=user.email, password=password)
+            except User.DoesNotExist:
+                pass
+
+        if user is None:
+            raise serializers.ValidationError('No active account found with the given credentials')
+
+        attrs['email'] = user.email
+        attrs['password'] = password
+        return super().validate(attrs)

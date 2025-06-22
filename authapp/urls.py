@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     RegisterView, AdminLoginView, ForgotPasswordView, ResetPasswordView,
     NotificationListView, ChangePasswordView, LogoutView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView,
-    PasswordResetRequestView, PasswordResetConfirmView, CustomTokenObtainPairView
+    PasswordResetRequestView, PasswordResetConfirmView, CustomTokenObtainPairView, AdminUserListView
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -29,4 +29,5 @@ urlpatterns = [
     # Account Management
     path('account-recovery/', AccountRecoveryView.as_view(), name='account-recovery'),
     path('notifications/', NotificationListView.as_view(), name='notifications'),
+    path('admin/users/', AdminUserListView.as_view(), name='admin_user_list'),
 ]

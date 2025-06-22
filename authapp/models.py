@@ -9,24 +9,28 @@ import logging
 logger = logging.getLogger(__name__)
 
 class UserManager(BaseUserManager):
-    def create_user(self, email, password=None, **extra_fields):
-        if not email:
-            raise ValueError('The Email field must be set')
-        email = self.normalize_email(email)
-        user = self.model(email=email, **extra_fields)
+    def create_user(self, email=None, username=None, password=None, **extra_fields):
+        if not email and not username:
+            raise ValueError('Either Email or Username must be set')
+        
+        if email:
+            email = self.normalize_email(email)
+        user = self.model(email=email, username=username, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email, password=None, **extra_fields):
+    def create_superuser(self, email=None, username=None, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
-        return self.create_user(email, password, **extra_fields)
+        if not email and not username:
+            raise ValueError('Either Email or Username must be set for superuser')
+        return self.create_user(email=email, username=username, password=password, **extra_fields)
 
 class User(AbstractUser):
-    username = models.CharField(max_length=150, unique=True, default="default_username")
+    username = models.CharField(max_length=150, unique=True, null=True, blank=True)
     name = models.CharField(max_length=255)
-    email = models.EmailField(unique=True)
+    email = models.EmailField(unique=True, null=True, blank=True)
     backup_email = models.EmailField(blank=True, null=True, help_text='Backup email for account recovery')
     phone_number = models.CharField(max_length=20, default="0000000000")
     last_password_change = models.DateTimeField(default=timezone.now)
@@ -35,21 +39,21 @@ class User(AbstractUser):
     failed_login_attempts = models.IntegerField(default=0, help_text='Number of failed login attempts')
     last_failed_login = models.DateTimeField(null=True, blank=True, help_text='Timestamp of last failed login attempt')
 
-    USERNAME_FIELD = 'email'  # Use email as the username field
-    REQUIRED_FIELDS = ['name']  # Remove username from required fields
+    USERNAME_FIELD = 'email'
+    REQUIRED_FIELDS = ['name']
 
-    objects = UserManager()  # Use the custom user manager
+    objects = UserManager()
 
     groups = models.ManyToManyField(
         'auth.Group',
-        related_name='custom_user_set',  # Change this to a unique name
+        related_name='custom_user_set',
         blank=True,
         help_text='The groups this user belongs to.',
         related_query_name='user'
     )
     user_permissions = models.ManyToManyField(
         'auth.Permission',
-        related_name='custom_user_permissions_set',  # Change this to a unique name
+        related_name='custom_user_permissions_set',
         blank=True,
         help_text='Specific permissions for this user.',
         related_query_name='user'
@@ -59,10 +63,15 @@ class User(AbstractUser):
         """Set the user's password and update last_password_change timestamp."""
         super().set_password(raw_password)
         self.last_password_change = timezone.now()
-        if self.pk:  # Only update specific fields if the user exists
+        if self.pk:
             self.save(update_fields=['last_password_change'])
-        else:  # Otherwise save everything
+        else:
             self.save()
+
+    def clean(self):
+        super().clean()
+        if not self.username and not self.email:
+            raise ValidationError('Either username or email must be provided')
 
     class Meta:
         db_table = 'auth_user'
@@ -74,16 +83,15 @@ class Notification(models.Model):
         ('alert', 'Alert'),
     )
     
-    # Maximum lengths for title and message
-    MAX_TITLE_LENGTH = 200  # Reasonable length for a notification title
-    MAX_MESSAGE_LENGTH = 2000  # Reasonable length for a notification message
+    MAX_TITLE_LENGTH = 200
+    MAX_MESSAGE_LENGTH = 2000
     
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     title = models.CharField(max_length=MAX_TITLE_LENGTH)
     message = models.TextField(max_length=MAX_MESSAGE_LENGTH)
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='info')
     read = models.BooleanField(default=False)
-    link = models.URLField(blank=True, null=True, max_length=500)  # Added max_length for URL field
+    link = models.URLField(blank=True, null=True, max_length=500)
     created_at = models.DateTimeField(auto_now_add=True)
     
     def __str__(self):
@@ -95,8 +103,8 @@ class SecurityLog(models.Model):
         'User', 
         on_delete=models.CASCADE, 
         related_name='security_logs',
-        null=True,  # Make it nullable
-        blank=True  # Allow blank in forms
+        null=True,
+        blank=True
     )
     email = models.EmailField()
     event_type = models.CharField(max_length=50)
@@ -116,7 +124,6 @@ class SecurityLog(models.Model):
         return f"{self.event_type} for {self.email} at {self.created_at}"
 
     def save(self, *args, **kwargs):
-        # Ensure email is set from user if not provided
         if not self.email and self.user:
             self.email = self.user.email
         super().save(*args, **kwargs)
@@ -146,8 +153,7 @@ class PasswordResetToken(models.Model):
         if self.expires_at <= timezone.now():
             raise ValidationError("Expiration time must be in the future")
         
-        # Check for existing valid tokens
-        if not self.pk:  # Only check for new tokens
+        if not self.pk:
             existing_tokens = PasswordResetToken.objects.filter(
                 user=self.user,
                 used=False,

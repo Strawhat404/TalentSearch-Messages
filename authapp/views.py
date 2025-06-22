@@ -7,7 +7,7 @@ from django.core.mail import send_mail
 from django.urls import reverse
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_str, force_bytes
-from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from django.conf import settings
@@ -32,7 +32,8 @@ from django.utils.decorators import method_decorator
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
     NotificationSerializer, TokenSerializer, PasswordChangeSerializer,
-    ForgotPasswordOTPSerializer, ResetPasswordOTPSerializer
+    ForgotPasswordOTPSerializer, ResetPasswordOTPSerializer, CustomTokenObtainPairSerializer,
+    AdminUserSerializer
 )
 from .utils import password_reset_token_generator, BruteForceProtection
 from .models import Notification, SecurityLog, PasswordResetToken, PasswordResetOTP
@@ -101,17 +102,6 @@ class LoginRateThrottle(UserRateThrottle):
 
 class AnonLoginRateThrottle(AnonRateThrottle):
     rate = '100/minute'  # 3 attempts per minute for anonymous users
-
-class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
-    def validate(self, attrs):
-        data = super().validate(attrs)
-        # Add extra responses here
-        data['user'] = {
-            'id': self.user.id,
-            'email': self.user.email.lower(),
-            'name': self.user.name
-        }
-        return data
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -1012,3 +1002,14 @@ def is_strong_password(password):
         not re.search(r'[^\w\s]', password)):
         return False
     return True
+
+class AdminUserListView(generics.ListAPIView):
+    """
+    API view for admins to list all users.
+    """
+    queryset = User.objects.all()
+    serializer_class = AdminUserSerializer
+    permission_classes = [IsAdminUser]
+
+class UserRegistrationView(APIView):
+    pass
