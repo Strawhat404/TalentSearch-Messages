@@ -139,14 +139,17 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default='dev@example.com')
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
-
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
-WHITENOISE_USE_FINDERS = True
-WHITENOISE_MANIFEST_STRICT = False
-WHITENOISE_ALLOW_ALL_ORIGINS = True
 
-# MEDIA_URL = '/media/'
-# MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+# Media files
+MEDIA_URL = '' # Not needed for Cloudinary
+DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': env('CLOUD_NAME'),
+    'API_KEY': env('API_KEY'),
+    'API_SECRET': env('API_SECRET'),
+}
 
 # Custom user model
 AUTH_USER_MODEL = 'authapp.User'
@@ -255,5 +258,6 @@ if 'test' in sys.argv:
 
 # Authentication settings
 AUTHENTICATION_BACKENDS = [
-    'authapp.backends.EmailBackend',
+    'authapp.backends.EmailOrUsernameModelBackend',
+    'django.contrib.auth.backends.ModelBackend',  # keep default as fallback
 ]

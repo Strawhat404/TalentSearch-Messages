@@ -3,6 +3,7 @@ Development settings for TalentSearch project.
 """
 
 from .base import *
+import os
 
 DEBUG = True
 SECRET_KEY = 'django-insecure-key-for-development-only'
@@ -58,3 +59,24 @@ CORS_ALLOWED_ORIGINS = [
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_ALL_HEADERS = True
 CORS_ALLOW_ALL_ORIGINS = True  # For dev only, allows all origins
+
+# Override REST Framework settings for development to include missing throttle rates
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'authapp.authentication.BlacklistCheckingJWTAuthentication',
+    ],
+    'DEFAULT_PERMISSION_CLASSES': [
+        'rest_framework.permissions.IsAuthenticated',
+    ],
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle'
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '100/day',
+        'user': '1000/day',
+        'test': '1000/minute',
+        'auth': '10/minute',
+        'create': '10/minute',  # Add the missing 'create' scope
+    },
+}
