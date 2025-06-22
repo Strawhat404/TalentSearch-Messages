@@ -29,10 +29,24 @@ def rental_item_image_path(instance, filename):
     return f'rental_items/additional/{instance.rental_item.id}/{filename}'
 
 class RentalItem(models.Model):
+    TYPE_CHOICES = (
+        ('camera', 'Camera'),
+        ('lighting', 'Lighting'),
+        ('audio', 'Audio'),
+        ('other', 'Other'),
+    )
+
+    CATEGORY_CHOICES = (
+        ('professional', 'Professional'),
+        ('consumer', 'Consumer'),
+        ('vintage', 'Vintage'),
+        ('other', 'Other'),
+    )
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    type = models.CharField(max_length=255)
-    category = models.CharField(max_length=255)
+    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     description = models.TextField()
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
     image = models.ImageField(
@@ -62,13 +76,13 @@ class RentalItem(models.Model):
         # Delete the main image file
         if self.image:
             delete_file_if_exists(self.image.path)
-
+        
         # Delete all additional images
         for image in self.images.all():
             if image.image:
                 delete_file_if_exists(image.image.path)
             image.delete()
-
+        
         super().delete(*args, **kwargs)
 
 @receiver(pre_save, sender=RentalItem)
