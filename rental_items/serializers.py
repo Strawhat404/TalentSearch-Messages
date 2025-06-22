@@ -1,7 +1,9 @@
 from rest_framework import serializers
-from .models import RentalItem, RentalItemRating, RentalItemImage
+from .models import RentalItem, RentalItemImage
 from userprofile.serializers import ProfileSerializer
 from django.core.files.storage import default_storage
+from rental_ratings.models import Rating
+from rental_ratings.serializers import RatingSerializer
 import os
 
 class RentalItemImageSerializer(serializers.ModelSerializer):
@@ -10,27 +12,6 @@ class RentalItemImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'created_at']
         read_only_fields = ['id', 'created_at']
 
-class RentalItemRatingSerializer(serializers.ModelSerializer):
-    user_profile = ProfileSerializer(source='user.profile', read_only=True)
-    item_details = serializers.SerializerMethodField()
-
-    class Meta:
-        model = RentalItemRating
-        fields = ['id', 'rental_item', 'user_id', 'rating', 'comment', 'created_at', 'user_profile', 'item_details']
-        read_only_fields = ['id', 'created_at', 'user_profile', 'item_details', 'user_id', 'rental_item']
-
-    def get_item_details(self, obj):
-        return {
-            'name': obj.rental_item.name,
-            'image': obj.rental_item.image.url if obj.rental_item.image else None
-        }
-
-    def to_representation(self, instance):
-        representation = super().to_representation(instance)
-        representation['item_id'] = str(instance.rental_item.id)
-        representation['user_id'] = str(instance.user.id)
-        return representation
-
 class RentalItemSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     specs = serializers.JSONField()
@@ -38,7 +19,7 @@ class RentalItemSerializer(serializers.ModelSerializer):
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
-    ratings = RentalItemRatingSerializer(many=True, read_only=True)
+    ratings = RatingSerializer(many=True, read_only=True, source='rating_set')
     images = RentalItemImageSerializer(many=True, read_only=True)
 
     class Meta:
@@ -50,13 +31,13 @@ class RentalItemSerializer(serializers.ModelSerializer):
         read_only_fields = ['user', 'approved', 'created_at', 'updated_at', 'user_profile', 'ratings', 'images']
 
     def get_average_rating(self, obj):
-        ratings = obj.ratings.all()
+        ratings = obj.rating_set.all()
         if not ratings:
             return None
-        return sum(r.rating for r in ratings) / len(ratings)
+        return sum(r.rating for r in ratings) / ratings.count()
 
     def get_total_ratings(self, obj):
-        return obj.ratings.count()
+        return obj.rating_set.count()
 
     def update(self, instance, validated_data):
         # Handle image update separately
