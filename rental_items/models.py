@@ -35,12 +35,9 @@ class RentalItem(models.Model):
     category = models.CharField(max_length=255)
     description = models.TextField()
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
-    image = models.CharField(
-        max_length=100,
-        null=True,
-        blank=True,
-        help_text='Main image path for the rental item',
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
+    image = models.ImageField(
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
+        help_text='Main image for the rental item'
     )
     specs = models.JSONField(help_text="Technical specifications of the item")
     available = models.BooleanField(default=True)
@@ -63,12 +60,12 @@ class RentalItem(models.Model):
     def delete(self, *args, **kwargs):
         # Delete the main image file
         if self.image:
-            delete_file_if_exists(self.image)
+            delete_file_if_exists(self.image.path)
         
         # Delete all additional images
         for image in self.images.all():
             if image.image:
-                delete_file_if_exists(image.image)
+                delete_file_if_exists(image.image.path)
             image.delete()
         
         super().delete(*args, **kwargs)
@@ -81,7 +78,7 @@ def delete_old_image(sender, instance, **kwargs):
     try:
         old_instance = RentalItem.objects.get(pk=instance.pk)
         if old_instance.image and old_instance.image != instance.image:
-            delete_file_if_exists(old_instance.image)
+            delete_file_if_exists(old_instance.image.path)
     except RentalItem.DoesNotExist:
         pass
 
@@ -89,7 +86,7 @@ def delete_old_image(sender, instance, **kwargs):
 def cleanup_rental_item_files(sender, instance, **kwargs):
     """Clean up any remaining files after rental item deletion"""
     if instance.image:
-        delete_file_if_exists(instance.image)
+        delete_file_if_exists(instance.image.path)
     
     # Clean up additional images directory
     additional_images_dir = os.path.join('media', 'rental_items', 'additional', str(instance.id))

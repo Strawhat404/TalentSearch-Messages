@@ -34,7 +34,7 @@ class RentalItemRatingSerializer(serializers.ModelSerializer):
 class RentalItemSerializer(serializers.ModelSerializer):
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     specs = serializers.JSONField()
-    image = serializers.CharField(required=True)
+    image = serializers.ImageField(required=True)
     average_rating = serializers.SerializerMethodField()
     total_ratings = serializers.SerializerMethodField()
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
@@ -92,10 +92,13 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         return sum(r.rating for r in ratings) / len(ratings)
 
     def get_image(self, obj):
-        return obj.image if obj.image else None
+        # Handle ImageField objects
+        if obj.image:
+            return obj.image.url
+        return None
 
 class RentalItemUpdateSerializer(serializers.ModelSerializer):
-    image = serializers.CharField(required=False, allow_blank=True)
+    image = serializers.ImageField(required=False)
     additional_images = serializers.ListField(
         child=serializers.ImageField(),
         required=False,
