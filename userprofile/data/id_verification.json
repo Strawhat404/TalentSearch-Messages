@@ -1,0 +1,9 @@
+{
+    "id_verification": {
+        "id_types": [
+            {"code": "national_id", "name": "National ID"},
+            {"code": "passport", "name": "Passport"},
+            {"code": "drivers_license", "name": "Driver's License"}
+        ]
+    }
+} 

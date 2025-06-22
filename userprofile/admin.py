@@ -3,8 +3,8 @@ from django import forms
 from django.core.files.storage import default_storage
 from django.contrib import messages
 from .models import (
-    Profile, IdentityVerification, ProfessionalQualifications, PhysicalAttributes,
-    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media
+    Profile, BasicInformation, LocationInformation, ProfessionsAndSkills, IdentityVerification, PhysicalAttributes,
+    MedicalInfo, Education, WorkExperience, ContactInfo, PersonalInfo, Media, SocialMedia, Headshot, NaturalPhotos, Experience
 )
 import os
 from django.core.exceptions import ValidationError
@@ -20,6 +20,36 @@ class ProfileForm(forms.ModelForm):
         for field in self.fields:
             if field not in ['name', 'birthdate', 'profession', 'nationality', 'user']:
                 self.fields[field].required = False
+
+class BasicInformationForm(forms.ModelForm):
+    class Meta:
+        model = BasicInformation
+        fields = [
+            # Dropdown Values
+            'nationality', 'gender', 'languages', 'hair_color', 'eye_color', 
+            'skin_tone', 'body_type', 'medical_conditions', 'medicine_types', 
+            'marital_status', 'hobbies',
+            # Input Fields  
+            'date_of_birth', 'height', 'weight', 'emergency_contact_name', 
+            'emergency_contact_phone', 'custom_hobby',
+            # Toggle Fields
+            'has_driving_license', 'has_visible_piercings', 'has_visible_tattoos', 
+            'willing_to_travel'
+        ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+            'languages': forms.Textarea(attrs={'rows': 3}),
+            'medical_conditions': forms.Textarea(attrs={'rows': 3}),
+            'medicine_types': forms.Textarea(attrs={'rows': 3}),
+            'hobbies': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # All fields are required except custom_hobby
+        for field in self.fields:
+            if field != 'custom_hobby':
+                self.fields[field].required = True
 
 class IdentityVerificationForm(forms.ModelForm):
     class Meta:
@@ -81,9 +111,9 @@ class MediaForm(forms.ModelForm):
                         raise ValidationError(f"{field} file size must not exceed {'5MB' if field == 'photo' else '50MB'}.")
         return cleaned_data
 
-class ProfessionalQualificationsForm(forms.ModelForm):
+class ExperienceForm(forms.ModelForm):
     class Meta:
-        model = ProfessionalQualifications
+        model = Experience
         fields = [
             'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
             'willingness_to_relocate', 'overtime_availability', 'travel_willingness',
@@ -197,9 +227,9 @@ class IdentityVerificationInline(admin.StackedInline):
     fields = ['id_type', 'id_number', 'id_expiry_date', 'id_front', 'id_back', 'id_verified']
     readonly_fields = ['id_verified']
 
-class ProfessionalQualificationsInline(admin.StackedInline):
-    model = ProfessionalQualifications
-    form = ProfessionalQualificationsForm
+class ExperienceInline(admin.StackedInline):
+    model = Experience
+    form = ExperienceForm
     can_delete = True
     extra = 0
     fields = [
@@ -285,6 +315,241 @@ class MediaInline(admin.StackedInline):
     extra = 0
     fields = ['video', 'photo']
 
+class BasicInformationInline(admin.StackedInline):
+    model = BasicInformation
+    form = BasicInformationForm
+    can_delete = True
+    extra = 0
+    fields = [
+        ('nationality', 'gender'),
+        ('date_of_birth', 'marital_status'),
+        ('height', 'weight'),
+        ('hair_color', 'eye_color'),
+        ('skin_tone', 'body_type'),
+        ('emergency_contact_name', 'emergency_contact_phone'),
+        'languages',
+        'medical_conditions',
+        'medicine_types',
+        'hobbies',
+        'custom_hobby',
+        ('has_driving_license', 'has_visible_piercings'),
+        ('has_visible_tattoos', 'willing_to_travel'),
+    ]
+
+class LocationInformationForm(forms.ModelForm):
+    class Meta:
+        model = LocationInformation
+        fields = [
+            # Dropdown Values
+            'housing_status', 'region', 'duration', 'city', 'country',
+            # Input Fields  
+            'address', 'specific_area'
+        ]
+        widgets = {
+            'housing_status': forms.Select(),
+            'duration': forms.Select(),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # All fields are required
+        for field in self.fields:
+            self.fields[field].required = True
+
+class LocationInformationInline(admin.StackedInline):
+    model = LocationInformation
+    form = LocationInformationForm
+    can_delete = True
+    extra = 0
+    fields = [
+        ('housing_status', 'duration'),
+        ('region', 'city'),
+        'country',
+        'address',
+        'specific_area',
+    ]
+
+class ProfessionsAndSkillsForm(forms.ModelForm):
+    class Meta:
+        model = ProfessionsAndSkills
+        fields = [
+            # Dropdown Values
+            'actor_category',
+            # Multi-Select Values
+            'model_categories', 'performer_categories', 'influencer_categories',
+            'skills', 'main_skill'
+        ]
+        widgets = {
+            'model_categories': forms.Textarea(attrs={'rows': 3}),
+            'performer_categories': forms.Textarea(attrs={'rows': 3}),
+            'influencer_categories': forms.Textarea(attrs={'rows': 3}),
+            'skills': forms.Textarea(attrs={'rows': 3}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Make fields optional
+        for field in self.fields:
+            self.fields[field].required = False
+
+class SocialMediaForm(forms.ModelForm):
+    class Meta:
+        model = SocialMedia
+        fields = [
+            # Social Media Platform URLs/Usernames
+            'instagram', 'facebook', 'youtube', 'tiktok'
+        ]
+        widgets = {
+            'instagram': forms.URLInput(attrs={'placeholder': 'https://instagram.com/username or @username'}),
+            'facebook': forms.URLInput(attrs={'placeholder': 'https://facebook.com/username'}),
+            'youtube': forms.URLInput(attrs={'placeholder': 'https://youtube.com/@channel'}),
+            'tiktok': forms.URLInput(attrs={'placeholder': 'https://tiktok.com/@username'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # All fields are optional, but at least one social media platform is required (validated in clean)
+        for field in self.fields:
+            self.fields[field].required = False
+
+    def clean(self):
+        cleaned_data = super().clean()
+        # Validate that at least one social media platform is provided
+        social_platforms = [cleaned_data.get('instagram'), cleaned_data.get('facebook'), 
+                          cleaned_data.get('youtube'), cleaned_data.get('tiktok')]
+        if not any(platform for platform in social_platforms):
+            raise ValidationError("At least one social media platform is required.")
+        return cleaned_data
+
+class HeadshotForm(forms.ModelForm):
+    class Meta:
+        model = Headshot
+        fields = ['professional_headshot']
+        widgets = {
+            'professional_headshot': forms.ClearableFileInput(attrs={'accept': 'image/jpeg,image/png'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Professional headshot is required
+        self.fields['professional_headshot'].required = True
+
+    def clean_professional_headshot(self):
+        headshot = self.cleaned_data.get('professional_headshot')
+        if headshot:
+            # Validate file extension
+            valid_extensions = ['.jpg', '.jpeg', '.png']
+            ext = os.path.splitext(headshot.name)[1].lower()
+            if ext not in valid_extensions:
+                raise ValidationError("Professional headshot must be a JPG or PNG image file.")
+            
+            # Validate file size (5MB limit)
+            if headshot.size > 5 * 1024 * 1024:
+                raise ValidationError("Professional headshot file size must not exceed 5MB.")
+        
+        return headshot
+
+class NaturalPhotosForm(forms.ModelForm):
+    class Meta:
+        model = NaturalPhotos
+        fields = ['natural_photo_1', 'natural_photo_2']
+        widgets = {
+            'natural_photo_1': forms.ClearableFileInput(attrs={'accept': 'image/jpeg,image/png'}),
+            'natural_photo_2': forms.ClearableFileInput(attrs={'accept': 'image/jpeg,image/png'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Both natural photos are required
+        self.fields['natural_photo_1'].required = True
+        self.fields['natural_photo_2'].required = True
+
+    def clean_natural_photo_1(self):
+        photo = self.cleaned_data.get('natural_photo_1')
+        if photo:
+            # Validate file extension
+            valid_extensions = ['.jpg', '.jpeg', '.png']
+            ext = os.path.splitext(photo.name)[1].lower()
+            if ext not in valid_extensions:
+                raise ValidationError("First natural photo must be a JPG or PNG image file.")
+            
+            # Validate file size (5MB limit)
+            if photo.size > 5 * 1024 * 1024:
+                raise ValidationError("First natural photo file size must not exceed 5MB.")
+        
+        return photo
+
+    def clean_natural_photo_2(self):
+        photo = self.cleaned_data.get('natural_photo_2')
+        if photo:
+            # Validate file extension
+            valid_extensions = ['.jpg', '.jpeg', '.png']
+            ext = os.path.splitext(photo.name)[1].lower()
+            if ext not in valid_extensions:
+                raise ValidationError("Second natural photo must be a JPG or PNG image file.")
+            
+            # Validate file size (5MB limit)
+            if photo.size > 5 * 1024 * 1024:
+                raise ValidationError("Second natural photo file size must not exceed 5MB.")
+        
+        return photo
+
+class ProfessionsAndSkillsInline(admin.StackedInline):
+    model = ProfessionsAndSkills
+    form = ProfessionsAndSkillsForm
+    can_delete = True
+    extra = 0
+    fields = [
+        'actor_category',
+        'model_categories',
+        'performer_categories',
+        'influencer_categories',
+        'skills',
+        'main_skill',
+    ]
+
+class SocialMediaInline(admin.StackedInline):
+    model = SocialMedia
+    form = SocialMediaForm
+    can_delete = True
+    extra = 0
+    fieldsets = (
+        ('Social Media Platforms', {
+            'fields': (
+                ('instagram', 'facebook'),
+                ('youtube', 'tiktok')
+            ),
+            'description': 'Enter URLs or usernames for your social media accounts. At least one platform is required.'
+        }),
+    )
+
+class HeadshotInline(admin.StackedInline):
+    model = Headshot
+    form = HeadshotForm
+    can_delete = True
+    extra = 0
+    fieldsets = (
+        ('Professional Headshot', {
+            'fields': ('professional_headshot',),
+            'description': 'Upload a professional headshot photo in JPG or PNG format.'
+        }),
+    )
+
+class NaturalPhotosInline(admin.StackedInline):
+    model = NaturalPhotos
+    form = NaturalPhotosForm
+    can_delete = True
+    extra = 0
+    fieldsets = (
+        ('Natural Photos', {
+            'fields': (
+                'natural_photo_1',
+                'natural_photo_2'
+            ),
+            'description': 'Upload two natural photos in JPG or PNG format. Both photos are required.'
+        }),
+    )
+
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     form = ProfileForm
@@ -293,15 +558,21 @@ class ProfileAdmin(admin.ModelAdmin):
     search_fields = ['name', 'user__username', 'user__email', 'profession', 'nationality', 'location']
     readonly_fields = ['created_at', 'age']
     inlines = [
+        BasicInformationInline,
+        LocationInformationInline,
+        ProfessionsAndSkillsInline,
         IdentityVerificationInline,
-        ProfessionalQualificationsInline,
+        ExperienceInline,
         PhysicalAttributesInline,
         MedicalInfoInline,
         EducationInline,
         WorkExperienceInline,
         ContactInfoInline,
         PersonalInfoInline,
-        MediaInline
+        MediaInline,
+        SocialMediaInline,
+        HeadshotInline,
+        NaturalPhotosInline
     ]
     fieldsets = (
         (None, {

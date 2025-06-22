@@ -1,0 +1,346 @@
+{
+    "professions_skills": {
+        "actor_categories": [
+            {
+                "id": "film",
+                "name": "Film Actor",
+                "description": "Professional film and cinema acting"
+            },
+            {
+                "id": "tv",
+                "name": "TV Actor",
+                "description": "Television and series acting"
+            },
+            {
+                "id": "theater",
+                "name": "Theater Actor",
+                "description": "Stage and theatrical acting"
+            },
+            {
+                "id": "voice",
+                "name": "Voice Actor",
+                "description": "Voice over and dubbing work"
+            },
+            {
+                "id": "stunt",
+                "name": "Stunt Actor",
+                "description": "Action and stunt performance"
+            },
+            {
+                "id": "background",
+                "name": "Background Actor",
+                "description": "Background and extra work"
+            },
+            {
+                "id": "commercial",
+                "name": "Commercial Actor",
+                "description": "Commercial and advertising acting"
+            }
+        ],
+        "model_categories": [
+            {
+                "id": "fashion",
+                "name": "Fashion",
+                "description": "Fashion modeling and runway work"
+            },
+            {
+                "id": "runway",
+                "name": "Runway",
+                "description": "Professional runway modeling"
+            },
+            {
+                "id": "commercial",
+                "name": "Commercial",
+                "description": "Commercial and advertising modeling"
+            },
+            {
+                "id": "mature",
+                "name": "Mature",
+                "description": "Mature and senior modeling"
+            },
+            {
+                "id": "promotional",
+                "name": "Promotional",
+                "description": "Promotional and event modeling"
+            },
+            {
+                "id": "parts",
+                "name": "Parts",
+                "description": "Hand, foot, and body parts modeling"
+            },
+            {
+                "id": "tiktok",
+                "name": "TikTok",
+                "description": "TikTok and social media modeling"
+            },
+            {
+                "id": "fitness",
+                "name": "Fitness",
+                "description": "Fitness and athletic modeling"
+            },
+            {
+                "id": "glamour",
+                "name": "Glamour",
+                "description": "Glamour and beauty modeling"
+            },
+            {
+                "id": "plus_size",
+                "name": "Plus Size",
+                "description": "Plus size and curve modeling"
+            }
+        ],
+        "performer_categories": [
+            {
+                "id": "musicians_bands",
+                "name": "Musicians/Bands",
+                "description": "Musical performers and bands"
+            },
+            {
+                "id": "dj",
+                "name": "DJ",
+                "description": "Disc jockeys and music mixers"
+            },
+            {
+                "id": "dancers",
+                "name": "Dancers",
+                "description": "Professional dancers and choreographers"
+            },
+            {
+                "id": "singers",
+                "name": "Singers",
+                "description": "Vocal performers and singers"
+            },
+            {
+                "id": "acrobats",
+                "name": "Acrobats",
+                "description": "Acrobatic performers and gymnasts"
+            },
+            {
+                "id": "illusionist",
+                "name": "Illusionist",
+                "description": "Magicians and illusion performers"
+            },
+            {
+                "id": "kids_shows",
+                "name": "Kids Shows",
+                "description": "Children's entertainment performers"
+            },
+            {
+                "id": "body_painters",
+                "name": "Body Painters",
+                "description": "Body art and painting performers"
+            }
+        ],
+        "influencer_categories": [
+            {
+                "id": "beauty",
+                "name": "Beauty",
+                "description": "Beauty and cosmetics influencers"
+            },
+            {
+                "id": "fashion",
+                "name": "Fashion",
+                "description": "Fashion and style influencers"
+            },
+            {
+                "id": "fitness",
+                "name": "Fitness",
+                "description": "Fitness and wellness influencers"
+            },
+            {
+                "id": "foodie",
+                "name": "Foodie",
+                "description": "Food and culinary influencers"
+            },
+            {
+                "id": "lifestyle",
+                "name": "Lifestyle",
+                "description": "General lifestyle influencers"
+            },
+            {
+                "id": "music",
+                "name": "Music",
+                "description": "Music and entertainment influencers"
+            },
+            {
+                "id": "parent",
+                "name": "Parent",
+                "description": "Parenting and family influencers"
+            },
+            {
+                "id": "travel",
+                "name": "Travel",
+                "description": "Travel and adventure influencers"
+            },
+            {
+                "id": "photography",
+                "name": "Photography",
+                "description": "Photography and visual content creators"
+            }
+        ],
+        "skills": [
+            {
+                "id": "eskista",
+                "name": "Eskista Dance",
+                "description": "Traditional Ethiopian dance form",
+                "type": "traditional"
+            },
+            {
+                "id": "coffee_ceremony",
+                "name": "Coffee Ceremony",
+                "description": "Traditional Ethiopian coffee ceremony performance",
+                "type": "traditional"
+            },
+            {
+                "id": "jumping",
+                "name": "Jumping",
+                "description": "Professional jumping and stunt skills",
+                "type": "technical"
+            },
+            {
+                "id": "martial_arts",
+                "name": "Martial Arts",
+                "description": "Various martial arts disciplines",
+                "type": "technical"
+            },
+            {
+                "id": "parkour",
+                "name": "Parkour",
+                "description": "Urban acrobatics and movement",
+                "type": "technical"
+            },
+            {
+                "id": "wire_work",
+                "name": "Wire Work",
+                "description": "Professional wire and harness work",
+                "type": "technical"
+            },
+            {
+                "id": "fire_performance",
+                "name": "Fire Performance",
+                "description": "Fire manipulation and performance",
+                "type": "technical"
+            },
+            {
+                "id": "sword_play",
+                "name": "Sword Play",
+                "description": "Stage combat and sword fighting",
+                "type": "technical"
+            },
+            {
+                "id": "high_falls",
+                "name": "High Falls",
+                "description": "Professional high fall stunts",
+                "type": "technical"
+            },
+            {
+                "id": "vehicle_stunts",
+                "name": "Vehicle Stunts",
+                "description": "Vehicle-based stunt performance",
+                "type": "technical"
+            },
+            {
+                "id": "water_stunts",
+                "name": "Water Stunts",
+                "description": "Underwater and water-based stunts",
+                "type": "technical"
+            },
+            {
+                "id": "fight_choreography",
+                "name": "Fight Choreography",
+                "description": "Stage and screen fight choreography",
+                "type": "technical"
+            },
+            {
+                "id": "traditional_dance",
+                "name": "Traditional Dance",
+                "description": "Various traditional dance forms",
+                "type": "traditional"
+            },
+            {
+                "id": "cultural_performance",
+                "name": "Cultural Performance",
+                "description": "Traditional cultural performances",
+                "type": "traditional"
+            },
+            {
+                "id": "music_instruments",
+                "name": "Musical Instruments",
+                "description": "Traditional musical instrument performance",
+                "type": "traditional"
+            },
+            {
+                "id": "storytelling",
+                "name": "Storytelling",
+                "description": "Traditional storytelling and narrative performance",
+                "type": "traditional"
+            },
+            {
+                "id": "costume_performance",
+                "name": "Costume Performance",
+                "description": "Traditional costume and character performance",
+                "type": "traditional"
+            },
+            {
+                "id": "ritual_performance",
+                "name": "Ritual Performance",
+                "description": "Traditional ritual and ceremonial performance",
+                "type": "traditional"
+            },
+            {
+                "id": "acrobatics",
+                "name": "Acrobatics",
+                "description": "Professional acrobatic skills",
+                "type": "technical"
+            },
+            {
+                "id": "gymnastics",
+                "name": "Gymnastics",
+                "description": "Professional gymnastics skills",
+                "type": "technical"
+            }
+        ],
+        "main_skills": [
+            {
+                "id": "acting",
+                "name": "Acting",
+                "description": "Professional acting and performance"
+            },
+            {
+                "id": "modeling",
+                "name": "Modeling",
+                "description": "Professional modeling and photography"
+            },
+            {
+                "id": "performing",
+                "name": "Performing",
+                "description": "Live performance and entertainment"
+            },
+            {
+                "id": "influencing",
+                "name": "Influencing",
+                "description": "Social media and digital influence"
+            },
+            {
+                "id": "dancing",
+                "name": "Dancing",
+                "description": "Professional dance and choreography"
+            },
+            {
+                "id": "singing",
+                "name": "Singing",
+                "description": "Vocal performance and music"
+            },
+            {
+                "id": "stunts",
+                "name": "Stunts",
+                "description": "Professional stunt work and action"
+            },
+            {
+                "id": "traditional_arts",
+                "name": "Traditional Arts",
+                "description": "Cultural and traditional performance arts"
+            }
+        ]
+    }
+} 

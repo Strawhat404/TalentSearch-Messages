@@ -1,0 +1,78 @@
+{
+    "experience": {
+        "experience_levels": [
+            {"id": "entry", "name": "Entry Level", "description": "New to the industry with less than 1 year of experience"},
+            {"id": "junior", "name": "Junior", "description": "1-2 years of experience with basic understanding"},
+            {"id": "intermediate", "name": "Intermediate", "description": "3-5 years of experience with solid skills"},
+            {"id": "advanced", "name": "Advanced", "description": "6-10 years of experience with expert-level skills"},
+            {"id": "senior", "name": "Senior", "description": "10-15 years of experience with leadership capabilities"},
+            {"id": "expert", "name": "Expert", "description": "15+ years of experience with industry recognition"}
+        ],
+        "years": [
+            {"id": "0", "name": "0 Years", "description": "Just starting"},
+            {"id": "1", "name": "1 Year", "description": "One year of professional experience"},
+            {"id": "2", "name": "2 Years", "description": "Two years of professional experience"},
+            {"id": "3", "name": "3 Years", "description": "Three years of professional experience"},
+            {"id": "4", "name": "4 Years", "description": "Four years of professional experience"},
+            {"id": "5", "name": "5 Years", "description": "Five years of professional experience"},
+            {"id": "6", "name": "6 Years", "description": "Six years of professional experience"},
+            {"id": "7", "name": "7 Years", "description": "Seven years of professional experience"},
+            {"id": "8", "name": "8 Years", "description": "Eight years of professional experience"},
+            {"id": "9", "name": "9 Years", "description": "Nine years of professional experience"},
+            {"id": "10", "name": "10 Years", "description": "Ten years of professional experience"},
+            {"id": "11", "name": "11 Years", "description": "Eleven years of professional experience"},
+            {"id": "12", "name": "12 Years", "description": "Twelve years of professional experience"},
+            {"id": "13", "name": "13 Years", "description": "Thirteen years of professional experience"},
+            {"id": "14", "name": "14 Years", "description": "Fourteen years of professional experience"},
+            {"id": "15", "name": "15 Years", "description": "Fifteen years of professional experience"},
+            {"id": "16", "name": "16 Years", "description": "Sixteen years of professional experience"},
+            {"id": "17", "name": "17 Years", "description": "Seventeen years of professional experience"},
+            {"id": "18", "name": "18 Years", "description": "Eighteen years of professional experience"},
+            {"id": "19", "name": "19 Years", "description": "Nineteen years of professional experience"},
+            {"id": "20", "name": "20 Years", "description": "Twenty years of professional experience"},
+            {"id": "21+", "name": "21+ Years", "description": "More than twenty years of professional experience"}
+        ],
+        "availability": [
+            {"id": "immediate", "name": "Immediate", "description": "Available to start immediately"},
+            {"id": "1_week", "name": "1 Week", "description": "Available within one week"},
+            {"id": "2_weeks", "name": "2 Weeks", "description": "Available within two weeks"},
+            {"id": "1_month", "name": "1 Month", "description": "Available within one month"},
+            {"id": "2_months", "name": "2 Months", "description": "Available within two months"},
+            {"id": "3_months", "name": "3 Months", "description": "Available within three months"},
+            {"id": "6_months", "name": "6 Months", "description": "Available within six months"},
+            {"id": "custom", "name": "Custom", "description": "Custom availability timeframe"}
+        ],
+        "employment_status": [
+            {"id": "unemployed", "name": "Unemployed", "description": "Currently not employed"},
+            {"id": "part_time", "name": "Part-time", "description": "Currently working part-time"},
+            {"id": "full_time", "name": "Full-time", "description": "Currently working full-time"},
+            {"id": "contract", "name": "Contract", "description": "Currently on contract work"},
+            {"id": "freelance", "name": "Freelance", "description": "Working as a freelancer"},
+            {"id": "student", "name": "Student", "description": "Currently studying"},
+            {"id": "self_employed", "name": "Self-employed", "description": "Running own business"},
+            {"id": "retired", "name": "Retired", "description": "Retired but available for select work"}
+        ],
+        "work_location": [
+            {"id": "on_site", "name": "On-site", "description": "Prefer working at physical locations"},
+            {"id": "remote", "name": "Remote", "description": "Prefer working remotely"},
+            {"id": "hybrid", "name": "Hybrid", "description": "Combination of on-site and remote"},
+            {"id": "studio", "name": "Studio", "description": "Prefer working in studios"},
+            {"id": "location_flexible", "name": "Location Flexible", "description": "Flexible with work location"},
+            {"id": "travel_required", "name": "Travel Required", "description": "Open to jobs requiring travel"},
+            {"id": "international", "name": "International", "description": "Open to international work"},
+            {"id": "local_only", "name": "Local Only", "description": "Only local work preferred"}
+        ],
+        "shift": [
+            {"id": "morning", "name": "Morning", "description": "Morning shift (6AM-2PM)"},
+            {"id": "afternoon", "name": "Afternoon", "description": "Afternoon shift (2PM-10PM)"},
+            {"id": "evening", "name": "Evening", "description": "Evening shift (6PM-2AM)"},
+            {"id": "night", "name": "Night", "description": "Night shift (10PM-6AM)"},
+            {"id": "day", "name": "Day", "description": "Day shift (9AM-5PM)"},
+            {"id": "rotating", "name": "Rotating", "description": "Rotating shift schedule"},
+            {"id": "flexible", "name": "Flexible", "description": "Flexible shift timing"},
+            {"id": "split", "name": "Split Shift", "description": "Split shift schedule"},
+            {"id": "weekend", "name": "Weekend", "description": "Weekend shifts preferred"},
+            {"id": "weekday", "name": "Weekday", "description": "Weekday shifts only"}
+        ]
+    }
+} 

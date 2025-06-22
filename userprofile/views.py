@@ -46,7 +46,7 @@ class ProfileView(APIView):
                             "id_front": None,
                             "id_back": None
                         },
-                        "professional_qualifications": {
+                        "experience": {
                             "experience_level": None,
                             "skills": [],
                             "work_authorization": None,
@@ -190,7 +190,7 @@ class ProfileView(APIView):
                             "id_front": None,
                             "id_back": None
                         },
-                        "professional_qualifications": {
+                        "experience": {
                             "experience_level": None,
                             "skills": [],
                             "work_authorization": None,
@@ -344,7 +344,7 @@ class ProfileView(APIView):
                     del data[field]
             
             # Handle nested data
-            for nested_field in ['identity_verification', 'professional_qualifications', 'physical_attributes',
+            for nested_field in ['identity_verification', 'experience', 'physical_attributes',
                                'medical_info', 'education', 'work_experience', 'contact_info',
                                'personal_info', 'media']:
                 if nested_field in data:
@@ -564,38 +564,39 @@ class ChoiceDataView(APIView):
         data_dir = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
         response_data = {}
         
-        # Load countries
-        with open(os.path.join(data_dir, 'countries.json'), 'r') as f:
-            response_data['countries'] = json.load(f)['countries']
-        
-        # Load languages
-        with open(os.path.join(data_dir, 'languages.json'), 'r') as f:
-            response_data['languages'] = json.load(f)['languages']
-        
-        # Load physical attributes
-        with open(os.path.join(data_dir, 'physical_attributes.json'), 'r') as f:
-            physical_data = json.load(f)
+        # Load basic information bundle
+        with open(os.path.join(data_dir, 'basic_information.json'), 'r') as f:
+            basic_info_data = json.load(f)
+            basic_info = basic_info_data.get('basic_information', {})
+            
+            # Extract all basic information fields
             response_data.update({
-                'hair_colors': physical_data['hair_colors'],
-                'eye_colors': physical_data['eye_colors'],
-                'skin_tones': physical_data['skin_tones'],
-                'body_types': physical_data['body_types'],
-                'genders': physical_data['genders']
+                'nationalities': basic_info.get('nationality', []),
+                'languages': basic_info.get('languages', []),
+                'genders': basic_info.get('gender', []),
+                'hair_colors': basic_info.get('hair_color', []),
+                'eye_colors': basic_info.get('eye_color', []),
+                'skin_tones': basic_info.get('skin_tone', []),
+                'body_types': basic_info.get('body_type', []),
+                'medical_conditions': basic_info.get('medical_condition', []),
+                'medicine_types': basic_info.get('medicine_type', []),
+                'marital_statuses': basic_info.get('marital_status', []),
+                'hobbies': basic_info.get('hobbies', [])
             })
         
-        # Load personal info
-        with open(os.path.join(data_dir, 'personal_info.json'), 'r') as f:
-            personal_data = json.load(f)
+        # Load location information bundle
+        with open(os.path.join(data_dir, 'location_information.json'), 'r') as f:
+            location_info_data = json.load(f)
+            location_info = location_info_data.get('location_information', {})
+            
+            # Extract all location information fields
             response_data.update({
-                'marital_statuses': personal_data['marital_statuses'],
-                'hobbies': personal_data['hobbies'],
-                'medical_conditions': personal_data['medical_conditions'],
-                'medicine_types': personal_data['medicine_types']
+                'housing_status': location_info.get('housing_status', []),
+                'regions': location_info.get('regions', []),
+                'duration': location_info.get('duration', []),
+                'cities': location_info.get('cities', {}),
+                'countries': location_info.get('countries', [])
             })
-
-        # Load nationalities
-        with open(os.path.join(data_dir, 'nationalities.json'), 'r') as f:
-            response_data['nationalities'] = json.load(f)['nationalities']
 
         # Load professions
         with open(os.path.join(data_dir, 'professions.json'), 'r') as f:
@@ -621,7 +622,7 @@ class ChoiceDataView(APIView):
                 'motivations': professional_data['motivations']
             })
 
-        # Load medical info
+        # Load medical info for disability statuses (backward compatibility)
         with open(os.path.join(data_dir, 'medical_info.json'), 'r') as f:
             medical_data = json.load(f)
             response_data.update({
@@ -640,13 +641,5 @@ class ChoiceDataView(APIView):
         # Load model categories
         with open(os.path.join(data_dir, 'model_categories.json'), 'r') as f:
             response_data['model_categories'] = json.load(f)['categories']
-
-        # Load locations
-        with open(os.path.join(data_dir, 'locations.json'), 'r') as f:
-            location_data = json.load(f)
-            response_data.update({
-                'regions': location_data['regions'],
-                'cities': location_data['cities']
-            })
         
         return Response(response_data)
