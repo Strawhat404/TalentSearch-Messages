@@ -29,30 +29,18 @@ def rental_item_image_path(instance, filename):
     return f'rental_items/additional/{instance.rental_item.id}/{filename}'
 
 class RentalItem(models.Model):
-    TYPE_CHOICES = (
-        ('camera', 'Camera'),
-        ('lighting', 'Lighting'),
-        ('audio', 'Audio'),
-        ('other', 'Other'),
-    )
-
-    CATEGORY_CHOICES = (
-        ('professional', 'Professional'),
-        ('consumer', 'Consumer'),
-        ('vintage', 'Vintage'),
-        ('other', 'Other'),
-    )
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    type = models.CharField(max_length=255)
+    category = models.CharField(max_length=255)
     description = models.TextField()
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
-    image = models.ImageField(
-        upload_to='rental_items/main/',
-        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text='Main image for the rental item'
+    image = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        help_text='Main image path for the rental item',
+        validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])]
     )
     specs = models.JSONField(help_text="Technical specifications of the item")
     available = models.BooleanField(default=True)
@@ -75,12 +63,12 @@ class RentalItem(models.Model):
     def delete(self, *args, **kwargs):
         # Delete the main image file
         if self.image:
-            delete_file_if_exists(self.image.path)
+            delete_file_if_exists(self.image)
         
         # Delete all additional images
         for image in self.images.all():
             if image.image:
-                delete_file_if_exists(image.image.path)
+                delete_file_if_exists(image.image)
             image.delete()
         
         super().delete(*args, **kwargs)
@@ -93,7 +81,7 @@ def delete_old_image(sender, instance, **kwargs):
     try:
         old_instance = RentalItem.objects.get(pk=instance.pk)
         if old_instance.image and old_instance.image != instance.image:
-            delete_file_if_exists(old_instance.image.path)
+            delete_file_if_exists(old_instance.image)
     except RentalItem.DoesNotExist:
         pass
 
@@ -101,7 +89,7 @@ def delete_old_image(sender, instance, **kwargs):
 def cleanup_rental_item_files(sender, instance, **kwargs):
     """Clean up any remaining files after rental item deletion"""
     if instance.image:
-        delete_file_if_exists(instance.image.path)
+        delete_file_if_exists(instance.image)
     
     # Clean up additional images directory
     additional_images_dir = os.path.join('media', 'rental_items', 'additional', str(instance.id))

@@ -6,14 +6,16 @@ from django.shortcuts import get_object_or_404
 from .models import Rating
 from .serializers import RatingSerializer
 from rental_items.models import RentalItem
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample, OpenApiTypes
+from rental_items.permissions import IsOwnerOrReadOnly
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 
 # Create your views here.
 
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RatingSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'delete']  # Only allow GET, POST, DELETE
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    http_method_names = ['get', 'post', 'delete', 'put', 'patch']
 
     def get_queryset(self):
         queryset = Rating.objects.all()
@@ -55,133 +57,113 @@ class RatingViewSet(viewsets.ModelViewSet):
             user=self.request.user
         )
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_ratings'],
         summary='List ratings',
         description='Get all ratings with optional filtering',
         parameters=[
-            OpenApiParameter(
+            openapi.Parameter(
                 name='item_id',
-                type=str,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
                 description='Filter ratings by item ID'
             ),
-            OpenApiParameter(
+            openapi.Parameter(
                 name='user_id',
-                type=str,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
                 description='Filter ratings by user ID'
             ),
-            OpenApiParameter(
+            openapi.Parameter(
                 name='min_rating',
-                type=int,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
                 description='Filter by minimum rating value'
             ),
-            OpenApiParameter(
+            openapi.Parameter(
                 name='sort',
-                type=str,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_STRING,
                 description='Sort by: newest, highest, lowest'
             )
         ],
         responses={
             200: RatingSerializer(many=True),
-            400: OpenApiTypes.OBJECT,
+            400: openapi.Response(description='Invalid sort parameter'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=[{
-                    'id': 'uuid',
-                    'item_id': 'item_uuid',
-                    'user_id': 'user_uuid',
-                    'rating': 5,
-                    'comment': 'Great item!',
-                    'created_at': '2024-03-20T10:00:00Z',
-                    'user_profile': {
-                        'name': 'User Name',
-                        'photo': 'photo_url'
-                    },
-                    'item_details': {
-                        'name': 'Item Name',
-                        'image': 'image_url'
-                    }
-                }],
-                status_codes=['200']
-            ),
-            OpenApiExample(
-                'Invalid Parameters',
-                value={'error': 'Invalid sort parameter'},
-                status_codes=['400']
-            )
-        ]
     )
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['rental_ratings'],
         summary='Create rating',
         description='Create a new rating for a rental item',
         request=RatingSerializer,
         responses={
             201: RatingSerializer,
-            400: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            400: openapi.Response(description='Validation error'),
+            404: openapi.Response(description='Rental item not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value={
-                    'id': 'uuid',
-                    'item_id': 'item_uuid',
-                    'user_id': 'user_uuid',
-                    'rating': 5,
-                    'comment': 'Great item!',
-                    'created_at': '2024-03-20T10:00:00Z'
-                },
-                status_codes=['201']
-            ),
-            OpenApiExample(
-                'Validation Error',
-                value={
-                    'rating': ['Rating must be between 1 and 5.'],
-                    'item_id': ['This field is required.']
-                },
-                status_codes=['400']
-            ),
-            OpenApiExample(
-                'Item Not Found',
-                value={'error': 'Rental item not found'},
-                status_codes=['404']
-            )
-        ]
     )
     def create(self, request, *args, **kwargs):
         return super().create(request, *args, **kwargs)
 
-    @extend_schema(
+    @swagger_auto_schema(
+        tags=['rental_ratings'],
+        summary='Retrieve a rating',
+        description='Retrieves a rating by its ID.',
+        responses={
+            200: RatingSerializer,
+            404: openapi.Response(description='Rating not found'),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['rental_ratings'],
+        summary='Update a rating',
+        description='Updates a rating. Only the owner can perform this action.',
+        request_body=RatingSerializer,
+        responses={
+            200: RatingSerializer,
+            400: openapi.Response(description='Validation error'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['rental_ratings'],
+        summary='Partially update a rating',
+        description='Partially updates a rating. Only the owner can perform this action.',
+        request_body=RatingSerializer,
+        responses={
+            200: RatingSerializer,
+            400: openapi.Response(description='Validation error'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
         tags=['rental_ratings'],
         summary='Delete rating',
         description='Delete a rating',
         responses={
             204: None,
-            403: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
         },
-        examples=[
-            OpenApiExample(
-                'Success Response',
-                value=None,
-                status_codes=['204']
-            ),
-            OpenApiExample(
-                'Permission Denied',
-                value={'detail': 'You do not have permission to perform this action.'},
-                status_codes=['403']
-            )
-        ]
     )
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
         return Response({
             'message': 'Rating deleted successfully.'
-        })
+        }, status=status.HTTP_204_NO_CONTENT)
