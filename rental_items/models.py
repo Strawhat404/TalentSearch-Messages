@@ -29,28 +29,13 @@ def rental_item_image_path(instance, filename):
     return f'rental_items/additional/{instance.rental_item.id}/{filename}'
 
 class RentalItem(models.Model):
-    TYPE_CHOICES = (
-        ('camera', 'Camera'),
-        ('lighting', 'Lighting'),
-        ('audio', 'Audio'),
-        ('other', 'Other'),
-    )
-
-    CATEGORY_CHOICES = (
-        ('professional', 'Professional'),
-        ('consumer', 'Consumer'),
-        ('vintage', 'Vintage'),
-        ('other', 'Other'),
-    )
-
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     name = models.CharField(max_length=255)
-    type = models.CharField(max_length=20, choices=TYPE_CHOICES)
-    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    type = models.CharField(max_length=255)
+    category = models.CharField(max_length=255)
     description = models.TextField()
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
     image = models.ImageField(
-        upload_to='rental_items/main/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text='Main image for the rental item'
     )

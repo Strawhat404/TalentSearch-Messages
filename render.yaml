@@ -8,7 +8,7 @@ services:
       python -m pip install --upgrade pip
       pip install -r requirements.txt
       python manage.py collectstatic --noinput
-    startCommand: daphne -b 0.0.0.0 -p $PORT talentsearch.asgi:application
+    startCommand: gunicorn talentsearch.wsgi:application --bind 0.0.0.0:$PORT
     envVars:
       - key: PYTHON_VERSION
         value: 3.13.3
@@ -26,7 +26,7 @@ services:
           name: talentsearch-redis
           property: connectionString
       - key: ALLOWED_HOSTS
-        value: "talentsearch-backend.onrender.com,.onrender.com,localhost,127.0.0.1"
+        value: "talentsearch-backend.onrender.com,.onrender.com,localhost,127.0.0.1,talentsearch-messages-1.onrender.com"
       - key: DEBUG
         value: false
       - key: DJANGO_SETTINGS_MODULE

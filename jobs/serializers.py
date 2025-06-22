@@ -4,14 +4,17 @@ Ensures required fields are provided and not blank.
 """
 
 from rest_framework import serializers
-from .models import Job
+from .models import Job, Application
 import re
 from urllib.parse import urlparse
 from datetime import date
+from django.utils.html import strip_tags
+from userprofile.models import Profile
 
 class JobSerializer(serializers.ModelSerializer):
     """
     Serializer for the Job model, mapping job fields and validating required fields.
+    Includes applicant_count as a calculated field.
     """
     user_id = serializers.PrimaryKeyRelatedField(read_only=True)
     talents = serializers.CharField(required=True)
@@ -21,6 +24,7 @@ class JobSerializer(serializers.ModelSerializer):
     last_name = serializers.CharField(required=True)
     job_title = serializers.CharField(required=True)
     country = serializers.CharField(required=True)
+    applicant_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Job
@@ -29,7 +33,7 @@ class JobSerializer(serializers.ModelSerializer):
             'first_name', 'last_name', 'company_name', 'company_website',
             'job_title', 'country', 'postal_code', 'project_title',
             'project_start_date', 'project_end_date', 'compensation_type',
-            'compensation_amount', 'project_details', 'created_at'
+            'compensation_amount', 'project_details', 'created_at', 'applicant_count'
         ]
         read_only_fields = ['id', 'user_id', 'created_at']
 
@@ -111,3 +115,56 @@ class JobSerializer(serializers.ModelSerializer):
         if errors:
             raise serializers.ValidationError(errors)
         return data
+
+    def get_applicant_count(self, obj):
+        """
+        Calculate the number of applicants for the job.
+        """
+        return Application.objects.filter(job_id=obj.id).count()
+
+class ApplicationSerializer(serializers.ModelSerializer):
+    """
+    Serializer for the Application model, handling job application data.
+    Includes the applicant's name and email from User with a fallback to User.name.
+    """
+    user = serializers.PrimaryKeyRelatedField(read_only=True)
+    job = serializers.PrimaryKeyRelatedField(read_only=True)
+    opportunity_description = serializers.CharField(required=True)
+    applicant_name = serializers.SerializerMethodField()
+    applicant_email = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Application
+        fields = ['user', 'job', 'opportunity_description', 'applied_at', 'applicant_name', 'applicant_email']  # Added 'applicant_email'
+        read_only_fields = ['user', 'job', 'applied_at', 'applicant_name', 'applicant_email']  # Added 'applicant_email'
+
+    def validate_opportunity_description(self, value):
+        """
+        Validate and sanitize the opportunity description.
+        Ensures 50-1000 characters, removes special characters, and strips HTML tags.
+        """
+        # Strip HTML tags
+        sanitized_value = strip_tags(value)
+        # Remove special characters (e.g., <, >, &, etc.) beyond basic text
+        cleaned_value = re.sub(r'[<>%&]', '', sanitized_value)
+        length = len(cleaned_value)
+
+        if length < 50:
+            raise serializers.ValidationError("Opportunity description must be at least 50 characters long.")
+        if length > 1000:
+            raise serializers.ValidationError("Opportunity description must not exceed 1000 characters.")
+
+        return cleaned_value
+
+    def get_applicant_name(self, obj):
+        """
+        Get the applicant's name from Profile, falling back to User.name if Profile is missing.
+        """
+        profile = getattr(obj.user.profile, 'all', [None])[0] if hasattr(obj.user, 'profile') else None
+        return profile.name if profile else obj.user.name
+
+    def get_applicant_email(self, obj):
+        """
+        Get the applicant's email from User.
+        """
+        return obj.user.email

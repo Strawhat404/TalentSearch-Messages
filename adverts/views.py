@@ -6,25 +6,51 @@ from talentsearch.throttles import CreateRateThrottle
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.core.files.storage import default_storage
+from django.utils import timezone
 
 class AdvertView(APIView):
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        """
+        Allow public access for GET requests, require authentication for POST
+        """
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+    
+    def get_queryset(self):
+        """
+        Return appropriate queryset based on authentication status
+        - Public users see only published adverts
+        - Authenticated users see all adverts
+        """
+        if self.request.user.is_authenticated:
+            return Advert.objects.all()
+        else:
+            # For public access, show only published adverts that are currently running
+            now = timezone.now()
+            return Advert.objects.filter(
+                status='published',
+                run_from__lte=now,
+                run_to__gte=now
+            )
+    
     @swagger_auto_schema(
         operation_summary='List advertisements',
-        operation_description='Get all advertisements',
+        operation_description='Get all advertisements (public access shows only published adverts)',
         responses={
             200: AdvertSerializer(many=True),
         }
     )
     def get(self, request):
-        adverts = Advert.objects.all()
+        adverts = self.get_queryset()
         serializer = AdvertSerializer(adverts, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
         operation_summary='Create advertisement',
-        operation_description='Create a new advertisement',
+        operation_description='Create a new advertisement (requires authentication)',
         request_body=AdvertSerializer,
         responses={
             201: openapi.Response(
@@ -37,7 +63,8 @@ class AdvertView(APIView):
                     }
                 )
             ),
-            400: openapi.Response(description="Validation Error")
+            400: openapi.Response(description="Validation Error"),
+            401: openapi.Response(description="Authentication Required")
         }
     )
     def post(self, request):
@@ -51,11 +78,41 @@ class AdvertView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class AdvertListCreateView(generics.ListCreateAPIView):
-    queryset = Advert.objects.all()
     serializer_class = AdvertSerializer
     throttle_classes = [CreateRateThrottle]
 
+    def get_permissions(self):
+        """
+        Allow public access for GET requests, require authentication for POST
+        """
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        """
+        Return appropriate queryset based on authentication status
+        - Public users see only published adverts
+        - Authenticated users see all adverts
+        """
+        if self.request.user.is_authenticated:
+            return Advert.objects.all()
+        else:
+            # For public access, show only published adverts that are currently running
+            now = timezone.now()
+            return Advert.objects.filter(
+                status='published',
+                run_from__lte=now,
+                run_to__gte=now
+            )
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
     def create(self, request, *args, **kwargs):
+        print("--- VIEW DEBUG ---")
+        print(f"Default storage in view: {default_storage.__class__}")
+        print("------------------")
         response = super().create(request, *args, **kwargs)
         response.data = {
             "id": response.data["id"],
@@ -64,14 +121,38 @@ class AdvertListCreateView(generics.ListCreateAPIView):
         return response
 
 class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = Advert.objects.all()
     serializer_class = AdvertSerializer
     lookup_field = "id"
     throttle_classes = [CreateRateThrottle]
 
+    def get_permissions(self):
+        """
+        Allow public access for GET requests, require authentication for PUT/PATCH/DELETE
+        """
+        if self.request.method == 'GET':
+            return [AllowAny()]
+        return [IsAuthenticated()]
+
+    def get_queryset(self):
+        """
+        Return appropriate queryset based on authentication status
+        - Public users see only published adverts
+        - Authenticated users see all adverts
+        """
+        if self.request.user.is_authenticated:
+            return Advert.objects.all()
+        else:
+            # For public access, show only published adverts that are currently running
+            now = timezone.now()
+            return Advert.objects.filter(
+                status='published',
+                run_from__lte=now,
+                run_to__gte=now
+            )
+
     @swagger_auto_schema(
         operation_summary='Get advertisement',
-        operation_description='Get a specific advertisement by ID',
+        operation_description='Get a specific advertisement by ID (public access shows only published adverts)',
         responses={
             200: AdvertSerializer(),
             404: openapi.Response(description="Not Found")
@@ -82,7 +163,7 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     @swagger_auto_schema(
         operation_summary='Update advertisement',
-        operation_description='Update an existing advertisement',
+        operation_description='Update an existing advertisement (requires authentication)',
         request_body=AdvertSerializer,
         responses={
             200: openapi.Response(
@@ -96,6 +177,7 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                 )
             ),
             400: openapi.Response(description="Validation Error"),
+            401: openapi.Response(description="Authentication Required"),
             403: openapi.Response(description="Permission Denied"),
             404: openapi.Response(description="Not Found")
         }
@@ -110,7 +192,7 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
 
     @swagger_auto_schema(
         operation_summary='Delete advertisement',
-        operation_description='Delete an advertisement',
+        operation_description='Delete an advertisement (requires authentication)',
         responses={
             200: openapi.Response(
                 description="Advert deleted successfully.",
@@ -121,6 +203,7 @@ class AdvertRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
                     }
                 )
             ),
+            401: openapi.Response(description="Authentication Required"),
             403: openapi.Response(description="Permission Denied"),
             404: openapi.Response(description="Not Found")
         }

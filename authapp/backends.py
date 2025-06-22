@@ -5,6 +5,32 @@ import logging
 UserModel = get_user_model()
 logger = logging.getLogger(__name__)
 
+class EmailOrUsernameModelBackend(ModelBackend):
+    """
+    Authenticate with either username or email.
+    """
+    def authenticate(self, request, username=None, password=None, **kwargs):
+        if username is None:
+            username = kwargs.get(UserModel.USERNAME_FIELD)
+        
+        if not username:
+            return None
+
+        user = None
+        # Try username
+        try:
+            user = UserModel.objects.get(username=username)
+        except UserModel.DoesNotExist:
+            # Try email
+            try:
+                user = UserModel.objects.get(email=username)
+            except UserModel.DoesNotExist:
+                return None
+
+        if user and user.check_password(password) and self.user_can_authenticate(user):
+            return user
+        return None
+
 class EmailBackend(ModelBackend):
     def authenticate(self, request, username=None, password=None, **kwargs):
         """
