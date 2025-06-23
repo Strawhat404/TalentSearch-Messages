@@ -10,7 +10,7 @@ class RatingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rating
         fields = ['id', 'item_id', 'user_id', 'rating', 'comment', 'created_at', 'user_profile', 'item_details']
-        read_only_fields = ['id', 'created_at', 'user_profile', 'item_details', 'user_id', 'item_id']
+        read_only_fields = ['id', 'created_at', 'user_profile', 'item_details']
 
     def get_item_details(self, obj):
         try:

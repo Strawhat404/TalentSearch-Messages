@@ -36,7 +36,6 @@ class RentalItem(models.Model):
     description = models.TextField()
     daily_rate = models.DecimalField(max_digits=10, decimal_places=2)
     image = models.ImageField(
-        upload_to='rental_items/main/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text='Main image for the rental item'
     )
@@ -62,13 +61,13 @@ class RentalItem(models.Model):
         # Delete the main image file
         if self.image:
             delete_file_if_exists(self.image.path)
-
+        
         # Delete all additional images
         for image in self.images.all():
             if image.image:
                 delete_file_if_exists(image.image.path)
             image.delete()
-
+        
         super().delete(*args, **kwargs)
 
 @receiver(pre_save, sender=RentalItem)
