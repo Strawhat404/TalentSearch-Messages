@@ -5,12 +5,13 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from .models import Profile, VerificationStatus, VerificationAuditLog
-from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer
+from .models import Profile, VerificationStatus, VerificationAuditLog, Choices
+from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer, ChoicesSerializer, PublicProfileSerializer
 import os
 import json
 from django.conf import settings
 from django.db import IntegrityError
+from django.shortcuts import get_object_or_404
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -650,3 +651,132 @@ class ChoiceDataView(APIView):
             })
         
         return Response(response_data)
+
+class PublicProfilesView(APIView):
+    """
+    Public endpoint to fetch all profiles with limited data
+    """
+    def get_permissions(self):
+        """
+        Allow public access for GET requests only
+        """
+        if self.request.method == 'GET':
+            return []  # No authentication required for GET
+        return [IsAuthenticated()]  # Require authentication for other methods
+
+    @swagger_auto_schema(
+        tags=['public-profiles'],
+        summary="Get all public profiles",
+        description="Retrieve all public profiles with limited information (no sensitive data). Anyone can access this endpoint without authentication.",
+        parameters=[
+            openapi.Parameter(
+                'profession',
+                openapi.IN_QUERY,
+                description="Filter profiles by profession",
+                type=openapi.TYPE_STRING,
+                required=False
+            ),
+            openapi.Parameter(
+                'location',
+                openapi.IN_QUERY,
+                description="Filter profiles by location",
+                type=openapi.TYPE_STRING,
+                required=False
+            ),
+            openapi.Parameter(
+                'verified',
+                openapi.IN_QUERY,
+                description="Filter by verification status (true/false)",
+                type=openapi.TYPE_BOOLEAN,
+                required=False
+            ),
+            openapi.Parameter(
+                'available',
+                openapi.IN_QUERY,
+                description="Filter by availability status (true/false)",
+                type=openapi.TYPE_BOOLEAN,
+                required=False
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="Public profiles retrieved successfully",
+                schema=PublicProfileSerializer(many=True),
+                examples={
+                    'application/json': [
+                        {
+                            "id": 1,
+                            "name": "John Doe",
+                            "profession": "actor",
+                            "nationality": "american",
+                            "age": 28,
+                            "location": "Los Angeles",
+                            "created_at": "2025-01-15T10:30:00Z",
+                            "availability_status": True,
+                            "verified": True,
+                            "status": "active",
+                            "professional_qualifications": {
+                                "professions": ["actor", "model"],
+                                "experience_level": "intermediate",
+                                "skills": ["acting", "dancing", "singing"],
+                                "availability": "full-time",
+                                "preferred_work_location": "los angeles",
+                                "role_title": "Professional Actor",
+                                "portfolio_url": "https://example.com/portfolio",
+                                "years_of_experience": "3-5 years"
+                            },
+                            "physical_attributes": {
+                                "gender": "male",
+                                "hair_color": "brown",
+                                "eye_color": "blue",
+                                "body_type": "athletic",
+                                "skin_tone": "fair"
+                            },
+                            "media": {
+                                "photo": "/media/profile_photos/john_doe.jpg"
+                            }
+                        }
+                    ]
+                }
+            ),
+        }
+    )
+    def get(self, request):
+        try:
+            # Get all profiles that are available and not flagged
+            profiles = Profile.objects.filter(
+                availability_status=True,
+                flagged=False
+            ).select_related(
+                'professional_qualifications',
+                'physical_attributes',
+                'media'
+            ).order_by('-created_at')
+
+            # Apply filters if provided
+            profession = request.query_params.get('profession')
+            if profession:
+                profiles = profiles.filter(profession__icontains=profession)
+
+            location = request.query_params.get('location')
+            if location:
+                profiles = profiles.filter(location__icontains=location)
+
+            verified = request.query_params.get('verified')
+            if verified is not None:
+                verified_bool = verified.lower() == 'true'
+                profiles = profiles.filter(verified=verified_bool)
+
+            available = request.query_params.get('available')
+            if available is not None:
+                available_bool = available.lower() == 'true'
+                profiles = profiles.filter(availability_status=available_bool)
+
+            serializer = PublicProfileSerializer(profiles, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

@@ -331,14 +331,16 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
         return data
 
 class ContactInfoSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(read_only=True, help_text="Auto-populated from registration")
+    
     class Meta:
         model = ContactInfo
         fields = [
-            'id', 'address', 'city', 'region', 'country', 'specific_area',
+            'id', 'phone_number', 'address', 'city', 'region', 'country', 'specific_area',
             'emergency_contact', 'emergency_phone', 'housing_status',
             'residence_duration'
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'phone_number']
 
     def validate(self, data):
         # Validate required fields
@@ -359,12 +361,12 @@ class ContactInfoSerializer(serializers.ModelSerializer):
         if not data.get('residence_duration'):
             raise serializers.ValidationError({"residence_duration": "Residence duration is required."})
 
-        # Validate phone number format
+        # Validate emergency phone number format
         emergency_phone = data.get('emergency_phone')
         if emergency_phone:
             if not re.match(r'^\+251[0-9]{9}$', emergency_phone):
                     raise serializers.ValidationError({
-                    'emergency_phone': 'Phone must start with +251 followed by 9 digits.'
+                    'emergency_phone': 'Emergency phone must start with +251 followed by 9 digits.'
                 })
 
         # Validate housing status
@@ -521,6 +523,7 @@ class MediaSerializer(serializers.ModelSerializer):
         return value
 
 class ProfileSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source='user.name', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
     age = serializers.IntegerField(read_only=True)
     identity_verification = IdentityVerificationSerializer(required=False)
@@ -542,10 +545,10 @@ class ProfileSerializer(serializers.ModelSerializer):
             'medical_info', 'education', 'work_experience', 'contact_info',
             'personal_info', 'media'
         ]
-        read_only_fields = ['id', 'age', 'created_at', 'verified', 'flagged', 'email']
+        read_only_fields = ['id', 'name', 'age', 'created_at', 'verified', 'flagged', 'email']
 
     def validate(self, data):
-        # Validate required fields
+        # Validate required fields (removed name validation since it's read-only from User)
         if not data.get('birthdate'):
             raise serializers.ValidationError({"birthdate": "Date of birth is required."})
         if not data.get('profession'):
@@ -605,7 +608,14 @@ class ProfileSerializer(serializers.ModelSerializer):
                 # Create nested objects - only create if data exists
                 for key, model, _ in nested_data:
                     if nested_validated_data[key] is not None:
-                        model.objects.create(profile=profile, **nested_validated_data[key])
+                        # Special handling for ContactInfo to auto-populate phone_number
+                        if key == 'contact_info':
+                            contact_data = nested_validated_data[key].copy()
+                            # Override phone_number with user's actual phone number
+                            contact_data['phone_number'] = user.phone_number
+                            model.objects.create(profile=profile, **contact_data)
+                        else:
+                            model.objects.create(profile=profile, **nested_validated_data[key])
                 
                 return profile
         except (ValueError, IntegrityError) as e:
@@ -711,3 +721,70 @@ class ChoicesSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'choices': 'Name and code must be strings'})
         
         return data
+
+class PublicProfileSerializer(serializers.ModelSerializer):
+    """
+    Serializer for public profile data - excludes sensitive information
+    """
+    name = serializers.CharField(source='user.name', read_only=True)
+    age = serializers.IntegerField(read_only=True)
+    
+    # Only include basic professional and physical attributes for public viewing
+    professional_qualifications = serializers.SerializerMethodField()
+    physical_attributes = serializers.SerializerMethodField()
+    media = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = [
+            'id', 'name', 'profession', 'nationality', 'age', 'location', 'created_at',
+            'availability_status', 'verified', 'status',
+            'professional_qualifications', 'physical_attributes', 'media'
+        ]
+        read_only_fields = ['id', 'name', 'age', 'created_at', 'verified']
+
+    def get_professional_qualifications(self, obj):
+        """Return only non-sensitive professional information"""
+        try:
+            prof_qual = obj.professional_qualifications
+            return {
+                'professions': prof_qual.professions,
+                'experience_level': prof_qual.experience_level,
+                'skills': prof_qual.skills,
+                'availability': prof_qual.availability,
+                'preferred_work_location': prof_qual.preferred_work_location,
+                'role_title': prof_qual.role_title,
+                'portfolio_url': prof_qual.portfolio_url,
+                'years_of_experience': prof_qual.years_of_experience,
+                # Exclude sensitive data like salary expectations, references, etc.
+            }
+        except:
+            return {}
+
+    def get_physical_attributes(self, obj):
+        """Return only basic physical attributes"""
+        try:
+            phys_attr = obj.physical_attributes
+            return {
+                'gender': phys_attr.gender,
+                'hair_color': phys_attr.hair_color,
+                'eye_color': phys_attr.eye_color,
+                'body_type': phys_attr.body_type,
+                'skin_tone': phys_attr.skin_tone,
+                # Exclude exact measurements like height/weight for privacy
+            }
+        except:
+            return {}
+
+    def get_media(self, obj):
+        """Return only profile photo, exclude personal videos"""
+        try:
+            media = obj.media
+            return {
+                'photo': media.photo.url if media.photo else None,
+                # Exclude video for privacy
+            }
+        except:
+            return {
+                'photo': None
+            }

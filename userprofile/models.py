@@ -57,7 +57,6 @@ def sanitize_string(value):
 class Profile(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    name = models.CharField(max_length=100, blank=True)
     birthdate = models.DateField(null=True, blank=True, help_text="Date of birth (required)")
     profession = models.CharField(max_length=50)
     nationality = models.CharField(
@@ -72,10 +71,13 @@ class Profile(models.Model):
     flagged = models.BooleanField(default=False)
     status = models.CharField(max_length=50, blank=True)
 
+    @property
+    def name(self):
+        """Get name from the related User model"""
+        return self.user.name if self.user else ""
+
     def clean(self):
-        # Sanitize string fields
-        if self.name:
-            self.name = sanitize_string(self.name)
+        # Sanitize string fields (removed name sanitization since it's from User model)
         if self.profession:
             self.profession = sanitize_string(self.profession)
         if self.nationality:
@@ -630,6 +632,11 @@ class WorkExperience(models.Model):
 
 class ContactInfo(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='contact_info')
+    phone_number = models.CharField(
+        max_length=20, 
+        default="+2510000000000",
+        help_text="Phone number (auto-populated from registration)"
+    )
     address = models.CharField(max_length=255)
     specific_area = models.CharField(max_length=100)
     city = models.CharField(max_length=100)
@@ -642,6 +649,12 @@ class ContactInfo(models.Model):
 
     def __str__(self):
         return f"{self.profile.user.username}'s Contact Info"
+
+    def save(self, *args, **kwargs):
+        # Auto-populate phone_number from user if not set
+        if not self.phone_number and self.profile and self.profile.user:
+            self.phone_number = self.profile.user.phone_number
+        super().save(*args, **kwargs)
 
     def get_country_choices(self):
         try:
@@ -693,6 +706,17 @@ class ContactInfo(models.Model):
             if self.residence_duration.lower() not in valid_durations:
                 raise ValidationError({
                     'residence_duration': f'Invalid residence duration. Please choose from: {", ".join(valid_durations.values())}'
+                })
+
+        # Validate phone number format if provided
+        if self.phone_number:
+            if not self.phone_number.startswith('+251'):
+                raise ValidationError({
+                    'phone_number': 'Phone number must start with +251.'
+                })
+            if not re.match(r'^\+251\d{9}$', self.phone_number):
+                raise ValidationError({
+                    'phone_number': 'Phone number must be in the format +2519XXXXXXXX.'
                 })
 
 class PersonalInfo(models.Model):

@@ -12,13 +12,13 @@ from django.core.exceptions import ValidationError
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['user', 'name', 'birthdate', 'profession', 'nationality', 'location', 'availability_status', 'verified', 'flagged', 'status']
+        fields = ['user', 'birthdate', 'profession', 'nationality', 'location', 'availability_status', 'verified', 'flagged', 'status']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Only make fields other than 'name', 'birthdate', 'profession', and 'nationality' optional
+        # Only make fields other than 'birthdate', 'profession', and 'nationality' optional
         for field in self.fields:
-            if field not in ['name', 'birthdate', 'profession', 'nationality', 'user']:
+            if field not in ['birthdate', 'profession', 'nationality', 'user']:
                 self.fields[field].required = False
 
 class IdentityVerificationForm(forms.ModelForm):
@@ -149,14 +149,17 @@ class ContactInfoForm(forms.ModelForm):
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'specific_area', 'city', 'region', 'country',
+            'phone_number', 'address', 'specific_area', 'city', 'region', 'country',
             'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Make phone_number read-only since it's auto-populated from user registration
+        self.fields['phone_number'].widget.attrs['readonly'] = True
         for field in self.fields:
-            self.fields[field].required = True
+            if field != 'phone_number':  # phone_number is auto-populated
+                self.fields[field].required = True
 
 class PersonalInfoForm(forms.ModelForm):
     class Meta:
@@ -252,7 +255,7 @@ class ContactInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'address', 'specific_area', 'city', 'region', 'country',
+        'phone_number', 'address', 'specific_area', 'city', 'region', 'country',
         'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
     ]
 
@@ -288,10 +291,10 @@ class MediaInline(admin.StackedInline):
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     form = ProfileForm
-    list_display = ['name', 'user', 'profession', 'nationality', 'location', 'created_at', 'availability_status', 'verified', 'flagged', 'status']
+    list_display = ['get_user_name', 'user', 'profession', 'nationality', 'location', 'created_at', 'availability_status', 'verified', 'flagged', 'status']
     list_filter = ['availability_status', 'verified', 'flagged', 'status']
-    search_fields = ['name', 'user__username', 'user__email', 'profession', 'nationality', 'location']
-    readonly_fields = ['created_at', 'age']
+    search_fields = ['user__name', 'user__username', 'user__email', 'profession', 'nationality', 'location']
+    readonly_fields = ['created_at', 'age', 'get_user_name']
     inlines = [
         IdentityVerificationInline,
         ProfessionalQualificationsInline,
@@ -305,7 +308,7 @@ class ProfileAdmin(admin.ModelAdmin):
     ]
     fieldsets = (
         (None, {
-            'fields': ('user', 'name', 'birthdate', 'age', 'profession', 'nationality', 'location')
+            'fields': ('user', 'get_user_name', 'birthdate', 'age', 'profession', 'nationality', 'location')
         }),
         ('Status', {
             'fields': ('availability_status', 'verified', 'flagged', 'status')
@@ -314,6 +317,12 @@ class ProfileAdmin(admin.ModelAdmin):
             'fields': ('created_at',)
         }),
     )
+
+    def get_user_name(self, obj):
+        """Display the user's name from the User model"""
+        return obj.name if obj else ""
+    get_user_name.short_description = 'Name'
+    get_user_name.admin_order_field = 'user__name'
 
     def get_readonly_fields(self, request, obj=None):
         if obj:  # If editing an existing object
