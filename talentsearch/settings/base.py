@@ -67,7 +67,8 @@ INSTALLED_APPS = [
     'rental_items',
     'rental_ratings',
     'user_ratings',
-    'contact_us'
+    'contact_us',
+    'platform_stat'
 
 ]
 
