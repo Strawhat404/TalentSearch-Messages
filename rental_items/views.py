@@ -72,18 +72,18 @@ class RentalItemViewSet(viewsets.ModelViewSet):
         },
         help_text='Update an existing rental item',
         example={
-            'id': 'uuid',
-            'name': 'Updated Item Name',
-            'type': 'equipment',
-            'category': 'tools',
-            'daily_rate': 50.00,
-            'available': True,
-            'featured_item': False,
-            'approved': True,
-            'user_profile': {
-                'name': 'Owner Name',
-                'photo': 'photo_url'
-            }
+                    'id': 'uuid',
+                    'name': 'Updated Item Name',
+                    'type': 'equipment',
+                    'category': 'tools',
+                    'daily_rate': 50.00,
+                    'available': True,
+                    'featured_item': False,
+                    'approved': True,
+                    'user_profile': {
+                        'name': 'Owner Name',
+                        'photo': 'photo_url'
+                    }
         }
     )
     def update(self, request, *args, **kwargs):
@@ -107,11 +107,10 @@ class RentalItemViewSet(viewsets.ModelViewSet):
         return Response({
             'message': 'Rental item deleted successfully.'
         })
-
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RentalItemRatingSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'delete']  # Only allow GET, POST, DELETE
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    http_method_names = ['get', 'post', 'delete', 'put', 'patch']  # Only allo, POST, DELETE, pUT
 
     def get_queryset(self):
         queryset = RentalItemRating.objects.all()
@@ -170,3 +169,4 @@ class RatingViewSet(viewsets.ModelViewSet):
         return Response({
             'message': 'Rating deleted successfully.'
         })
+

@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from .models import Rating
 from .serializers import RatingSerializer
 from rental_items.models import RentalItem
+from rental_items.permissions import IsOwnerOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
@@ -13,8 +14,8 @@ from drf_yasg import openapi
 
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RatingSerializer
-    permission_classes = [IsAuthenticated]
-    http_method_names = ['get', 'post', 'delete']  # Only allow GET, POST, DELETE
+    permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
+    http_method_names = ['get', 'post', 'delete', 'put', 'patch']
 
     def get_queryset(self):
         queryset = Rating.objects.all()
@@ -110,6 +111,48 @@ class RatingViewSet(viewsets.ModelViewSet):
 
     @swagger_auto_schema(
         tags=['rental_ratings'],
+        summary='Retrieve a rating',
+        description='Retrieves a rating by its ID.',
+        responses={
+            200: RatingSerializer,
+            404: openapi.Response(description='Rating not found'),
+        },
+    )
+    def retrieve(self, request, *args, **kwargs):
+        return super().retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['rental_ratings'],
+        summary='Update a rating',
+        description='Updates a rating. Only the owner can perform this action.',
+        request_body=RatingSerializer,
+        responses={
+            200: RatingSerializer,
+            400: openapi.Response(description='Validation error'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
+        },
+    )
+    def update(self, request, *args, **kwargs):
+        return super().update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['rental_ratings'],
+        summary='Partially update a rating',
+        description='Partially updates a rating. Only the owner can perform this action.',
+        request_body=RatingSerializer,
+        responses={
+            200: RatingSerializer,
+            400: openapi.Response(description='Validation error'),
+            403: openapi.Response(description='Permission denied'),
+            404: openapi.Response(description='Rating not found'),
+        },
+    )
+    def partial_update(self, request, *args, **kwargs):
+        return super().partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['rental_ratings'],
         summary='Delete rating',
         description='Delete a rating',
         responses={
@@ -123,4 +166,4 @@ class RatingViewSet(viewsets.ModelViewSet):
         self.perform_destroy(instance)
         return Response({
             'message': 'Rating deleted successfully.'
-        })
+        }, status=status.HTTP_204_NO_CONTENT)

@@ -22,7 +22,7 @@ class RentalItemRatingSerializer(serializers.ModelSerializer):
     def get_item_details(self, obj):
         return {
             'name': obj.rental_item.name,
-            'image': obj.rental_item.image.url if obj.rental_item.image else None
+            'image': obj.rental_item.image if obj.rental_item.image else None
         }
 
     def to_representation(self, instance):
@@ -92,6 +92,7 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         return sum(r.rating for r in ratings) / len(ratings)
 
     def get_image(self, obj):
+        # Handle ImageField objects
         if obj.image:
             return obj.image.url
         return None

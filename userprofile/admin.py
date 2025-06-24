@@ -12,13 +12,13 @@ from django.core.exceptions import ValidationError
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['user', 'name', 'birthdate', 'profession', 'nationality', 'location', 'availability_status', 'verified', 'flagged', 'status']
+        fields = ['user', 'birthdate', 'profession', 'nationality', 'location', 'availability_status', 'verified', 'flagged', 'status']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Only make fields other than 'name', 'birthdate', 'profession', and 'nationality' optional
+        # Only make fields other than 'birthdate', 'profession', and 'nationality' optional
         for field in self.fields:
-            if field not in ['name', 'birthdate', 'profession', 'nationality', 'user']:
+            if field not in ['birthdate', 'profession', 'nationality', 'user']:
                 self.fields[field].required = False
 
 class IdentityVerificationForm(forms.ModelForm):
@@ -85,12 +85,12 @@ class ProfessionalQualificationsForm(forms.ModelForm):
     class Meta:
         model = ProfessionalQualifications
         fields = [
-            'experience_level', 'skills', 'work_authorization', 'industry_experience',
-            'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
-            'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-            'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
+            'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
+            'willingness_to_relocate', 'overtime_availability', 'travel_willingness',
+            'equipment_experience', 'role_title', 'portfolio_url',
             'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+            'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+            'work_authorization'
         ]
 
     def __init__(self, *args, **kwargs):
@@ -125,8 +125,8 @@ class EducationForm(forms.ModelForm):
     class Meta:
         model = Education
         fields = [
-            'education_level', 'degree_type', 'field_of_study', 'graduation_year',
-            'gpa', 'institution_name', 'scholarships', 'academic_achievements',
+            'education_level', 'degree_type', 'field_of_study',
+            'institution_name', 'scholarships', 'academic_achievements',
             'certifications', 'online_courses'
         ]
 
@@ -138,10 +138,7 @@ class EducationForm(forms.ModelForm):
 class WorkExperienceForm(forms.ModelForm):
     class Meta:
         model = WorkExperience
-        fields = [
-            'years_of_experience', 'employment_status', 'previous_employers',
-            'projects', 'training', 'internship_experience'
-        ]
+        fields = ['years_of_experience', 'employment_status']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -152,29 +149,48 @@ class ContactInfoForm(forms.ModelForm):
     class Meta:
         model = ContactInfo
         fields = [
-            'address', 'city', 'region', 'postal_code', 'residence_type',
-            'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+            'phone_number', 'address', 'specific_area', 'city', 'region', 'country',
+            'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
         ]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        # Make phone_number read-only since it's auto-populated from user registration
+        self.fields['phone_number'].widget.attrs['readonly'] = True
         for field in self.fields:
-            self.fields[field].required = False
+            if field != 'phone_number':  # phone_number is auto-populated
+                self.fields[field].required = True
 
 class PersonalInfoForm(forms.ModelForm):
     class Meta:
         model = PersonalInfo
         fields = [
-            'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-            'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-            'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-            'award_recognitions'
+            'first_name',
+            'last_name',
+            'date_of_birth',
+            'gender',
+            'marital_status',
+            'nationality',
+            'id_type',
+            'id_number',
+            'hobbies',
+            'language_proficiency',
+            'social_media',
+            'custom_hobby',
+            'custom_language',
+            'custom_social_media'
         ]
+        widgets = {
+            'date_of_birth': forms.DateInput(attrs={'type': 'date'}),
+            'hobbies': forms.CheckboxSelectMultiple(),
+            'language_proficiency': forms.CheckboxSelectMultiple(),
+            'social_media': forms.JSONField(),
+        }
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].required = False
+    def clean(self):
+        cleaned_data = super().clean()
+        # Add any custom validation here if needed
+        return cleaned_data
 
 class IdentityVerificationInline(admin.StackedInline):
     model = IdentityVerification
@@ -190,12 +206,12 @@ class ProfessionalQualificationsInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'experience_level', 'skills', 'work_authorization', 'industry_experience',
-        'min_salary', 'max_salary', 'availability', 'preferred_work_location', 'shift_preference',
-        'willingness_to_relocate', 'overtime_availability', 'travel_willingness', 'software_proficiency',
-        'typing_speed', 'driving_skills', 'equipment_experience', 'role_title', 'portfolio_url',
+        'experience_level', 'skills', 'availability', 'preferred_work_location', 'shift_preference',
+        'willingness_to_relocate', 'overtime_availability', 'travel_willingness',
+        'equipment_experience', 'role_title', 'portfolio_url',
         'union_membership', 'reference', 'available_start_date', 'preferred_company_size',
-        'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license'
+        'preferred_industry', 'leadership_style', 'communication_style', 'motivation', 'has_driving_license',
+        'work_authorization'
     ]
 
 class PhysicalAttributesInline(admin.StackedInline):
@@ -221,8 +237,8 @@ class EducationInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'education_level', 'degree_type', 'field_of_study', 'graduation_year',
-        'gpa', 'institution_name', 'scholarships', 'academic_achievements',
+        'education_level', 'degree_type', 'field_of_study',
+        'institution_name', 'scholarships', 'academic_achievements',
         'certifications', 'online_courses'
     ]
 
@@ -231,10 +247,7 @@ class WorkExperienceInline(admin.StackedInline):
     form = WorkExperienceForm
     can_delete = True
     extra = 0
-    fields = [
-        'years_of_experience', 'employment_status', 'previous_employers',
-        'projects', 'training', 'internship_experience'
-    ]
+    fields = ['years_of_experience', 'employment_status']
 
 class ContactInfoInline(admin.StackedInline):
     model = ContactInfo
@@ -242,8 +255,8 @@ class ContactInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'address', 'city', 'region', 'postal_code', 'residence_type',
-        'residence_duration', 'housing_status', 'emergency_contact', 'emergency_phone'
+        'phone_number', 'address', 'specific_area', 'city', 'region', 'country',
+        'housing_status', 'residence_duration', 'emergency_contact', 'emergency_phone'
     ]
 
 class PersonalInfoInline(admin.StackedInline):
@@ -252,10 +265,20 @@ class PersonalInfoInline(admin.StackedInline):
     can_delete = True
     extra = 0
     fields = [
-        'marital_status', 'ethnicity', 'personality_type', 'work_preference',
-        'hobbies', 'volunteer_experience', 'company_culture_preference', 'social_media_links',
-        'social_media_handles', 'language_proficiency', 'special_skills', 'tools_experience',
-        'award_recognitions'
+        'first_name',
+        'last_name',
+        'date_of_birth',
+        'gender',
+        'marital_status',
+        'nationality',
+        'id_type',
+        'id_number',
+        'hobbies',
+        'language_proficiency',
+        'social_media',
+        'custom_hobby',
+        'custom_language',
+        'custom_social_media'
     ]
 
 class MediaInline(admin.StackedInline):
@@ -268,10 +291,10 @@ class MediaInline(admin.StackedInline):
 @admin.register(Profile)
 class ProfileAdmin(admin.ModelAdmin):
     form = ProfileForm
-    list_display = ['name', 'user', 'profession', 'nationality', 'location', 'created_at', 'availability_status', 'verified', 'flagged', 'status']
+    list_display = ['get_user_name', 'user', 'profession', 'nationality', 'location', 'created_at', 'availability_status', 'verified', 'flagged', 'status']
     list_filter = ['availability_status', 'verified', 'flagged', 'status']
-    search_fields = ['name', 'user__username', 'user__email', 'profession', 'nationality', 'location']
-    readonly_fields = ['created_at', 'age']
+    search_fields = ['user__name', 'user__username', 'user__email', 'profession', 'nationality', 'location']
+    readonly_fields = ['created_at', 'age', 'get_user_name']
     inlines = [
         IdentityVerificationInline,
         ProfessionalQualificationsInline,
@@ -285,7 +308,7 @@ class ProfileAdmin(admin.ModelAdmin):
     ]
     fieldsets = (
         (None, {
-            'fields': ('user', 'name', 'birthdate', 'age', 'profession', 'nationality', 'location')
+            'fields': ('user', 'get_user_name', 'birthdate', 'age', 'profession', 'nationality', 'location')
         }),
         ('Status', {
             'fields': ('availability_status', 'verified', 'flagged', 'status')
@@ -294,6 +317,12 @@ class ProfileAdmin(admin.ModelAdmin):
             'fields': ('created_at',)
         }),
     )
+
+    def get_user_name(self, obj):
+        """Display the user's name from the User model"""
+        return obj.name if obj else ""
+    get_user_name.short_description = 'Name'
+    get_user_name.admin_order_field = 'user__name'
 
     def get_readonly_fields(self, request, obj=None):
         if obj:  # If editing an existing object
