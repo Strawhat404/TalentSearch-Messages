@@ -107,6 +107,21 @@ class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     throttle_classes = [LoginRateThrottle, AnonLoginRateThrottle]
 
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        
+        if response.status_code == 200:
+            # Get user from the response
+            user = User.objects.get(email=request.data.get('email'))
+            
+            # Send login notification
+            from .services import notify_user_login
+            ip_address = request.META.get('REMOTE_ADDR')
+            user_agent = request.META.get('HTTP_USER_AGENT', '')
+            notify_user_login(user, ip_address, user_agent)
+        
+        return response
+
 class AdminLoginView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
@@ -326,7 +341,7 @@ class NotificationListView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        tags=['auth'],
+        tags=['notifications'],
         summary='List notifications',
         description='Get all notifications for the authenticated user',
         responses={
@@ -334,22 +349,304 @@ class NotificationListView(generics.ListCreateAPIView):
             401: openapi.Response(description="Unauthorized"),
         },
     )
+    def get(self, request, *args, **kwargs):
+        return self.list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Create notification',
+        description='Create a new notification for the authenticated user',
+        request_body=NotificationSerializer(),
+        responses={
+            201: NotificationSerializer(),
+            400: openapi.Response(description="Bad Request"),
+            401: openapi.Response(description="Unauthorized"),
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        return self.create(request, *args, **kwargs)
+
     def get_queryset(self):
-        """
-        Returns notifications for the authenticated user.
-        """
         user = self.request.user
-        import sys
-        print(f'DEBUG: get_queryset user={user} type={type(user)} is_authenticated={getattr(user, "is_authenticated", None)}', file=sys.stderr)
         if not user or not getattr(user, 'is_authenticated', False):
             raise AuthenticationFailed('Authentication credentials were not provided or are invalid.')
         return Notification.objects.filter(user=user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        """
-        Create a new notification for the authenticated user.
-        """
+        """Set the user when creating a notification."""
         serializer.save(user=self.request.user)
+
+class NotificationDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """
+    View for retrieving, updating, and deleting individual notifications.
+    """
+    serializer_class = NotificationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Filter notifications to only show user's own notifications."""
+        return Notification.objects.filter(user=self.request.user)
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Get a notification',
+        description='Get a specific notification by ID.',
+        responses={200: NotificationSerializer(), 401: 'Unauthorized', 404: 'Not found'},
+    )
+    def get(self, request, *args, **kwargs):
+        return self.retrieve(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Update a notification',
+        description='Update a specific notification by ID.',
+        responses={200: NotificationSerializer(), 401: 'Unauthorized', 404: 'Not found'},
+    )
+    def put(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Partially update a notification',
+        description='Partially update a specific notification by ID.',
+        responses={200: NotificationSerializer(), 401: 'Unauthorized', 404: 'Not found'},
+    )
+    def patch(self, request, *args, **kwargs):
+        return self.partial_update(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Delete a notification',
+        description='Delete a specific notification by ID.',
+        responses={204: 'No Content', 401: 'Unauthorized', 404: 'Not found'},
+    )
+    def delete(self, request, *args, **kwargs):
+        return self.destroy(request, *args, **kwargs)
+
+    def perform_update(self, serializer):
+        """
+        Update notification and mark as read if requested.
+        """
+        notification = serializer.save()
+        if serializer.validated_data.get('read', False):
+            from .services import NotificationService
+            NotificationService._update_unread_count(self.request.user)
+
+class NotificationUnreadCountView(APIView):
+    """
+    View for getting unread notification count.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Get unread notification count',
+        description='Get the number of unread notifications for the authenticated user',
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'unread_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=3)
+                    }
+                )
+            ),
+        },
+    )
+    def get(self, request):
+        from .services import NotificationService
+        unread_count = NotificationService.get_unread_count(request.user)
+        
+        return Response({
+            'unread_count': unread_count
+        }, status=status.HTTP_200_OK)
+
+class SystemNotificationView(APIView):
+    """
+    View for creating system notifications (admin only).
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Create system notification',
+        description='Create a system notification for all users or specific users (admin only)',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'title': openapi.Schema(type=openapi.TYPE_STRING, example='System Maintenance'),
+                'message': openapi.Schema(type=openapi.TYPE_STRING, example='System will be down for maintenance'),
+                'link': openapi.Schema(type=openapi.TYPE_STRING, example='https://example.com/maintenance'),
+                'user_ids': openapi.Schema(
+                    type=openapi.TYPE_ARRAY, 
+                    items=openapi.Schema(type=openapi.TYPE_INTEGER),
+                    example=[1, 2, 3],
+                    description='Optional: specific user IDs to notify. If not provided, all active users will be notified.'
+                ),
+            },
+            required=['title', 'message']
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='System notification created'),
+                        'count': openapi.Schema(type=openapi.TYPE_INTEGER, example=150)
+                    }
+                )
+            ),
+            400: openapi.Response(description="Bad Request"),
+            403: openapi.Response(description="Forbidden - Admin access required"),
+        },
+    )
+    def post(self, request):
+        title = request.data.get('title')
+        message = request.data.get('message')
+        link = request.data.get('link')
+        user_ids = request.data.get('user_ids')
+
+        if not title or not message:
+            return Response(
+                {'error': 'title and message are required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from .services import NotificationService
+        
+        if user_ids:
+            # Notify specific users
+            users = User.objects.filter(id__in=user_ids, is_active=True)
+            notifications = []
+            for user in users:
+                try:
+                    notification = NotificationService.create_notification(
+                        user=user,
+                        title=title,
+                        message=message,
+                        notification_type=NotificationService.NOTIFICATION_TYPES['SYSTEM'],
+                        link=link
+                    )
+                    notifications.append(notification)
+                except Exception as e:
+                    continue
+        else:
+            # Notify all active users
+            notifications = NotificationService.create_system_notification(
+                title=title,
+                message=message,
+                link=link
+            )
+
+        return Response({
+            'message': 'System notification created',
+            'count': len(notifications)
+        }, status=status.HTTP_200_OK)
+
+class NotificationStatsView(APIView):
+    """
+    View for getting notification statistics.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Get notification statistics',
+        description='Get notification statistics for the authenticated user',
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'total_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=25),
+                        'unread_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=3),
+                        'read_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=22),
+                        'by_type': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            example={
+                                'info': 10,
+                                'warning': 5,
+                                'alert': 2,
+                                'system': 8
+                            }
+                        )
+                    }
+                )
+            ),
+        },
+    )
+    def get(self, request):
+        user = request.user
+        
+        # Get counts
+        total_count = Notification.objects.filter(user=user).count()
+        unread_count = Notification.objects.filter(user=user, read=False).count()
+        read_count = total_count - unread_count
+        
+        # Get counts by type
+        by_type = {}
+        for notification_type, _ in Notification.NOTIFICATION_TYPES:
+            count = Notification.objects.filter(user=user, notification_type=notification_type).count()
+            if count > 0:
+                by_type[notification_type] = count
+        
+        return Response({
+            'total_count': total_count,
+            'unread_count': unread_count,
+            'read_count': read_count,
+            'by_type': by_type
+        }, status=status.HTTP_200_OK)
+
+class NotificationCleanupView(APIView):
+    """
+    View for cleaning up old notifications (admin only).
+    """
+    permission_classes = [IsAdminUser]
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Clean up old notifications',
+        description='Clean up notifications older than specified days (admin only)',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'days': openapi.Schema(type=openapi.TYPE_INTEGER, example=30, description='Number of days to keep notifications'),
+            },
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Old notifications cleaned up'),
+                        'deleted_count': openapi.Schema(type=openapi.TYPE_INTEGER, example=150)
+                    }
+                )
+            ),
+            400: openapi.Response(description="Bad Request"),
+            403: openapi.Response(description="Forbidden - Admin access required"),
+        },
+    )
+    def post(self, request):
+        days = request.data.get('days', 30)
+        
+        if not isinstance(days, int) or days < 1:
+            return Response(
+                {'error': 'days must be a positive integer'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from .services import NotificationService
+        deleted_count = NotificationService.cleanup_old_notifications(days)
+
+        return Response({
+            'message': 'Old notifications cleaned up',
+            'deleted_count': deleted_count
+        }, status=status.HTTP_200_OK)
 
 class TokenAuthenticationMiddleware:
     def __init__(self, get_response):
@@ -500,6 +797,11 @@ class ChangePasswordView(APIView):
         
         # Clear session
         request.session.flush()
+
+        # Send password change notification
+        from .services import notify_password_change
+        ip_address = request.META.get('REMOTE_ADDR')
+        notify_password_change(request.user, ip_address)
 
         return Response(
             {'message': 'Password changed successfully. Please login again.'}, 
@@ -1013,3 +1315,89 @@ class AdminUserListView(generics.ListAPIView):
 
 class UserRegistrationView(APIView):
     pass
+
+class NotificationMarkAllAsReadView(APIView):
+    """
+    Mark all notifications as read for the authenticated user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Mark all notifications as read',
+        description='Mark all notifications as read for the authenticated user.',
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='All notifications marked as read'),
+                        'count': openapi.Schema(type=openapi.TYPE_INTEGER, example=5)
+                    }
+                )
+            ),
+        },
+    )
+    def post(self, request):
+        from .services import NotificationService
+        count = NotificationService.mark_all_as_read(request.user)
+        return Response({
+            'message': 'All notifications marked as read',
+            'count': count
+        }, status=status.HTTP_200_OK)
+
+class NotificationMarkReadView(APIView):
+    """
+    View for marking a notification as read.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['notifications'],
+        summary='Mark notification as read',
+        description='Mark a specific notification as read for the authenticated user.',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'notification_id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1, description='ID of the notification to mark as read'),
+            },
+            required=['notification_id']
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Notification marked as read'),
+                        'success': openapi.Schema(type=openapi.TYPE_BOOLEAN, example=True)
+                    }
+                )
+            ),
+            400: openapi.Response(description="Bad Request"),
+            404: openapi.Response(description="Notification not found"),
+        },
+    )
+    def post(self, request):
+        notification_id = request.data.get('notification_id')
+        
+        if not notification_id:
+            return Response(
+                {'error': 'notification_id is required'}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        from .services import NotificationService
+        success = NotificationService.mark_as_read(notification_id, request.user)
+        
+        if success:
+            return Response({
+                'message': 'Notification marked as read',
+                'success': True
+            }, status=status.HTTP_200_OK)
+        else:
+            return Response(
+                {'error': 'Notification not found or could not be marked as read'}, 
+                status=status.HTTP_404_NOT_FOUND
+            )

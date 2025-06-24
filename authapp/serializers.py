@@ -199,7 +199,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     """
     class Meta:
         model = Notification
-        fields = ['id', 'title', 'message', 'notification_type', 'read', 'link', 'created_at']
+        fields = ['id', 'title', 'message', 'notification_type', 'read', 'link', 'data', 'created_at']
         read_only_fields = ['id', 'created_at']
         extra_kwargs = {
             'title': {'required': True},
@@ -255,6 +255,14 @@ class NotificationSerializer(serializers.ModelSerializer):
         """
         if value and len(value) > 500:
             raise serializers.ValidationError("Link must be no more than 500 characters")
+        return value
+
+    def validate_data(self, value):
+        """
+        Validate the data field if provided.
+        """
+        if value is not None and not isinstance(value, dict):
+            raise serializers.ValidationError("Data must be a valid JSON object")
         return value
 
     def validate(self, attrs):
