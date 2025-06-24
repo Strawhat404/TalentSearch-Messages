@@ -49,7 +49,7 @@ class NewsView(APIView):
     def post(self, request):
         serializer = NewsSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(created_by=request.user)
             return Response({
                 "id": serializer.data['id'],
                 "message": "News created successfully."
