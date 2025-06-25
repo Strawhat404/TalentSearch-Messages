@@ -62,14 +62,23 @@
 #
 #     def get(self, request, job_id):
 #         """
-#         Retrieve a specific job by ID for the authenticated user.
-#         Returns serialized job data with applicant count or a 404 error if not found.
+#         Retrieve a specific job by ID for any authenticated user.
+#         Returns serialized job data with applicant_count only if the user is the job creator,
+#         or a 404 error if the job does not exist.
 #         """
-#         job = self.get_object(job_id, request.user)
-#         if not job:
+#         try:
+#             job = Job.objects.get(id=job_id)
+#         except Job.DoesNotExist:
 #             return Response({"message": "Job not found."}, status=status.HTTP_404_NOT_FOUND)
+#
 #         serializer = JobSerializer(job)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
+#         response_data = serializer.data
+#
+#         # Hide applicant_count if the user is not the job creator
+#         if job.user_id != request.user:
+#             response_data.pop('applicant_count', None)
+#
+#         return Response(response_data, status=status.HTTP_200_OK)
 #
 #     def put(self, request, job_id):
 #         """
@@ -120,6 +129,14 @@
 #         if job.project_end_date and job.project_end_date < current_date:
 #             return Response({"error": "Job has expired"}, status=status.HTTP_400_BAD_REQUEST)
 #
+#         # Prevent the job creator from applying
+#         if job.user_id == request.user:
+#             return Response({"error": "You cannot apply to your own job."}, status=status.HTTP_400_BAD_REQUEST)
+#
+#         # Check for existing application by the same user
+#         if Application.objects.filter(user=request.user, job=job).exists():
+#             return Response({"error": "You have already applied to this job."}, status=status.HTTP_400_BAD_REQUEST)
+#
 #         # Validate opportunity description
 #         opportunity_description = request.data.get('opportunity_description')
 #         if not opportunity_description or not str(opportunity_description).strip():
@@ -156,6 +173,7 @@
 #         applicants = Application.objects.filter(job_id=job_id).select_related('user').prefetch_related('user__profile')
 #         serializer = ApplicationSerializer(applicants, many=True)
 #         return Response(serializer.data, status=status.HTTP_200_OK)
+
 """
 API views for managing jobs using Django REST Framework.
 Handles listing, creating, retrieving, updating, and deleting jobs.
@@ -169,12 +187,21 @@ from .models import Job, Application
 from .serializers import JobSerializer, ApplicationSerializer
 from django.utils import timezone
 from userprofile.models import Profile
+from talentsearch.throttles import CreateRateThrottle  # Import custom throttle
 
 class JobListCreateView(APIView):
     """
     API view for listing and creating jobs for the authenticated user.
     """
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        """
+        Apply throttling only to modification operations
+        """
+        if self.request.method in ['POST']:
+            return [CreateRateThrottle()]
+        return []
 
     def get(self, request):
         """
@@ -207,6 +234,14 @@ class JobDetailView(APIView):
     API view for retrieving, updating, and deleting a specific job.
     """
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        """
+        Apply throttling only to modification operations
+        """
+        if self.request.method in ['PUT', 'DELETE']:
+            return [CreateRateThrottle()]
+        return []
 
     def get_object(self, job_id, user):
         """
@@ -273,6 +308,14 @@ class JobApplyView(APIView):
     """
     permission_classes = [IsAuthenticated]
 
+    def get_throttles(self):
+        """
+        Apply throttling only to modification operations
+        """
+        if self.request.method in ['POST']:
+            return [CreateRateThrottle()]
+        return []
+
     def post(self, request, job_id):
         """
         Apply to a job with an opportunity description (cover letter).
@@ -284,8 +327,16 @@ class JobApplyView(APIView):
 
         # Validate job end date
         current_date = timezone.now().date()
-        if job.project_end_date and job.project_end_date < current_date:
-            return Response({"error": "Job has expired"}, status=status.HTTP_400_BAD_REQUEST)
+        if not job.project_end_date or job.project_end_date < current_date:
+            return Response({"error": "Job has expired or no end date specified"}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Prevent the job creator from applying
+        if job.user_id == request.user:
+            return Response({"error": "You cannot apply to your own job."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check for existing application by the same user
+        if Application.objects.filter(user=request.user, job=job).exists():
+            return Response({"error": "You have already applied to this job."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Validate opportunity description
         opportunity_description = request.data.get('opportunity_description')
@@ -306,6 +357,12 @@ class JobApplicantsView(APIView):
     API view for retrieving applicants for a specific job.
     """
     permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        """
+        Apply no throttling as this is a read-only operation
+        """
+        return []
 
     def get(self, request, job_id):
         """
