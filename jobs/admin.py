@@ -1,6 +1,28 @@
 from django.contrib import admin
 from .models import Job, Application
 from django.contrib.auth.models import User
+from django.db.models import Count
+
+# Inline admin for displaying Applications related to a Job
+class ApplicationInline(admin.TabularInline):
+    """
+    Inline admin to display read-only applicant information for a specific job.
+    """
+    model = Application
+    fields = ('user', 'opportunity_description', 'applied_at')
+    readonly_fields = ('user', 'opportunity_description', 'applied_at')
+    extra = 0  # No extra empty forms for adding new applications
+    can_delete = False  # Prevent deletion
+    can_add = False  # Prevent adding new applications
+
+    def has_add_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
 
 # Custom admin class for Job model
 class JobAdmin(admin.ModelAdmin):
@@ -12,6 +34,7 @@ class JobAdmin(admin.ModelAdmin):
     search_fields = ('job_title', 'company_name', 'talents', 'project_title')
     date_hierarchy = 'created_at'
     readonly_fields = ('created_at', 'user_id')
+    inlines = [ApplicationInline]  # Add the inline to display applicants
 
     def applicant_count(self, obj):
         """
@@ -31,8 +54,7 @@ class JobAdmin(admin.ModelAdmin):
         """
         Ensure the user_id is set to the current user on creation.
         """
-        if not change:  # Only set user_id on creation,
-            # not update
+        if not change:  # Only set user_id on creation, not update
             obj.user_id = request.user
         super().save_model(request, obj, form, change)
 
@@ -44,7 +66,8 @@ class ApplicationAdmin(admin.ModelAdmin):
     list_display = ('user', 'job', 'applied_at', 'opportunity_description_short')
     list_filter = ('applied_at',)
     search_fields = ('user__email', 'job__job_title', 'opportunity_description')
-    readonly_fields = ('applied_at', 'user', 'job')
+    readonly_fields = ('applied_at',)
+    fields = ('user', 'job', 'opportunity_description', 'applied_at')
 
     def opportunity_description_short(self, obj):
         """
@@ -59,6 +82,26 @@ class ApplicationAdmin(admin.ModelAdmin):
         """
         queryset = super().get_queryset(request)
         return queryset.select_related('user', 'job')
+
+    def save_model(self, request, obj, form, change):
+        """
+        Set the user to the current admin user on creation if not provided.
+        """
+        if not change and not obj.user_id:  # Only set user_id on creation if not already set
+            obj.user = request.user
+        super().save_model(request, obj, form, change)
+
+    def has_change_permission(self, request, obj=None):
+        """
+        Restrict changes to Application instances in admin.
+        """
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        """
+        Restrict deletion of Application instances in admin.
+        """
+        return False
 
 # Register the models with their admin classes
 admin.site.register(Job, JobAdmin)

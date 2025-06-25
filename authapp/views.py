@@ -28,6 +28,7 @@ import uuid
 from django.db import transaction, IntegrityError
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+from django.contrib.auth.models import AnonymousUser
 
 from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
@@ -975,6 +976,13 @@ class LogoutAllDevicesView(APIView):
     )
     def post(self, request):
         try:
+            # Check if user is authenticated and not AnonymousUser
+            if not request.user.is_authenticated or isinstance(request.user, AnonymousUser):
+                return Response(
+                    {'error': 'Authentication required'},
+                    status=status.HTTP_401_UNAUTHORIZED
+                )
+            
             # Blacklist all outstanding tokens for this user
             tokens = OutstandingToken.objects.filter(user_id=request.user.id)
             for token in tokens:
@@ -1400,4 +1408,42 @@ class NotificationMarkReadView(APIView):
             return Response(
                 {'error': 'Notification not found or could not be marked as read'}, 
                 status=status.HTTP_404_NOT_FOUND
+            )
+
+class LoginView(APIView):
+    def post(self, request):
+        email = request.data.get('email')
+        password = request.data.get('password')
+
+        # Check for success login limit
+        if BruteForceProtection.is_success_limited(email):
+            return Response(
+                {"detail": "Too many successful logins. Please wait before trying again."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        # 1. Check if user is locked out
+        if BruteForceProtection.is_locked_out(email):
+            return Response(
+                {
+                    "detail": "Too many failed login attempts. Please try again later.",
+                    "lockout_time": BruteForceProtection.get_lockout_time(email)
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+
+        user = authenticate(request, email=email, password=password)
+        if user is not None:
+            BruteForceProtection.reset_attempts(email)
+            BruteForceProtection.record_successful_login(email)
+            # ... (return token, etc.)
+            return Response({"detail": "Login successful!"})
+        else:
+            BruteForceProtection.record_attempt(email)
+            return Response(
+                {
+                    "detail": "Invalid credentials.",
+                    "remaining_attempts": BruteForceProtection.get_remaining_attempts(email)
+                },
+                status=status.HTTP_401_UNAUTHORIZED
             )

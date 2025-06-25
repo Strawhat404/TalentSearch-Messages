@@ -48,26 +48,18 @@ class NewsView(APIView):
         - status: string (optional, default: 'draft')
         - images: array of image files (optional, max 10 images)
         - image_captions: array of strings (optional, must match number of images)
-        
-        **Example usage:**
-        ```
-        POST /api/news/
-        Content-Type: multipart/form-data
-        
-        title: "Breaking News"
-        content: "This is the news content..."
-        status: "published"
-        images: [file1.jpg, file2.png]
-        image_captions: ["Caption for first image", "Caption for second image"]
-        ```
         """,
-        manual_parameters=[
-            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True, description='News title'),
-            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True, description='News content'),
-            openapi.Parameter('status', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Status (draft/published/archived)'),
-            openapi.Parameter('images', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description='Upload multiple images'),
-            openapi.Parameter('image_captions', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Captions for images'),
-        ],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'title': openapi.Schema(type=openapi.TYPE_STRING, description='News title'),
+                'content': openapi.Schema(type=openapi.TYPE_STRING, description='News content'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, description='Status (draft/published/archived)'),
+                'images': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_FILE), description='Upload multiple images'),
+                'image_captions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='Captions for images'),
+            },
+            required=['title', 'content']
+        ),
         responses={
             201: openapi.Response(
                 description="News created successfully with images",
@@ -138,13 +130,16 @@ class NewsDetailView(APIView):
         **Note:** Adding new images will append to existing images. To replace all images,
         delete the news item and create a new one, or use the image management endpoints.
         """,
-        manual_parameters=[
-            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='News title'),
-            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='News content'),
-            openapi.Parameter('status', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Status'),
-            openapi.Parameter('images', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description='Upload additional images'),
-            openapi.Parameter('image_captions', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Captions for new images'),
-        ],
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'title': openapi.Schema(type=openapi.TYPE_STRING, description='News title'),
+                'content': openapi.Schema(type=openapi.TYPE_STRING, description='News content'),
+                'status': openapi.Schema(type=openapi.TYPE_STRING, description='Status'),
+                'images': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_FILE), description='Upload additional images'),
+                'image_captions': openapi.Schema(type=openapi.TYPE_ARRAY, items=openapi.Schema(type=openapi.TYPE_STRING), description='Captions for new images'),
+            }
+        ),
         responses={
             200: openapi.Response(
                 description="News updated successfully.",
