@@ -264,3 +264,7 @@ AUTHENTICATION_BACKENDS = [
     'authapp.backends.EmailOrUsernameModelBackend',
     'django.contrib.auth.backends.ModelBackend',  # keep default as fallback
 ]
+
+# prod.py (for stricter security)
+MAX_LOGIN_ATTEMPTS = 5
+LOGIN_LOCKOUT_DURATION = 900  # 15 minutes

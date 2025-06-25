@@ -70,10 +70,17 @@ class BruteForceProtection:
     # Cache key prefix
     CACHE_KEY_PREFIX = 'login_attempts_'
 
+    SUCCESSFUL_LOGIN_LIMIT = 7  # or whatever you want
+    SUCCESSFUL_LOGIN_WINDOW = 60 * 5  # 5 minutes, for example
+
     @classmethod
     def _get_cache_key(cls, email):
         """Get cache key for the email"""
         return f"{cls.CACHE_KEY_PREFIX}{email.lower()}"
+
+    @classmethod
+    def _get_success_cache_key(cls, email):
+        return f"success_logins_{email.lower()}"
 
     @classmethod
     def record_attempt(cls, email):
@@ -105,12 +112,7 @@ class BruteForceProtection:
         """
         cache_key = cls._get_cache_key(email)
         attempts = cache.get(cache_key, 0)
-        
-        if attempts >= cls.MAX_ATTEMPTS:
-            logger.warning(f"Login locked out for {email}")
-            return True
-            
-        return False
+        return attempts >= cls.MAX_ATTEMPTS
 
     @classmethod
     def get_remaining_attempts(cls, email):
@@ -133,3 +135,16 @@ class BruteForceProtection:
         cache_key = cls._get_cache_key(email)
         ttl = cache.ttl(cache_key)
         return max(0, ttl)
+
+    @classmethod
+    def record_successful_login(cls, email):
+        cache_key = cls._get_success_cache_key(email)
+        count = cache.get(cache_key, 0) + 1
+        cache.set(cache_key, count, cls.SUCCESSFUL_LOGIN_WINDOW)
+        return count
+
+    @classmethod
+    def is_success_limited(cls, email):
+        cache_key = cls._get_success_cache_key(email)
+        count = cache.get(cache_key, 0)
+        return count >= cls.SUCCESSFUL_LOGIN_LIMIT
