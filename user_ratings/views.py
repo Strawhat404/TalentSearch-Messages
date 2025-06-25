@@ -9,11 +9,14 @@ from django.contrib.auth import get_user_model
 from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.throttling import UserRateThrottle  # Import for default throttling
 
 User = get_user_model()
 
 class UserRatingCreateListView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]  # Apply default UserRateThrottle (1000/day)
+
     def post(self, request):
         """
         Create a new user rating, preventing duplicate ratings for the same user pair.
@@ -105,6 +108,8 @@ class UserRatingCreateListView(APIView):
 
 class UserRatingUpdateDeleteView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]  # Apply default UserRateThrottle (1000/day)
+
     def put(self, request, id):
         """
         Update an existing rating by ID.
@@ -154,6 +159,8 @@ class UserRatingUpdateDeleteView(APIView):
 # Keep UserRatingSummaryView unchanged
 class UserRatingSummaryView(APIView):
     permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]  # Apply default UserRateThrottle (1000/day)
+
     def get(self, request):
         """
         Get rating summary for a specific user.

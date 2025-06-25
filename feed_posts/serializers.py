@@ -43,6 +43,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             profile = Profile.objects.get(user=obj.user)
             return ProfileSerializer(profile).data
         except Profile.DoesNotExist:
+            logger.warning(f"Profile not found for user {obj.user.id}")
             return None
 
     def get_likes_count(self, obj):
