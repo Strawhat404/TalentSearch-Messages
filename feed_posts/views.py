@@ -8,34 +8,41 @@ from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 class FeedPostListView(generics.ListCreateAPIView):
     serializer_class = FeedPostSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = FeedPost.objects.all().order_by('-created_at')
-        
-        # Filter by user_id
-        user_id = self.request.query_params.get('user_id')
-        if user_id:
-            queryset = queryset.filter(user_id=user_id)
-        
-        # Filter by project_type
-        project_type = self.request.query_params.get('project_type')
-        if project_type:
-            queryset = queryset.filter(project_type=project_type)
-        
-        # Handle pagination range
-        range_header = self.request.headers.get('Range')
-        if range_header:
-            try:
-                start, end = map(int, range_header.split('-'))
-                queryset = queryset[start:end+1]
-            except (ValueError, TypeError):
-                pass
-        
-        return queryset
+        try:
+            queryset = FeedPost.objects.all().order_by('-created_at')
+            
+            # Filter by user_id
+            user_id = self.request.query_params.get('user_id')
+            if user_id:
+                queryset = queryset.filter(user_id=user_id)
+            
+            # Filter by project_type
+            project_type = self.request.query_params.get('project_type')
+            if project_type:
+                queryset = queryset.filter(project_type=project_type)
+            
+            # Handle pagination range
+            range_header = self.request.headers.get('Range')
+            if range_header:
+                try:
+                    start, end = map(int, range_header.split('-'))
+                    queryset = queryset[start:end+1]
+                except (ValueError, TypeError):
+                    pass
+            
+            return queryset
+        except Exception as e:
+            logger.error(f"Error in FeedPostListView.get_queryset: {e}")
+            return FeedPost.objects.none()
 
     @swagger_auto_schema(
         operation_summary='List feed posts',
@@ -46,7 +53,14 @@ class FeedPostListView(generics.ListCreateAPIView):
         }
     )
     def get(self, request, *args, **kwargs):
-        return super().get(request, *args, **kwargs)
+        try:
+            return super().get(request, *args, **kwargs)
+        except Exception as e:
+            logger.error(f"Error in FeedPostListView.get: {e}")
+            return Response(
+                {"error": "An error occurred while fetching feed posts"}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
 
     @swagger_auto_schema(
         operation_summary='Create feed post',
