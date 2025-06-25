@@ -31,7 +31,8 @@ class JobAdmin(admin.ModelAdmin):
         """
         Ensure the user_id is set to the current user on creation.
         """
-        if not change:  # Only set user_id on creation, not update
+        if not change:  # Only set user_id on creation,
+            # not update
             obj.user_id = request.user
         super().save_model(request, obj, form, change)
 

@@ -162,11 +162,6 @@ class AdvertSerializer(serializers.ModelSerializer):
                     'run_to': 'Campaign duration cannot exceed 1 year'
                 })
 
-        if run_from and run_from < timezone.now():
-            raise serializers.ValidationError({
-                'run_from': 'Start date cannot be in the past'
-            })
-
         # Validate that published adverts have required fields
         if data.get('status') == 'published':
             required_fields = ['title', 'run_from', 'run_to']

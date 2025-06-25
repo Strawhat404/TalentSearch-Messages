@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import News
 from .serializers import NewsSerializer
 from django.shortcuts import get_object_or_404
@@ -14,6 +15,7 @@ from drf_yasg import openapi
 
 class NewsView(APIView):
     throttle_classes = [CreateRateThrottle]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Support for file uploads
 
     def get_permissions(self):
         """
@@ -36,11 +38,48 @@ class NewsView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     @swagger_auto_schema(
-        operation_summary='Create news (Admin only)',
-        operation_description='Create a new news article - requires admin authentication',
-        request_body=NewsSerializer,
+        operation_summary='Create news with images (Admin only)',
+        operation_description="""
+        Create a new news article with optional images - requires admin authentication.
+        
+        **Multipart Form Data Format:**
+        - title: string (required)
+        - content: string (required) 
+        - status: string (optional, default: 'draft')
+        - images: array of image files (optional, max 10 images)
+        - image_captions: array of strings (optional, must match number of images)
+        
+        **Example usage:**
+        ```
+        POST /api/news/
+        Content-Type: multipart/form-data
+        
+        title: "Breaking News"
+        content: "This is the news content..."
+        status: "published"
+        images: [file1.jpg, file2.png]
+        image_captions: ["Caption for first image", "Caption for second image"]
+        ```
+        """,
+        manual_parameters=[
+            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True, description='News title'),
+            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=True, description='News content'),
+            openapi.Parameter('status', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Status (draft/published/archived)'),
+            openapi.Parameter('images', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description='Upload multiple images'),
+            openapi.Parameter('image_captions', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Captions for images'),
+        ],
         responses={
-            201: NewsSerializer,
+            201: openapi.Response(
+                description="News created successfully with images",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'id': openapi.Schema(type=openapi.TYPE_STRING, description='News ID'),
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message'),
+                        'images_uploaded': openapi.Schema(type=openapi.TYPE_INTEGER, description='Number of images uploaded')
+                    }
+                )
+            ),
             400: openapi.Response(description="Validation Error"),
             401: openapi.Response(description="Authentication required"),
             403: openapi.Response(description="Admin privileges required")
@@ -49,15 +88,21 @@ class NewsView(APIView):
     def post(self, request):
         serializer = NewsSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save()
+            news = serializer.save(created_by=request.user)
+            
+            # Count uploaded images for response
+            images_count = len(request.data.getlist('images', []))
+            
             return Response({
-                "id": serializer.data['id'],
-                "message": "News created successfully."
+                "id": str(news.id),
+                "message": "News created successfully.",
+                "images_uploaded": images_count
             }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class NewsDetailView(APIView):
     throttle_classes = [CreateRateThrottle]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Support for file uploads
 
     def get_permissions(self):
         """
@@ -86,9 +131,20 @@ class NewsDetailView(APIView):
             return Response({"message": "News not found or not published."}, status=status.HTTP_404_NOT_FOUND)
 
     @swagger_auto_schema(
-        operation_summary='Update news (Admin only)',
-        operation_description='Update a news article by ID - requires admin authentication',
-        request_body=NewsSerializer,
+        operation_summary='Update news with images (Admin only)',
+        operation_description="""
+        Update a news article by ID with optional new images - requires admin authentication.
+        
+        **Note:** Adding new images will append to existing images. To replace all images,
+        delete the news item and create a new one, or use the image management endpoints.
+        """,
+        manual_parameters=[
+            openapi.Parameter('title', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='News title'),
+            openapi.Parameter('content', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='News content'),
+            openapi.Parameter('status', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Status'),
+            openapi.Parameter('images', openapi.IN_FORM, type=openapi.TYPE_FILE, required=False, description='Upload additional images'),
+            openapi.Parameter('image_captions', openapi.IN_FORM, type=openapi.TYPE_STRING, required=False, description='Captions for new images'),
+        ],
         responses={
             200: openapi.Response(
                 description="News updated successfully.",
@@ -96,7 +152,8 @@ class NewsDetailView(APIView):
                     type=openapi.TYPE_OBJECT,
                     properties={
                         'id': openapi.Schema(type=openapi.TYPE_STRING, example='uuid'),
-                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='News updated successfully.')
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='News updated successfully.'),
+                        'images_added': openapi.Schema(type=openapi.TYPE_INTEGER, description='Number of new images added')
                     }
                 )
             ),
@@ -110,10 +167,15 @@ class NewsDetailView(APIView):
         news = get_object_or_404(News, id=id)
         serializer = NewsSerializer(news, data=request.data, partial=True)
         if serializer.is_valid():
-            serializer.save()
+            updated_news = serializer.save()
+            
+            # Count new images added
+            images_count = len(request.data.getlist('images', []))
+            
             return Response({
                 "id": id,
-                "message": "News updated successfully."
+                "message": "News updated successfully.",
+                "images_added": images_count
             }, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -144,3 +206,4 @@ class NewsImageDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = NewsImage.objects.all()
     serializer_class = NewsImageSerializer
     lookup_field = 'id'
+    parser_classes = [MultiPartParser, FormParser, JSONParser]  # Support for file uploads

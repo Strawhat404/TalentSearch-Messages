@@ -81,6 +81,21 @@ class Notification(models.Model):
         ('info', 'Information'),
         ('warning', 'Warning'),
         ('alert', 'Alert'),
+        ('system', 'System'),
+        ('security', 'Security'),
+        ('account', 'Account'),
+        ('message', 'Message'),
+        ('job', 'Job'),
+        ('news', 'News'),
+        ('comment', 'Comment'),
+        ('like', 'Like'),
+        ('rating', 'Rating'),
+        ('rental', 'Rental'),
+        ('advert', 'Advert'),
+        ('profile', 'Profile'),
+        ('verification', 'Verification'),
+        ('payment', 'Payment'),
+        ('support', 'Support'),
     )
     
     MAX_TITLE_LENGTH = 200
@@ -92,10 +107,36 @@ class Notification(models.Model):
     notification_type = models.CharField(max_length=20, choices=NOTIFICATION_TYPES, default='info')
     read = models.BooleanField(default=False)
     link = models.URLField(blank=True, null=True, max_length=500)
+    data = models.JSONField(blank=True, null=True, help_text="Additional data for the notification")
     created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['user', 'read']),
+            models.Index(fields=['user', 'notification_type']),
+            models.Index(fields=['created_at']),
+        ]
     
     def __str__(self):
         return f"{self.title} - {self.user.email}"
+    
+    @property
+    def is_unread(self):
+        """Check if notification is unread."""
+        return not self.read
+    
+    def mark_as_read(self):
+        """Mark notification as read."""
+        if not self.read:
+            self.read = True
+            self.save(update_fields=['read'])
+    
+    def mark_as_unread(self):
+        """Mark notification as unread."""
+        if self.read:
+            self.read = False
+            self.save(update_fields=['read'])
 
 class SecurityLog(models.Model):
     """Model to track security-related events"""
