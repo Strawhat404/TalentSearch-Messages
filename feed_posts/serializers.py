@@ -8,9 +8,32 @@ import logging
 logger = logging.getLogger(__name__)
 
 class ProfileSerializer(serializers.ModelSerializer):
+    photo = serializers.SerializerMethodField()
+    experience_level = serializers.SerializerMethodField()
+    
     class Meta:
         model = Profile
         fields = ['id', 'name', 'photo', 'profession', 'verified', 'experience_level']
+    
+    def get_photo(self, obj):
+        """Get photo from related Media model"""
+        try:
+            if hasattr(obj, 'media') and obj.media and obj.media.photo:
+                return obj.media.photo.url
+            return None
+        except Exception as e:
+            logger.warning(f"Error getting photo for profile {obj.id}: {e}")
+            return None
+    
+    def get_experience_level(self, obj):
+        """Get experience_level from related ProfessionalQualifications model"""
+        try:
+            if hasattr(obj, 'professional_qualifications') and obj.professional_qualifications:
+                return obj.professional_qualifications.experience_level
+            return None
+        except Exception as e:
+            logger.warning(f"Error getting experience_level for profile {obj.id}: {e}")
+            return None
 
 class FeedPostSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(source='user.id', read_only=True)
