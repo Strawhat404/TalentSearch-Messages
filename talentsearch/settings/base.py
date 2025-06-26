@@ -2,8 +2,6 @@
 Base settings for TalentSearch project.
 """
 
-
-
 import os
 from pathlib import Path
 import environ
@@ -69,6 +67,7 @@ INSTALLED_APPS = [
     'user_ratings',
     'contact_us',
     'platform_stat'
+    'payment',
 
 ]
 
