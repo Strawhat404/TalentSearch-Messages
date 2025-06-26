@@ -196,8 +196,8 @@ class GalleryItemDetailView(APIView):
         """
         try:
             item = GalleryItem.objects.get(id=id)
-            if item.item_url and os.path.isfile(item.item_url.path):
-                os.remove(item.item_url.path)
+            if item.item_url:
+                item.item_url.delete(save=False)
             item.delete()
             return Response({"message": "Gallery item deleted successfully."})
         except ObjectDoesNotExist:
