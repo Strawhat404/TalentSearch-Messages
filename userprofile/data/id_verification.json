@@ -1,0 +1,7 @@
+{
+  "id_type": [
+    {"id": "national_id", "name": "National ID"},
+    {"id": "passport", "name": "Passport"},
+    {"id": "driving_license", "name": "Driving License"}
+  ]
+} 

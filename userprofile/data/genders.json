@@ -1,6 +1,0 @@
-{
-    "genders": [
-        {"name": "Male", "code": "MALE"},
-        {"name": "Female", "code": "FEMALE"}
-    ]
-} 

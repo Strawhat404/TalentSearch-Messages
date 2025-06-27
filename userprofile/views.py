@@ -5,14 +5,16 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
-from .models import Profile, VerificationStatus, VerificationAuditLog, Choices
-from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer, ChoicesSerializer, PublicProfileSerializer
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
+from .models import Profile, VerificationStatus, VerificationAuditLog, Headshot
+from .serializers import ProfileSerializer, VerificationStatusSerializer, VerificationAuditLogSerializer, PublicProfileSerializer
 import os
-import json
 from django.conf import settings
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 
+@method_decorator(csrf_exempt, name='dispatch')
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -32,7 +34,6 @@ class ProfileView(APIView):
                         "email": "makdatse@gmail.com",
                         "birthdate": "2001-05-16",
                         "profession": "actor",
-                        "nationality": "ethiopian",
                         "age": 24,
                         "location": "",
                         "created_at": "2025-05-27T05:37:38.297856Z",
@@ -47,34 +48,16 @@ class ProfileView(APIView):
                             "id_front": None,
                             "id_back": None
                         },
-                        "professional_qualifications": {
-                            "experience_level": None,
+                        "professions_and_skills": {
+                            "professions": [],
+                            "actor_category": [],
+                            "model_categories": [],
+                            "performer_categories": [],
+                            "influencer_categories": [],
                             "skills": [],
-                            "work_authorization": None,
-                            "industry_experience": None,
-                            "min_salary": None,
-                            "max_salary": None,
-                            "availability": None,
-                            "preferred_work_location": None,
-                            "shift_preference": None,
-                            "willingness_to_relocate": None,
-                            "overtime_availability": None,
-                            "travel_willingness": None,
-                            "software_proficiency": [],
-                            "typing_speed": None,
-                            "driving_skills": None,
-                            "equipment_experience": [],
-                            "role_title": None,
-                            "portfolio_url": None,
-                            "union_membership": None,
-                            "reference": [],
-                            "available_start_date": None,
-                            "preferred_company_size": None,
-                            "preferred_industry": [],
-                            "leadership_style": None,
-                            "communication_style": None,
-                            "motivation": None,
-                            "has_driving_license": False
+                            "main_skill": [],
+                            "skill_description": None,
+                            "video_url": None
                         },
                         "physical_attributes": {
                             "weight": None,
@@ -95,37 +78,6 @@ class ProfileView(APIView):
                             "disability_status": None,
                             "disability_type": None
                         },
-                        "education": {
-                            "education_level": None,
-                            "degree_type": None,
-                            "field_of_study": None,
-                            "graduation_year": None,
-                            "gpa": None,
-                            "institution_name": None,
-                            "scholarships": [],
-                            "academic_achievements": [],
-                            "certifications": [],
-                            "online_courses": []
-                        },
-                        "work_experience": {
-                            "years_of_experience": None,
-                            "employment_status": None,
-                            "previous_employers": [],
-                            "projects": [],
-                            "training": [],
-                            "internship_experience": None
-                        },
-                        "contact_info": {
-                            "address": None,
-                            "city": None,
-                            "region": None,
-                            "postal_code": None,
-                            "residence_type": None,
-                            "residence_duration": None,
-                            "housing_status": None,
-                            "emergency_contact": None,
-                            "emergency_phone": None
-                        },
                         "personal_info": {
                             "marital_status": None,
                             "ethnicity": None,
@@ -134,16 +86,17 @@ class ProfileView(APIView):
                             "hobbies": [],
                             "volunteer_experience": None,
                             "company_culture_preference": None,
-                            "social_media_links": {},
-                            "social_media_handles": [],
                             "language_proficiency": [],
                             "special_skills": [],
                             "tools_experience": [],
                             "award_recognitions": []
                         },
-                        "media": {
-                            "video": None,
-                            "photo": None
+                        "natural_photos": {
+                            "natural_photo_1": None,
+                            "natural_photo_2": None
+                        },
+                        "headshot": {
+                            "professional_headshot": None
                         }
                     }
                 }
@@ -176,7 +129,6 @@ class ProfileView(APIView):
                         "email": "makdatse@gmail.com",
                         "birthdate": "2001-05-16",
                         "profession": "actor",
-                        "nationality": "ethiopian",
                         "age": 24,
                         "location": "",
                         "created_at": "2025-05-27T05:37:38.297856Z",
@@ -191,34 +143,16 @@ class ProfileView(APIView):
                             "id_front": None,
                             "id_back": None
                         },
-                        "professional_qualifications": {
-                            "experience_level": None,
+                        "professions_and_skills": {
+                            "professions": [],
+                            "actor_category": [],
+                            "model_categories": [],
+                            "performer_categories": [],
+                            "influencer_categories": [],
                             "skills": [],
-                            "work_authorization": None,
-                            "industry_experience": None,
-                            "min_salary": None,
-                            "max_salary": None,
-                            "availability": None,
-                            "preferred_work_location": None,
-                            "shift_preference": None,
-                            "willingness_to_relocate": None,
-                            "overtime_availability": None,
-                            "travel_willingness": None,
-                            "software_proficiency": [],
-                            "typing_speed": None,
-                            "driving_skills": None,
-                            "equipment_experience": [],
-                            "role_title": None,
-                            "portfolio_url": None,
-                            "union_membership": None,
-                            "reference": [],
-                            "available_start_date": None,
-                            "preferred_company_size": None,
-                            "preferred_industry": [],
-                            "leadership_style": None,
-                            "communication_style": None,
-                            "motivation": None,
-                            "has_driving_license": False
+                            "main_skill": [],
+                            "skill_description": None,
+                            "video_url": None
                         },
                         "physical_attributes": {
                             "weight": None,
@@ -239,37 +173,6 @@ class ProfileView(APIView):
                             "disability_status": None,
                             "disability_type": None
                         },
-                        "education": {
-                            "education_level": None,
-                            "degree_type": None,
-                            "field_of_study": None,
-                            "graduation_year": None,
-                            "gpa": None,
-                            "institution_name": None,
-                            "scholarships": [],
-                            "academic_achievements": [],
-                            "certifications": [],
-                            "online_courses": []
-                        },
-                        "work_experience": {
-                            "years_of_experience": None,
-                            "employment_status": None,
-                            "previous_employers": [],
-                            "projects": [],
-                            "training": [],
-                            "internship_experience": None
-                        },
-                        "contact_info": {
-                            "address": None,
-                            "city": None,
-                            "region": None,
-                            "postal_code": None,
-                            "residence_type": None,
-                            "residence_duration": None,
-                            "housing_status": None,
-                            "emergency_contact": None,
-                            "emergency_phone": None
-                        },
                         "personal_info": {
                             "marital_status": None,
                             "ethnicity": None,
@@ -278,16 +181,17 @@ class ProfileView(APIView):
                             "hobbies": [],
                             "volunteer_experience": None,
                             "company_culture_preference": None,
-                            "social_media_links": {},
-                            "social_media_handles": [],
                             "language_proficiency": [],
                             "special_skills": [],
                             "tools_experience": [],
                             "award_recognitions": []
                         },
-                        "media": {
-                            "video": None,
-                            "photo": None
+                        "natural_photos": {
+                            "natural_photo_1": None,
+                            "natural_photo_2": None
+                        },
+                        "headshot": {
+                            "professional_headshot": None
                         }
                     }
                 }
@@ -345,9 +249,8 @@ class ProfileView(APIView):
                     del data[field]
             
             # Handle nested data
-            for nested_field in ['identity_verification', 'professional_qualifications', 'physical_attributes',
-                               'medical_info', 'education', 'work_experience', 'contact_info',
-                               'personal_info', 'media']:
+            for nested_field in ['identity_verification', 'professions_and_skills', 'physical_attributes',
+                               'medical_info', 'personal_info', 'social_media', 'headshot', 'natural_photos']:
                 if nested_field in data:
                     try:
                         nested_data = data[nested_field]
@@ -360,9 +263,28 @@ class ProfileView(APIView):
                                     setattr(nested_instance, key, value)
                                 nested_instance.save()
                             else:
-                                # Create a new instance
-                                nested_model = getattr(profile, f'{nested_field}_set').model
-                                nested_model.objects.create(profile=profile, **nested_data)
+                                # Create a new instance - import the model dynamically
+                                from userprofile.models import (
+                                    IdentityVerification, ProfessionsAndSkills, PhysicalAttributes,
+                                    MedicalInfo, PersonalInfo, SocialMedia, Headshot, NaturalPhotos
+                                )
+                                
+                                model_mapping = {
+                                    'identity_verification': IdentityVerification,
+                                    'professions_and_skills': ProfessionsAndSkills,
+                                    'physical_attributes': PhysicalAttributes,
+                                    'medical_info': MedicalInfo,
+                                    'personal_info': PersonalInfo,
+                                    'social_media': SocialMedia,
+                                    'headshot': Headshot,
+                                    'natural_photos': NaturalPhotos
+                                }
+                                
+                                model_class = model_mapping.get(nested_field)
+                                if model_class:
+                                    model_class.objects.create(profile=profile, **nested_data)
+                                else:
+                                    raise Exception(f"Unknown nested field: {nested_field}")
                             # Remove the nested data from the main data
                             del data[nested_field]
                     except Exception as e:
@@ -424,6 +346,7 @@ class ProfileView(APIView):
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
 
+@method_decorator(csrf_exempt, name='dispatch')
 class VerificationView(APIView):
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -514,6 +437,7 @@ class VerificationView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
+@method_decorator(csrf_exempt, name='dispatch')
 class VerificationAuditLogView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -557,101 +481,7 @@ class VerificationAuditLogView(APIView):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-class ChoiceDataView(APIView):
-    """
-    View to serve choice data for various fields
-    """
-    def get(self, request):
-        data_dir = os.path.join(settings.BASE_DIR, 'userprofile', 'data')
-        response_data = {}
-        
-        # Load countries
-        with open(os.path.join(data_dir, 'countries.json'), 'r') as f:
-            response_data['countries'] = json.load(f)['countries']
-        
-        # Load languages
-        with open(os.path.join(data_dir, 'languages.json'), 'r') as f:
-            response_data['languages'] = json.load(f)['languages']
-        
-        # Load physical attributes
-        with open(os.path.join(data_dir, 'physical_attributes.json'), 'r') as f:
-            physical_data = json.load(f)
-            response_data.update({
-                'hair_colors': physical_data['hair_colors'],
-                'eye_colors': physical_data['eye_colors'],
-                'skin_tones': physical_data['skin_tones'],
-                'body_types': physical_data['body_types'],
-                'genders': physical_data['genders']
-            })
-        
-        # Load personal info
-        with open(os.path.join(data_dir, 'personal_info.json'), 'r') as f:
-            personal_data = json.load(f)
-            response_data.update({
-                'marital_statuses': personal_data['marital_statuses'],
-                'hobbies': personal_data['hobbies'],
-                'medical_conditions': personal_data['medical_conditions'],
-                'medicine_types': personal_data['medicine_types']
-            })
-
-        # Load nationalities
-        with open(os.path.join(data_dir, 'nationalities.json'), 'r') as f:
-            response_data['nationalities'] = json.load(f)['nationalities']
-
-        # Load professions
-        with open(os.path.join(data_dir, 'professions.json'), 'r') as f:
-            response_data['professions'] = json.load(f)['professions']
-
-        # Load skills
-        with open(os.path.join(data_dir, 'skills.json'), 'r') as f:
-            response_data['skills'] = json.load(f)['skills']
-
-        # Load professional choices
-        with open(os.path.join(data_dir, 'professional_choices.json'), 'r') as f:
-            professional_data = json.load(f)
-            response_data.update({
-                'experience_levels': professional_data['experience_levels'],
-                'work_authorizations': professional_data['work_authorizations'],
-                'industry_experiences': professional_data['industry_experiences'],
-                'availabilities': professional_data['availabilities'],
-                'work_locations': professional_data['work_locations'],
-                'shift_preferences': professional_data['shift_preferences'],
-                'company_sizes': professional_data['company_sizes'],
-                'leadership_styles': professional_data['leadership_styles'],
-                'communication_styles': professional_data['communication_styles'],
-                'motivations': professional_data['motivations']
-            })
-
-        # Load medical info
-        with open(os.path.join(data_dir, 'medical_info.json'), 'r') as f:
-            medical_data = json.load(f)
-            response_data.update({
-                'disability_statuses': medical_data['disability_statuses'],
-                'disability_types': medical_data['disability_types']
-            })
-
-        # Load influencer categories
-        with open(os.path.join(data_dir, 'influencer_categories.json'), 'r') as f:
-            response_data['influencer_categories'] = json.load(f)['categories']
-
-        # Load performer categories
-        with open(os.path.join(data_dir, 'performer_categories.json'), 'r') as f:
-            response_data['performer_categories'] = json.load(f)['categories']
-
-        # Load model categories
-        with open(os.path.join(data_dir, 'model_categories.json'), 'r') as f:
-            response_data['model_categories'] = json.load(f)['categories']
-
-        # Load locations
-        with open(os.path.join(data_dir, 'locations.json'), 'r') as f:
-            location_data = json.load(f)
-            response_data.update({
-                'regions': location_data['regions'],
-                'cities': location_data['cities']
-            })
-        
-        return Response(response_data)
-
+@method_decorator(csrf_exempt, name='dispatch')
 class PublicProfilesView(APIView):
     """
     Public endpoint to fetch all profiles with limited data
@@ -708,22 +538,22 @@ class PublicProfilesView(APIView):
                             "id": 1,
                             "name": "John Doe",
                             "profession": "actor",
-                            "nationality": "american",
                             "age": 28,
                             "location": "Los Angeles",
                             "created_at": "2025-01-15T10:30:00Z",
                             "availability_status": True,
                             "verified": True,
                             "status": "active",
-                            "professional_qualifications": {
+                            "professions_and_skills": {
                                 "professions": ["actor", "model"],
-                                "experience_level": "intermediate",
+                                "actor_category": [],
+                                "model_categories": [],
+                                "performer_categories": [],
+                                "influencer_categories": [],
                                 "skills": ["acting", "dancing", "singing"],
-                                "availability": "full-time",
-                                "preferred_work_location": "los angeles",
-                                "role_title": "Professional Actor",
-                                "portfolio_url": "https://example.com/portfolio",
-                                "years_of_experience": "3-5 years"
+                                "main_skill": [],
+                                "skill_description": "Professional actor with 3-5 years experience",
+                                "video_url": "https://example.com/portfolio"
                             },
                             "physical_attributes": {
                                 "gender": "male",
@@ -732,8 +562,31 @@ class PublicProfilesView(APIView):
                                 "body_type": "athletic",
                                 "skin_tone": "fair"
                             },
-                            "media": {
-                                "photo": "/media/profile_photos/john_doe.jpg"
+                            "medical_info": {
+                                "health_conditions": [],
+                                "medications": [],
+                                "disability_status": None,
+                                "disability_type": None
+                            },
+                            "personal_info": {
+                                "marital_status": None,
+                                "ethnicity": None,
+                                "personality_type": None,
+                                "work_preference": None,
+                                "hobbies": [],
+                                "volunteer_experience": None,
+                                "company_culture_preference": None,
+                                "language_proficiency": [],
+                                "special_skills": [],
+                                "tools_experience": [],
+                                "award_recognitions": []
+                            },
+                            "natural_photos": {
+                                "natural_photo_1": None,
+                                "natural_photo_2": None
+                            },
+                            "headshot": {
+                                "professional_headshot": None
                             }
                         }
                     ]
@@ -748,9 +601,12 @@ class PublicProfilesView(APIView):
                 availability_status=True,
                 flagged=False
             ).select_related(
-                'professional_qualifications',
+                'professions_and_skills',
                 'physical_attributes',
-                'media'
+                'medical_info',
+                'personal_info',
+                'headshot',
+                'natural_photos'
             ).order_by('-created_at')
 
             # Apply filters if provided

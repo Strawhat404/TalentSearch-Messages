@@ -84,6 +84,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
+    'talentsearch.middleware.CSRFExemptMiddleware',
     'authapp.middleware.SessionExpirationMiddleware',
 ]
 
@@ -149,9 +150,9 @@ MEDIA_URL = '' # Not needed for Cloudinary
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
 CLOUDINARY_STORAGE = {
-    'CLOUD_NAME': env('CLOUD_NAME'),
-    'API_KEY': env('API_KEY'),
-    'API_SECRET': env('API_SECRET'),
+    'CLOUD_NAME': env('CLOUD_NAME', default='dummy_cloud_name'),
+    'API_KEY': env('API_KEY', default='dummy_api_key'),
+    'API_SECRET': env('API_SECRET', default='dummy_api_secret'),
 }
 
 # Custom user model

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import UserRating
-from userprofile.models import Profile, Media
+from userprofile.models import Profile
 from django.core.files.storage import default_storage
 
 User = get_user_model()
@@ -15,11 +15,13 @@ class RaterProfileSerializer(serializers.ModelSerializer):
 
     def get_photo_url(self, obj):
         """
-        Get the URL of the profile's photo from the related Media object.
+        Get the URL of the profile's photo from the related Headshot object.
         """
-        media = getattr(obj, 'media', None)
-        if media and media.photo and default_storage.exists(media.photo.name):
-            return media.photo.url
+        try:
+            if hasattr(obj, 'headshot') and obj.headshot and obj.headshot.professional_headshot:
+                return obj.headshot.professional_headshot.url
+        except:
+            pass
         return None
 
 class UserRatingSerializer(serializers.ModelSerializer):
