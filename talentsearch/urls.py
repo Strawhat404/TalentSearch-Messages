@@ -8,8 +8,8 @@ from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from userprofile.views import ChoiceDataView
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -26,6 +26,14 @@ schema_view = get_schema_view(
 def health_check(request):
     return JsonResponse({"status": "healthy"})
 
+# Exempt all API views from CSRF
+@method_decorator(csrf_exempt, name='dispatch')
+class CSRFExemptTokenObtainPairView(TokenObtainPairView):
+    pass
+
+@method_decorator(csrf_exempt, name='dispatch')
+class CSRFExemptTokenRefreshView(TokenRefreshView):
+    pass
 
 # Main URL patterns
 urlpatterns = [
@@ -40,7 +48,6 @@ urlpatterns = [
     path('api/news/', include('news.urls')),
     path('api/adverts/', include('adverts.urls')),
     path('api/profile/', include('userprofile.urls')),
-    path('api/choices/', ChoiceDataView.as_view(), name='choice_data'),
     path('api/user_gallery/', include('usergallery.urls')),
     path('api/feed_posts/', include('feed_posts.urls', namespace='feed_posts')),
     path('api/jobs/', include('jobs.urls')),
@@ -54,8 +61,8 @@ urlpatterns = [
     path('api/statistics/', include('platform_stat.urls')),
     path('api/payment/', include('payment.urls')),
     path('api/health/', health_check, name='health_check'),
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('api/token/', CSRFExemptTokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', CSRFExemptTokenRefreshView.as_view(), name='token_refresh'),
     # API Documentation
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
