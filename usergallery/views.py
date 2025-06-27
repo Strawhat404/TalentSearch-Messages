@@ -8,6 +8,7 @@ from rest_framework.parsers import MultiPartParser
 import os
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.throttling import UserRateThrottle  # Import for default throttling
 
 class GalleryItemListCreateView(APIView):
     """
@@ -16,6 +17,7 @@ class GalleryItemListCreateView(APIView):
     Handles POST requests to add new gallery items and GET requests to retrieve filtered items.
     """
     parser_classes = [MultiPartParser]
+    throttle_classes = [UserRateThrottle]  # Apply default UserRateThrottle (1000/day)
 
     def post(self, request):
         """
@@ -93,6 +95,7 @@ class GalleryItemDetailView(APIView):
     API view for retrieving, updating, and deleting a specific gallery item.
     """
     parser_classes = [MultiPartParser]
+    throttle_classes = [UserRateThrottle]  # Apply default UserRateThrottle (1000/day)
 
     @swagger_auto_schema(
         tags=['user_gallery'],
@@ -193,14 +196,9 @@ class GalleryItemDetailView(APIView):
         """
         try:
             item = GalleryItem.objects.get(id=id)
-            if item.item_url and os.path.isfile(item.item_url.path):
-                os.remove(item.item_url.path)
+            if item.item_url:
+                item.item_url.delete(save=False)
             item.delete()
             return Response({"message": "Gallery item deleted successfully."})
         except ObjectDoesNotExist:
             return Response({"message": "Gallery item not found."}, status=status.HTTP_404_NOT_FOUND)
-
-
-
-
-

@@ -88,3 +88,7 @@ REST_FRAMEWORK = {
         'create': '10/minute',  # Add the missing 'create' scope
     },
 }
+
+# dev.py (for easier testing)
+MAX_LOGIN_ATTEMPTS = 10
+LOGIN_LOCKOUT_DURATION = 60  # 1 minute

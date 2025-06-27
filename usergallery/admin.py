@@ -6,6 +6,7 @@ from django.contrib.admin import SimpleListFilter
 import os
 from django import forms
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 
 # Custom filter to show items by profile name
 class ProfileNameFilter(SimpleListFilter):
@@ -110,9 +111,9 @@ class GalleryItemAdmin(admin.ModelAdmin):
         """
         Ensure item_type is updated based on file extension if changed, and delete old file if updated.
         """
-        # Fetch the old file path if this is an update
+        # Fetch the old file name if this is an update
         old_item = GalleryItem.objects.get(id=obj.id) if change else None
-        old_file_path = old_item.item_url.path if old_item and old_item.item_url else None
+        old_file_name = old_item.item_url.name if old_item and old_item.item_url else None
 
         if obj.item_url:
             ext = os.path.splitext(obj.item_url.name)[1].lower()
@@ -124,16 +125,17 @@ class GalleryItemAdmin(admin.ModelAdmin):
         # Save the new file to get the new file path
         super().save_model(request, obj, form, change)
 
-        # After saving, delete the old file if a new file was uploaded and paths differ
-        if change and old_file_path and obj.item_url and old_file_path != obj.item_url.path and os.path.isfile(old_file_path):
-            os.remove(old_file_path)
+        # After saving, delete the old file if a new file was uploaded and names differ
+        if change and old_file_name and obj.item_url and old_file_name != obj.item_url.name:
+            obj.item_url.storage.delete(old_file_name)
+        # Note: .delete(save=False) is not used here because we want to delete the old file, not the current one
 
     def delete_model(self, request, obj):
         """
-        Delete the associated file from the filesystem before deleting the model.
+        Delete the associated file from storage before deleting the model.
         """
-        if obj.item_url and os.path.isfile(obj.item_url.path):
-            os.remove(obj.item_url.path)
+        if obj.item_url:
+            obj.item_url.delete(save=False)
         super().delete_model(request, obj)
 
     def delete_queryset(self, request, queryset):
@@ -141,6 +143,6 @@ class GalleryItemAdmin(admin.ModelAdmin):
         Handle bulk deletion of items and their files.
         """
         for obj in queryset:
-            if obj.item_url and os.path.isfile(obj.item_url.path):
-                os.remove(obj.item_url.path)
+            if obj.item_url:
+                obj.item_url.delete(save=False)
         queryset.delete()
