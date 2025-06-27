@@ -1,0 +1,34 @@
+{
+  "experience_level": [
+    {"id": "entry", "name": "Entry"},
+    {"id": "mid_level", "name": "Mid-Level"},
+    {"id": "senior", "name": "Senior"}
+  ],
+  "years": [
+    {"id": "0_1", "name": "0-1"},
+    {"id": "1_3", "name": "1-3"},
+    {"id": "3_5", "name": "3-5"},
+    {"id": "5_plus", "name": "5+"}
+  ],
+  "availability": [
+    {"id": "part_time", "name": "Part-Time"},
+    {"id": "full_time", "name": "Full-Time"},
+    {"id": "contract", "name": "Contract"},
+    {"id": "freelance", "name": "Freelance"}
+  ],
+  "employment_status": [
+    {"id": "unemployed", "name": "Unemployed"},
+    {"id": "employed", "name": "Employed"},
+    {"id": "freelancer", "name": "Freelancer"}
+  ],
+  "work_location": [
+    {"id": "hybrid", "name": "Hybrid"},
+    {"id": "onsite", "name": "Onsite"},
+    {"id": "remote", "name": "Remote"}
+  ],
+  "shift": [
+    {"id": "day", "name": "Day"},
+    {"id": "night", "name": "Night"},
+    {"id": "rotational", "name": "Rotational"}
+  ]
+} 

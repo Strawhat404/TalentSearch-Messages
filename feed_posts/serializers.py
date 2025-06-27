@@ -16,10 +16,10 @@ class ProfileSerializer(serializers.ModelSerializer):
         fields = ['id', 'name', 'photo', 'profession', 'verified', 'experience_level']
     
     def get_photo(self, obj):
-        """Get photo from related Media model"""
+        """Get photo from related Headshot model"""
         try:
-            if hasattr(obj, 'media') and obj.media and obj.media.photo:
-                return obj.media.photo.url
+            if hasattr(obj, 'headshot') and obj.headshot and obj.headshot.professional_headshot:
+                return obj.headshot.professional_headshot.url
             return None
         except Exception as e:
             logger.warning(f"Error getting photo for profile {obj.id}: {e}")

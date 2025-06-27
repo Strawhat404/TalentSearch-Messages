@@ -54,10 +54,17 @@ class GalleryItemSerializer(serializers.ModelSerializer):
         Returns:
             dict: Profile details including name, profession, and photo URL.
         """
+        photo_url = ''
+        try:
+            if hasattr(obj.profile_id, 'headshot') and obj.profile_id.headshot and obj.profile_id.headshot.professional_headshot:
+                photo_url = obj.profile_id.headshot.professional_headshot.url
+        except:
+            pass
+        
         return {
             'name': obj.profile_id.name,
             'profession': obj.profile_id.profession,
-            'photo_url': obj.profile_id.media.photo.url if obj.profile_id.media and obj.profile_id.media.photo else ''
+            'photo_url': photo_url
         }
 
     def validate_item_url(self, value):
