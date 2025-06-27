@@ -12,6 +12,7 @@ import json
 from django.conf import settings
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
+from authapp.services import notify_user_verified_by_admin, notify_user_rejected_by_admin
 
 class ProfileView(APIView):
     permission_classes = [IsAuthenticated]
@@ -439,13 +440,15 @@ class VerificationView(APIView):
                     'verification_type': {'type': 'string', 'enum': ['id', 'address', 'phone']},
                     'verification_method': {'type': 'string', 'enum': ['document', 'phone_call', 'email']},
                     'verification_notes': {'type': 'string'},
+                    'is_approved': {'type': 'boolean', 'description': 'Whether to approve or reject the verification'},
+                    'rejection_reason': {'type': 'string', 'description': 'Reason for rejection if not approved'},
                 },
-                'required': ['verification_type', 'verification_method']
+                'required': ['verification_type', 'verification_method', 'is_approved']
             }
         },
         responses={
             200: openapi.Response(
-                description="Profile verified successfully",
+                description="Profile verification processed successfully",
                 schema=VerificationStatusSerializer
             ),
             400: openapi.Response(description="Validation error"),
@@ -465,11 +468,14 @@ class VerificationView(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+            is_approved = request.data.get('is_approved', True)
+            rejection_reason = request.data.get('rejection_reason', '')
+
             # Create or update verification status
             verification, created = VerificationStatus.objects.get_or_create(
                 profile=profile,
                 defaults={
-                    'is_verified': True,
+                    'is_verified': is_approved,
                     'verification_type': request.data.get('verification_type'),
                     'verified_by': request.user,
                     'verification_method': request.data.get('verification_method'),
@@ -478,7 +484,7 @@ class VerificationView(APIView):
             )
 
             if not created:
-                verification.is_verified = True
+                verification.is_verified = is_approved
                 verification.verification_type = request.data.get('verification_type')
                 verification.verified_by = request.user
                 verification.verification_method = request.data.get('verification_method')
@@ -488,8 +494,8 @@ class VerificationView(APIView):
             # Create audit log
             VerificationAuditLog.objects.create(
                 profile=profile,
-                previous_status=False,
-                new_status=True,
+                previous_status=not is_approved,
+                new_status=is_approved,
                 changed_by=request.user,
                 verification_type=verification.verification_type,
                 verification_method=verification.verification_method,
@@ -498,8 +504,14 @@ class VerificationView(APIView):
                 user_agent=request.META.get('HTTP_USER_AGENT')
             )
 
+            # Send notification based on approval status
+            if is_approved:
+                notify_user_verified_by_admin(profile.user, request.user, verification.verification_type)
+            else:
+                notify_user_rejected_by_admin(profile.user, request.user, rejection_reason, verification.verification_type)
+
             return Response({
-                "message": "Profile verified successfully",
+                "message": f"Profile {'verified' if is_approved else 'rejected'} successfully",
                 "verification": VerificationStatusSerializer(verification).data
             }, status=status.HTTP_200_OK)
 

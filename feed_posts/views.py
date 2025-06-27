@@ -9,6 +9,7 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 import os
 import logging
+from authapp.services import notify_new_feed_posted
 
 logger = logging.getLogger(__name__)
 
@@ -88,6 +89,12 @@ class FeedPostListView(generics.ListCreateAPIView):
             "id": serializer.data['id'],
             "message": "Post created successfully"
         }, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        feed_post = serializer.save(user=self.request.user)
+        # Trigger notification for new feed post
+        notify_new_feed_posted(feed_post)
+        return feed_post
 
 class FeedPostDetailView(generics.RetrieveDestroyAPIView):
     queryset = FeedPost.objects.all()
