@@ -12,14 +12,15 @@ from django.utils.decorators import method_decorator
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 schema_view = get_schema_view(
-   openapi.Info(
-      title="TalentSearch API",
-      default_version='v1',
-      description="API documentation for TalentSearch platform",
-   ),
-   public=True,
-   permission_classes=(permissions.AllowAny,),
+    openapi.Info(
+        title="TalentSearch API",
+        default_version='v1',
+        description="API documentation for TalentSearch platform",
+    ),
+    public=True,
+    permission_classes=(permissions.AllowAny,),
 )
+
 
 @csrf_exempt
 def health_check(request):
@@ -38,9 +39,9 @@ class CSRFExemptTokenRefreshView(TokenRefreshView):
 urlpatterns = [
     # Root URL redirects to Swagger UI
     path('', RedirectView.as_view(url='/swagger/', permanent=True)),
-    
+
     path('admin/', admin.site.urls),
-    
+
     # API endpoints
     path('api/auth/', include('authapp.urls')),
     path('api/messages/', include('messaging.urls')),
@@ -58,6 +59,7 @@ urlpatterns = [
     path('api/user_ratings/', include('user_ratings.urls')),
     path('api/contact/', include('contact_us.urls')),
     path('api/statistics/', include('platform_stat.urls')),
+    path('api/payment/', include('payment.urls')),
     path('api/health/', health_check, name='health_check'),
     path('api/token/', CSRFExemptTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', CSRFExemptTokenRefreshView.as_view(), name='token_refresh'),

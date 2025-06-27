@@ -12,6 +12,7 @@ from .models import Job, Application
 from .serializers import JobSerializer, ApplicationSerializer
 from django.utils import timezone
 from userprofile.models import Profile
+from authapp.services import notify_new_job_posted
 
 class JobListCreateView(APIView):
     """
@@ -37,9 +38,11 @@ class JobListCreateView(APIView):
         """
         serializer = JobSerializer(data=request.data)
         if serializer.is_valid():
-            serializer.save(user_id=request.user)
+            job = serializer.save(user_id=request.user)
+            # Trigger notification for new job post
+            notify_new_job_posted(job)
             response_data = {
-                "id": serializer.data['id'],
+                "id": job.id,
                 "message": "Job created successfully."
             }
             return Response(response_data, status=status.HTTP_201_CREATED)

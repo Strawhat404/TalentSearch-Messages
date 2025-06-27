@@ -227,3 +227,50 @@ class PasswordResetOTP(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_used = models.BooleanField(default=False)
     
+class UserReport(models.Model):
+    """
+    Model to track user reports for audit and moderation purposes.
+    """
+    REPORT_REASONS = (
+        ('inappropriate_content', 'Inappropriate Content'),
+        ('spam', 'Spam'),
+        ('harassment', 'Harassment'),
+        ('fake_profile', 'Fake Profile'),
+        ('scam', 'Scam'),
+        ('other', 'Other'),
+    )
+    
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('reviewed', 'Reviewed'),
+        ('resolved', 'Resolved'),
+        ('dismissed', 'Dismissed'),
+    )
+    
+    reporter = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_made')
+    reported_user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='reports_received')
+    reason = models.CharField(max_length=50, choices=REPORT_REASONS)
+    details = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    reviewed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='reports_reviewed')
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    review_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['reporter', 'reported_user', 'reason']  # Prevent duplicate reports
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['reported_user', 'status']),
+        ]
+    
+    def __str__(self):
+        return f"Report by {self.reporter.email} on {self.reported_user.email} - {self.reason}"
+    
+    def save(self, *args, **kwargs):
+        if self.status == 'reviewed' and not self.reviewed_at:
+            self.reviewed_at = timezone.now()
+        super().save(*args, **kwargs)
+    
