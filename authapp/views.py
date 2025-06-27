@@ -37,7 +37,7 @@ from .serializers import (
     AdminUserSerializer
 )
 from .utils import password_reset_token_generator, BruteForceProtection
-from .models import Notification, SecurityLog, PasswordResetToken, PasswordResetOTP
+from .models import Notification, SecurityLog, PasswordResetToken, PasswordResetOTP, UserReport
 from talentsearch.throttles import AuthRateThrottle
 from django.contrib.auth import get_user_model
 from django.core.validators import validate_email
@@ -46,6 +46,7 @@ from django.contrib.auth.tokens import default_token_generator
 import time_machine
 import random
 import re
+from .services import notify_new_user_registration, notify_user_reported
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -87,6 +88,9 @@ class RegisterView(APIView):
         
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
+        
+        # Notify admins about new user registration
+        notify_new_user_registration(user)
         
         return Response({
             'id': user.id,
@@ -1447,3 +1451,103 @@ class LoginView(APIView):
                 },
                 status=status.HTTP_401_UNAUTHORIZED
             )
+
+class UserReportView(APIView):
+    """
+    View for reporting users.
+    """
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [UserRateThrottle]
+
+    @swagger_auto_schema(
+        tags=['reports'],
+        summary='Report a user',
+        description='Report a user for inappropriate behavior or content',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['reported_user_id', 'reason'],
+            properties={
+                'reported_user_id': openapi.Schema(type=openapi.TYPE_INTEGER, example=123, description='ID of the user being reported'),
+                'reason': openapi.Schema(type=openapi.TYPE_STRING, enum=['inappropriate_content', 'spam', 'harassment', 'fake_profile', 'scam', 'other'], example='inappropriate_content', description='Reason for the report'),
+                'details': openapi.Schema(type=openapi.TYPE_STRING, example='Additional details about the report', description='Optional additional details'),
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='User reported successfully'),
+                        'report_id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1)
+                    }
+                )
+            ),
+            400: openapi.Response(description="Bad Request"),
+            404: openapi.Response(description="User not found"),
+        },
+    )
+    def post(self, request):
+        reported_user_id = request.data.get('reported_user_id')
+        reason = request.data.get('reason')
+        details = request.data.get('details', '')
+
+        if not reported_user_id or not reason:
+            return Response({
+                'error': 'reported_user_id and reason are required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            reported_user = User.objects.get(id=reported_user_id, is_active=True)
+        except User.DoesNotExist:
+            return Response({
+                'error': 'User not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+
+        # Prevent users from reporting themselves
+        if reported_user.id == request.user.id:
+            return Response({
+                'error': 'You cannot report yourself'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Check if user has already reported this user for the same reason
+        if UserReport.objects.filter(
+            reporter=request.user,
+            reported_user=reported_user,
+            reason=reason
+        ).exists():
+            return Response({
+                'error': 'You have already reported this user for this reason'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        # Create the report
+        report = UserReport.objects.create(
+            reporter=request.user,
+            reported_user=reported_user,
+            reason=reason,
+            details=details
+        )
+
+        # Send notification to admins
+        notify_user_reported(reported_user, request.user, reason)
+
+        # Log the report for audit purposes
+        SecurityLog.objects.create(
+            user=request.user,
+            email=request.user.email,
+            event_type='user_reported',
+            ip_address=request.META.get('REMOTE_ADDR'),
+            user_agent=request.META.get('HTTP_USER_AGENT', ''),
+            details={
+                'report_id': report.id,
+                'reported_user_id': reported_user.id,
+                'reported_user_email': reported_user.email,
+                'reason': reason,
+                'details': details
+            }
+        )
+
+        return Response({
+            'message': 'User reported successfully',
+            'report_id': report.id
+        }, status=status.HTTP_200_OK)

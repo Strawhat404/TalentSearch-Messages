@@ -66,9 +66,8 @@ INSTALLED_APPS = [
     'rental_ratings',
     'user_ratings',
     'contact_us',
-    'platform_stat'
+    'platform_stat',
     'payment',
-
 ]
 
 MIDDLEWARE = [

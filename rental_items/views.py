@@ -15,6 +15,7 @@ from .serializers import (
 from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from authapp.services import notify_new_rental_posted, notify_rental_verification_status
 
 class RentalItemViewSet(viewsets.ModelViewSet):
     queryset = RentalItem.objects.all()
@@ -46,17 +47,42 @@ class RentalItemViewSet(viewsets.ModelViewSet):
         return queryset
 
     def perform_create(self, serializer):
-        serializer.save(user=self.request.user)
+        rental_item = serializer.save(user=self.request.user)
+        # Trigger notification for new rental item
+        notify_new_rental_posted(rental_item)
+        return rental_item
 
     @action(detail=True, methods=['put'], permission_classes=[IsAdminUser])
     def approve(self, request, pk=None):
         rental_item = self.get_object()
         rental_item.approved = True
         rental_item.save()
+        
+        # Trigger notification for rental approval
+        notify_rental_verification_status(rental_item, request.user, True)
+        
         return Response({
             'id': str(rental_item.id),
             'message': 'Rental item approved successfully.',
             'approved': True
+        })
+
+    @action(detail=True, methods=['put'], permission_classes=[IsAdminUser])
+    def reject(self, request, pk=None):
+        rental_item = self.get_object()
+        rental_item.approved = False
+        rental_item.save()
+        
+        reason = request.data.get('reason', '')
+        
+        # Trigger notification for rental rejection
+        notify_rental_verification_status(rental_item, request.user, False, reason)
+        
+        return Response({
+            'id': str(rental_item.id),
+            'message': 'Rental item rejected successfully.',
+            'approved': False,
+            'reason': reason
         })
 
     @swagger_auto_schema(
@@ -107,6 +133,7 @@ class RentalItemViewSet(viewsets.ModelViewSet):
         return Response({
             'message': 'Rental item deleted successfully.'
         })
+
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RentalItemRatingSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]

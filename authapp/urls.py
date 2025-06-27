@@ -5,7 +5,7 @@ from .views import (
     NotificationStatsView, SystemNotificationView, NotificationCleanupView,
     ChangePasswordView, LogoutView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView,
     PasswordResetRequestView, PasswordResetConfirmView, CustomTokenObtainPairView, AdminUserListView,
-    NotificationMarkAllAsReadView, NotificationMarkReadView
+    NotificationMarkAllAsReadView, NotificationMarkReadView, UserReportView
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -42,4 +42,7 @@ urlpatterns = [
     path('notifications/system/', SystemNotificationView.as_view(), name='system-notification'),
     path('notifications/cleanup/', NotificationCleanupView.as_view(), name='notification-cleanup'),
     path('notifications/mark-all-read/', NotificationMarkAllAsReadView.as_view(), name='notification-mark-all-read'),
+    
+    # User Reporting
+    path('report-user/', UserReportView.as_view(), name='report-user'),
 ]
