@@ -304,6 +304,14 @@ class ProfileSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        # Get the user from the request context
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("User must be authenticated to create a profile")
+        
+        # Set the user for the profile
+        validated_data['user'] = request.user
+        
         # Extract nested data
         identity_verification_data = validated_data.pop('identity_verification', {})
         basic_information_data = validated_data.pop('basic_information', {})
