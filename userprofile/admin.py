@@ -3,8 +3,8 @@ from django import forms
 from django.core.files.storage import default_storage
 from django.contrib import messages
 from .models import (
-    Profile, BasicInformation, LocationInformation, IdentityVerification, ProfessionsAndSkills, PhysicalAttributes,
-    MedicalInfo, PersonalInfo, SocialMedia, Headshot, NaturalPhotos
+    Profile, BasicInformation, LocationInformation, IdentityVerification, ProfessionsAndSkills,
+    SocialMedia, Headshot, NaturalPhotos
 )
 import os
 from django.core.exceptions import ValidationError
@@ -12,13 +12,13 @@ from django.core.exceptions import ValidationError
 class ProfileForm(forms.ModelForm):
     class Meta:
         model = Profile
-        fields = ['user', 'birthdate', 'profession', 'location', 'availability_status', 'verified', 'flagged', 'status']
+        fields = ['user', 'availability_status', 'verified', 'flagged', 'status']
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Only make fields other than 'birthdate', 'profession', and 'user' optional
+        # Make all fields optional except user
         for field in self.fields:
-            if field not in ['birthdate', 'profession', 'user']:
+            if field != 'user':
                 self.fields[field].required = False
 
 class IdentityVerificationForm(forms.ModelForm):
@@ -62,46 +62,6 @@ class ProfessionalQualificationsForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         for field in self.fields:
             self.fields[field].required = False
-
-class PhysicalAttributesForm(forms.ModelForm):
-    class Meta:
-        model = PhysicalAttributes
-        fields = [
-            'facial_hair', 'physical_condition'
-        ]
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].required = False
-
-class MedicalInfoForm(forms.ModelForm):
-    class Meta:
-        model = MedicalInfo
-        fields = ['disability_status', 'disability_type']
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        for field in self.fields:
-            self.fields[field].required = False
-
-class PersonalInfoForm(forms.ModelForm):
-    class Meta:
-        model = PersonalInfo
-        fields = [
-            'first_name',
-            'last_name',
-            'language_proficiency',
-            'custom_language'
-        ]
-        widgets = {
-            'language_proficiency': forms.CheckboxSelectMultiple(),
-        }
-
-    def clean(self):
-        cleaned_data = super().clean()
-        # Add any custom validation here if needed
-        return cleaned_data
 
 class SocialMediaForm(forms.ModelForm):
     class Meta:
@@ -219,31 +179,6 @@ class ProfessionalQualificationsInline(admin.StackedInline):
         'skills', 'main_skill', 'skill_description', 'video_url'
     ]
 
-class PhysicalAttributesInline(admin.StackedInline):
-    model = PhysicalAttributes
-    form = PhysicalAttributesForm
-    can_delete = True
-    extra = 0
-    fields = [
-        'facial_hair', 'physical_condition'
-    ]
-
-class MedicalInfoInline(admin.StackedInline):
-    model = MedicalInfo
-    form = MedicalInfoForm
-    can_delete = True
-    extra = 0
-    fields = ['disability_status', 'disability_type']
-
-class PersonalInfoInline(admin.StackedInline):
-    model = PersonalInfo
-    form = PersonalInfoForm
-    can_delete = True
-    extra = 0
-    fields = [
-        'first_name', 'last_name', 'language_proficiency', 'custom_language'
-    ]
-
 class SocialMediaInline(admin.StackedInline):
     model = SocialMedia
     form = SocialMediaForm
@@ -299,28 +234,22 @@ class NaturalPhotosInline(admin.StackedInline):
 
 class ProfileAdmin(admin.ModelAdmin):
     form = ProfileForm
-    list_display = ['get_user_name', 'user', 'profession', 'location', 'created_at', 'availability_status', 'verified', 'flagged', 'status']
+    list_display = ['get_user_name', 'user', 'availability_status', 'verified', 'flagged', 'status']
     list_filter = ['availability_status', 'verified', 'flagged', 'status']
-    search_fields = ['user__name', 'user__username', 'user__email', 'profession', 'location']
-    readonly_fields = ['created_at', 'age', 'get_user_name']
+    search_fields = ['user__name', 'user__username', 'user__email']
+    readonly_fields = ['created_at', 'get_user_name']
     inlines = [
         IdentityVerificationInline,
         BasicInformationInline,
         LocationInformationInline,
         ProfessionalQualificationsInline,
-        PhysicalAttributesInline,
-        MedicalInfoInline,
-        PersonalInfoInline,
         SocialMediaInline,
         HeadshotInline,
         NaturalPhotosInline
     ]
     fieldsets = (
         ('Basic Information', {
-            'fields': ('user', 'birthdate', 'profession', 'location', 'status')
-        }),
-        ('Status', {
-            'fields': ('availability_status', 'verified', 'flagged')
+            'fields': ('user', 'availability_status', 'verified', 'flagged', 'status')
         }),
         ('Timestamps', {
             'fields': ('created_at',),
