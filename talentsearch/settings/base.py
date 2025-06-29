@@ -144,13 +144,60 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
-MEDIA_URL = '' # Not needed for Cloudinary
+MEDIA_URL = ''  # Not needed for Cloudinary
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+# Cloudinary Configuration
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': env('CLOUD_NAME', default='dummy_cloud_name'),
     'API_KEY': env('API_KEY', default='dummy_api_key'),
     'API_SECRET': env('API_SECRET', default='dummy_api_secret'),
+    # Additional Cloudinary settings for better performance
+    'STATIC_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 300,
+            'height': 300,
+            'crop': 'fill',
+            'quality': 'auto'
+        },
+        'medium': {
+            'width': 800,
+            'height': 600,
+            'crop': 'limit',
+            'quality': 'auto'
+        },
+        'large': {
+            'width': 1200,
+            'height': 800,
+            'crop': 'limit',
+            'quality': 'auto'
+        }
+    },
+    # Video transformations
+    'VIDEO_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 300,
+            'height': 300,
+            'crop': 'fill',
+            'video_codec': 'auto'
+        },
+        'medium': {
+            'width': 800,
+            'height': 600,
+            'crop': 'limit',
+            'video_codec': 'auto'
+        }
+    },
+    # Folder structure for better organization
+    'FOLDER': 'talentsearch',
+    # Enable secure URLs
+    'SECURE': True,
+    # Enable responsive images
+    'RESPONSIVE': True,
+    # Enable automatic format optimization
+    'FORMAT': 'auto',
+    # Enable automatic quality optimization
+    'QUALITY': 'auto',
 }
 
 # Custom user model

@@ -33,10 +33,6 @@ class ProfileView(APIView):
                         "id": 3,
                         "name": "mak",
                         "email": "makdatse@gmail.com",
-                        "birthdate": "2001-05-16",
-                        "profession": "actor",
-                        "age": 24,
-                        "location": "",
                         "created_at": "2025-05-27T05:37:38.297856Z",
                         "availability_status": True,
                         "verified": False,
@@ -59,38 +55,6 @@ class ProfileView(APIView):
                             "main_skill": [],
                             "skill_description": None,
                             "video_url": None
-                        },
-                        "physical_attributes": {
-                            "weight": None,
-                            "height": None,
-                            "gender": None,
-                            "hair_color": None,
-                            "eye_color": None,
-                            "body_type": None,
-                            "skin_tone": None,
-                            "facial_hair": None,
-                            "tattoos_visible": False,
-                            "piercings_visible": False,
-                            "physical_condition": None
-                        },
-                        "medical_info": {
-                            "health_conditions": [],
-                            "medications": [],
-                            "disability_status": None,
-                            "disability_type": None
-                        },
-                        "personal_info": {
-                            "marital_status": None,
-                            "ethnicity": None,
-                            "personality_type": None,
-                            "work_preference": None,
-                            "hobbies": [],
-                            "volunteer_experience": None,
-                            "company_culture_preference": None,
-                            "language_proficiency": [],
-                            "special_skills": [],
-                            "tools_experience": [],
-                            "award_recognitions": []
                         },
                         "natural_photos": {
                             "natural_photo_1": None,
@@ -117,7 +81,7 @@ class ProfileView(APIView):
     @swagger_auto_schema(
         tags=['profile'],
         summary="Create user profile",
-        description="Create a new user profile with required and optional fields.",
+        description="Create a new user profile with optional fields.",
         request_body=ProfileSerializer,
         responses={
             201: openapi.Response(
@@ -128,10 +92,6 @@ class ProfileView(APIView):
                         "id": 3,
                         "name": "mak",
                         "email": "makdatse@gmail.com",
-                        "birthdate": "2001-05-16",
-                        "profession": "actor",
-                        "age": 24,
-                        "location": "",
                         "created_at": "2025-05-27T05:37:38.297856Z",
                         "availability_status": True,
                         "verified": False,
@@ -154,38 +114,6 @@ class ProfileView(APIView):
                             "main_skill": [],
                             "skill_description": None,
                             "video_url": None
-                        },
-                        "physical_attributes": {
-                            "weight": None,
-                            "height": None,
-                            "gender": None,
-                            "hair_color": None,
-                            "eye_color": None,
-                            "body_type": None,
-                            "skin_tone": None,
-                            "facial_hair": None,
-                            "tattoos_visible": False,
-                            "piercings_visible": False,
-                            "physical_condition": None
-                        },
-                        "medical_info": {
-                            "health_conditions": [],
-                            "medications": [],
-                            "disability_status": None,
-                            "disability_type": None
-                        },
-                        "personal_info": {
-                            "marital_status": None,
-                            "ethnicity": None,
-                            "personality_type": None,
-                            "work_preference": None,
-                            "hobbies": [],
-                            "volunteer_experience": None,
-                            "company_culture_preference": None,
-                            "language_proficiency": [],
-                            "special_skills": [],
-                            "tools_experience": [],
-                            "award_recognitions": []
                         },
                         "natural_photos": {
                             "natural_photo_1": None,
@@ -241,67 +169,21 @@ class ProfileView(APIView):
     def patch(self, request):
         try:
             profile = Profile.objects.get(user=request.user)
-            # Create a copy of the data to avoid modifying the original
-            data = request.data.copy()
             
-            # Remove fields that shouldn't be updated
-            for field in ['user', 'id', 'email', 'age', 'created_at', 'verified', 'flagged']:
-                if field in data:
-                    del data[field]
-            
-            # Handle nested data
-            for nested_field in ['identity_verification', 'professions_and_skills', 'physical_attributes',
-                               'medical_info', 'personal_info', 'social_media', 'headshot', 'natural_photos']:
-                if nested_field in data:
-                    try:
-                        nested_data = data[nested_field]
-                        if isinstance(nested_data, dict):
-                            # Get the existing nested instance
-                            nested_instance = getattr(profile, nested_field, None)
-                            if nested_instance:
-                                # Update the existing instance
-                                for key, value in nested_data.items():
-                                    setattr(nested_instance, key, value)
-                                nested_instance.save()
-                            else:
-                                # Create a new instance - import the model dynamically
-                                from userprofile.models import (
-                                    IdentityVerification, ProfessionsAndSkills, PhysicalAttributes,
-                                    MedicalInfo, PersonalInfo, SocialMedia, Headshot, NaturalPhotos
-                                )
-                                
-                                model_mapping = {
-                                    'identity_verification': IdentityVerification,
-                                    'professions_and_skills': ProfessionsAndSkills,
-                                    'physical_attributes': PhysicalAttributes,
-                                    'medical_info': MedicalInfo,
-                                    'personal_info': PersonalInfo,
-                                    'social_media': SocialMedia,
-                                    'headshot': Headshot,
-                                    'natural_photos': NaturalPhotos
-                                }
-                                
-                                model_class = model_mapping.get(nested_field)
-                                if model_class:
-                                    model_class.objects.create(profile=profile, **nested_data)
-                                else:
-                                    raise Exception(f"Unknown nested field: {nested_field}")
-                            # Remove the nested data from the main data
-                            del data[nested_field]
-                    except Exception as e:
-                        print(f"Error processing {nested_field}: {str(e)}")
-                        raise Exception(f"Error processing {nested_field}: {str(e)}")
-            
-            # Update the main profile fields
-            for attr, value in data.items():
-                setattr(profile, attr, value)
-            profile.save()
-
-            response_data = {
-                "id": profile.id,
-                "message": "Profile updated successfully."
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+            # Use the serializer for proper validation and data handling
+            serializer = ProfileSerializer(profile, data=request.data, partial=True, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                response_data = {
+                    "id": profile.id,
+                    "message": "Profile updated successfully."
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {"message": "Validation error", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)
@@ -512,20 +394,6 @@ class PublicProfilesView(APIView):
         description="Retrieve all public profiles with limited information (no sensitive data). Anyone can access this endpoint without authentication.",
         parameters=[
             openapi.Parameter(
-                'profession',
-                openapi.IN_QUERY,
-                description="Filter profiles by profession",
-                type=openapi.TYPE_STRING,
-                required=False
-            ),
-            openapi.Parameter(
-                'location',
-                openapi.IN_QUERY,
-                description="Filter profiles by location",
-                type=openapi.TYPE_STRING,
-                required=False
-            ),
-            openapi.Parameter(
                 'verified',
                 openapi.IN_QUERY,
                 description="Filter by verification status (true/false)",
@@ -549,9 +417,6 @@ class PublicProfilesView(APIView):
                         {
                             "id": 1,
                             "name": "John Doe",
-                            "profession": "actor",
-                            "age": 28,
-                            "location": "Los Angeles",
                             "created_at": "2025-01-15T10:30:00Z",
                             "availability_status": True,
                             "verified": True,
@@ -566,32 +431,6 @@ class PublicProfilesView(APIView):
                                 "main_skill": [],
                                 "skill_description": "Professional actor with 3-5 years experience",
                                 "video_url": "https://example.com/portfolio"
-                            },
-                            "physical_attributes": {
-                                "gender": "male",
-                                "hair_color": "brown",
-                                "eye_color": "blue",
-                                "body_type": "athletic",
-                                "skin_tone": "fair"
-                            },
-                            "medical_info": {
-                                "health_conditions": [],
-                                "medications": [],
-                                "disability_status": None,
-                                "disability_type": None
-                            },
-                            "personal_info": {
-                                "marital_status": None,
-                                "ethnicity": None,
-                                "personality_type": None,
-                                "work_preference": None,
-                                "hobbies": [],
-                                "volunteer_experience": None,
-                                "company_culture_preference": None,
-                                "language_proficiency": [],
-                                "special_skills": [],
-                                "tools_experience": [],
-                                "award_recognitions": []
                             },
                             "natural_photos": {
                                 "natural_photo_1": None,
@@ -614,22 +453,15 @@ class PublicProfilesView(APIView):
                 flagged=False
             ).select_related(
                 'professions_and_skills',
-                'physical_attributes',
-                'medical_info',
-                'personal_info',
                 'headshot',
-                'natural_photos'
+                'natural_photos',
+                'social_media',
+                'identity_verification',
+                'basic_information',
+                'location_information',
             ).order_by('-created_at')
 
             # Apply filters if provided
-            profession = request.query_params.get('profession')
-            if profession:
-                profiles = profiles.filter(profession__icontains=profession)
-
-            location = request.query_params.get('location')
-            if location:
-                profiles = profiles.filter(location__icontains=location)
-
             verified = request.query_params.get('verified')
             if verified is not None:
                 verified_bool = verified.lower() == 'true'

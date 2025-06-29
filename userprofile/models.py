@@ -135,9 +135,6 @@ class MainSkill(models.Model):
 class Profile(models.Model):
     id = models.AutoField(primary_key=True)
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
-    birthdate = models.DateField(null=True, blank=True, help_text="Date of birth (required)")
-    profession = CaseInsensitiveCharField(max_length=50)
-    location = CaseInsensitiveCharField(max_length=100, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     availability_status = models.BooleanField(default=True)
@@ -152,74 +149,39 @@ class Profile(models.Model):
 
     def clean(self):
         # Sanitize string fields (removed name sanitization since it's from User model)
-        if self.profession:
-            self.profession = sanitize_string(self.profession)
-        if self.location:
-            self.location = sanitize_string(self.location)
         if self.status:
             self.status = sanitize_string(self.status)
 
-        # Existing validations
-        if self.birthdate:
-            if self.birthdate > date.today():
-                raise ValidationError({
-                    'birthdate': 'Birthdate cannot be in the future.'
-                })
-            # Calculate age
-            age = (date.today() - self.birthdate).days // 365
-            if age < 18:
-                raise ValidationError({
-                    'birthdate': 'Must be at least 18 years old.'
-                })
-            if age > 100:
-                raise ValidationError({
-                    'birthdate': 'Age cannot exceed 100 years.'
-                })
-
-        if not self.location:
-            raise ValidationError("Location is required.")
-
     def save(self, *args, **kwargs):
-        if not self.birthdate:
-            raise ValidationError("Date of birth is required.")
-        if not self.profession:
-            raise ValidationError("Profession is required.")
+        self.clean()
         super().save(*args, **kwargs)
 
     def __str__(self):
         return self.name or f"Profile of {self.user.username}"
 
-    @property
-    def age(self):
-        if self.birthdate:
-            today = date.today()
-            age = today.year - self.birthdate.year
-            if today.month < self.birthdate.month or (today.month == self.birthdate.month and today.day < self.birthdate.day):
-                age -= 1
-            return age
-        return None
-
 class BasicInformation(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='basic_information')
     
     # Populated fields (from JSON data)
-    nationality = CaseInsensitiveCharField(max_length=100, help_text="Nationality")
-    gender = CaseInsensitiveCharField(max_length=20, help_text="Gender")
-    languages = models.JSONField(default=list, help_text="Languages spoken")
-    hair_color = CaseInsensitiveCharField(max_length=50, help_text="Hair color")
-    eye_color = CaseInsensitiveCharField(max_length=50, help_text="Eye color")
-    skin_tone = CaseInsensitiveCharField(max_length=50, help_text="Skin tone")
-    body_type = CaseInsensitiveCharField(max_length=50, help_text="Body type")
-    medical_condition = models.JSONField(default=list, help_text="Medical conditions")
-    medicine_type = models.JSONField(default=list, help_text="Types of medicine")
-    marital_status = CaseInsensitiveCharField(max_length=20, help_text="Marital status")
-    hobbies = models.JSONField(default=list, help_text="Hobbies")
+    nationality = CaseInsensitiveCharField(max_length=100, null=True, blank=True, help_text="Nationality")
+    gender = CaseInsensitiveCharField(max_length=20, null=True, blank=True, help_text="Gender")
+    languages = models.JSONField(default=list, null=True, blank=True, help_text="Languages spoken")
+    hair_color = CaseInsensitiveCharField(max_length=50, null=True, blank=True, help_text="Hair color")
+    eye_color = CaseInsensitiveCharField(max_length=50, null=True, blank=True, help_text="Eye color")
+    skin_tone = CaseInsensitiveCharField(max_length=50, null=True, blank=True, help_text="Skin tone")
+    body_type = CaseInsensitiveCharField(max_length=50, null=True, blank=True, help_text="Body type")
+    medical_condition = models.JSONField(default=list, null=True, blank=True, help_text="Medical conditions")
+    medicine_type = models.JSONField(default=list, null=True, blank=True, help_text="Types of medicine")
+    marital_status = CaseInsensitiveCharField(max_length=20, null=True, blank=True, help_text="Marital status")
+    hobbies = models.JSONField(default=list, null=True, blank=True, help_text="Hobbies")
     
     # Input fields
-    date_of_birth = models.DateField(help_text="Date of birth")
+    date_of_birth = models.DateField(null=True, blank=True, help_text="Date of birth")
     height = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
+        null=True,
+        blank=True,
         help_text="Height in centimeters",
         validators=[
             MinValueValidator(100, message="Height must be at least 100 cm"),
@@ -229,15 +191,19 @@ class BasicInformation(models.Model):
     weight = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
+        null=True,
+        blank=True,
         help_text="Weight in kilograms",
         validators=[
             MinValueValidator(30, message="Weight must be at least 30 kg"),
             MaxValueValidator(500, message="Weight cannot exceed 500 kg")
         ]
     )
-    emergency_contact_name = CaseInsensitiveCharField(max_length=100, help_text="Emergency contact name")
+    emergency_contact_name = CaseInsensitiveCharField(max_length=100, null=True, blank=True, help_text="Emergency contact name")
     emergency_contact_phone = models.CharField(
         max_length=20, 
+        null=True,
+        blank=True,
         help_text="Emergency contact phone (must start with +251)",
         validators=[
             RegexValidator(
@@ -254,6 +220,8 @@ class BasicInformation(models.Model):
     visible_tattoos = models.BooleanField(default=False, help_text="Has visible tattoos")
     willing_to_travel = CaseInsensitiveCharField(
         max_length=3,
+        null=True,
+        blank=True,
         choices=[('Yes', 'Yes'), ('No', 'No')],
         help_text="Willingness to travel"
     )
@@ -314,15 +282,15 @@ class LocationInformation(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='location_information')
     
     # Populated fields (from JSON data)
-    housing_status = CaseInsensitiveCharField(max_length=50, help_text="Housing status")
-    region = CaseInsensitiveCharField(max_length=100, help_text="Region")
-    duration = CaseInsensitiveCharField(max_length=50, help_text="Duration of residence")
-    city = CaseInsensitiveCharField(max_length=100, help_text="City")
-    country = models.CharField(max_length=2, help_text="Country code")
+    housing_status = CaseInsensitiveCharField(max_length=50, null=True, blank=True, help_text="Housing status")
+    region = CaseInsensitiveCharField(max_length=100, null=True, blank=True, help_text="Region")
+    duration = CaseInsensitiveCharField(max_length=50, null=True, blank=True, help_text="Duration of residence")
+    city = CaseInsensitiveCharField(max_length=100, null=True, blank=True, help_text="City")
+    country = models.CharField(max_length=2, null=True, blank=True, help_text="Country code")
     
     # Input fields
-    address = CaseInsensitiveCharField(max_length=255, help_text="Full address")
-    specific_area = CaseInsensitiveCharField(max_length=100, help_text="Specific area within the city")
+    address = CaseInsensitiveCharField(max_length=255, null=True, blank=True, help_text="Full address")
+    specific_area = CaseInsensitiveCharField(max_length=100, null=True, blank=True, help_text="Specific area within the city")
     
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -344,12 +312,6 @@ class LocationInformation(models.Model):
         if self.specific_area:
             self.specific_area = sanitize_string(self.specific_area)
 
-        # Validate required fields
-        if not self.address:
-            raise ValidationError("Address is required.")
-        if not self.specific_area:
-            raise ValidationError("Specific area is required.")
-
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
@@ -367,23 +329,25 @@ class IdentityVerification(models.Model):
     # From prepopulated data
     id_type = CaseInsensitiveCharField(
         max_length=50,
+        null=True,
+        blank=True,
         help_text="Type of identification document (National ID, Passport, Driving License)"
     )
     
     # Input fields
     id_front = models.ImageField(
-        upload_to='id_fronts/',
+        upload_to='media/id_fronts/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Front photo of ID document (required)",
-        null=False,
-        blank=False
+        help_text="Front photo of ID document",
+        null=True,
+        blank=True
     )
     id_back = models.ImageField(
-        upload_to='id_backs/',
+        upload_to='media/id_backs/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
-        help_text="Back photo of ID document (required)",
-        null=False,
-        blank=False
+        help_text="Back photo of ID document",
+        null=True,
+        blank=True
     )
     
     # Additional fields for verification
@@ -426,7 +390,7 @@ class ProfessionsAndSkills(models.Model):
     # From prepopulated data
     professions = models.JSONField(
         default=list,
-        help_text="Selected professions (minimum 1 required)"
+        help_text="Selected professions"
     )
     actor_category = models.JSONField(
         default=list,
@@ -470,23 +434,6 @@ class ProfessionsAndSkills(models.Model):
         # Sanitize text fields
         if self.skill_description:
             self.skill_description = sanitize_string(self.skill_description)
-        
-        # Validate that at least one profession is selected
-        # Check boolean fields
-        profession_fields = [
-            self.is_actor, self.is_model, self.is_performer, self.is_host,
-            self.is_influencer, self.is_voice_over, self.is_cameraman,
-            self.is_presenter, self.is_stuntman
-        ]
-        
-        # Check JSON professions array
-        has_professions_array = self.professions and len(self.professions) > 0
-        
-        # At least one profession must be selected (either boolean or array)
-        if not any(profession_fields) and not has_professions_array:
-            raise ValidationError({
-                'is_actor': 'At least one profession must be selected.'
-            })
 
     def save(self, *args, **kwargs):
         self.clean()
@@ -549,7 +496,7 @@ class Experience(models.Model):
     )
     portfolio_url = models.URLField(
         blank=True,
-        help_text="Portfolio URL (required for Cameraman)"
+        help_text="Portfolio URL"
     )
     training_workshops = models.TextField(
         blank=True,
@@ -581,7 +528,7 @@ class Experience(models.Model):
     video_links = models.JSONField(
         default=list,
         blank=True,
-        help_text="List of video links (required for Voice Over)"
+        help_text="List of video links"
     )
     
     created_at = models.DateTimeField(auto_now_add=True)
@@ -597,22 +544,6 @@ class Experience(models.Model):
             self.training_workshops = sanitize_string(self.training_workshops)
         if self.union_membership:
             self.union_membership = sanitize_string(self.union_membership)
-        
-        # Validate portfolio URL for Cameraman
-        if hasattr(self.profile, 'professions_and_skills'):
-            prof_skills = self.profile.professions_and_skills
-            if prof_skills.is_cameraman and not self.portfolio_url:
-                raise ValidationError({
-                    'portfolio_url': 'Portfolio URL is required for Cameraman profession.'
-                })
-        
-        # Validate video links for Voice Over
-        if hasattr(self.profile, 'professions_and_skills'):
-            prof_skills = self.profile.professions_and_skills
-            if prof_skills.is_voice_over and not self.video_links:
-                raise ValidationError({
-                    'video_links': 'Video links are required for Voice Over profession.'
-                })
         
         # Validate salary range
         if self.salary_range_min and self.salary_range_max:
@@ -675,13 +606,13 @@ class Headshot(models.Model):
     
     # Input fields
     professional_headshot = models.ImageField(
-        upload_to='headshots/',
+        upload_to='media/headshots/',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             MinValueValidator(800, message="Image width must be at least 800 pixels"),
             MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
         ],
-        help_text="Professional headshot (required). Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
+        help_text="Professional headshot. Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
         blank=True,
         null=True
     )
@@ -729,138 +660,73 @@ class Headshot(models.Model):
         verbose_name = "Headshot"
         verbose_name_plural = "Headshots"
 
-class PhysicalAttributes(models.Model):
-    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='physical_attributes')
-    facial_hair = CaseInsensitiveCharField(max_length=50, blank=True)
-    physical_condition = CaseInsensitiveCharField(max_length=50, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def clean(self):
-        # Sanitize string fields
-        if self.facial_hair:
-            self.facial_hair = sanitize_string(self.facial_hair)
-        if self.physical_condition:
-            self.physical_condition = sanitize_string(self.physical_condition)
+class VerificationStatus(models.Model):
+    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='verification_status')
+    is_verified = models.BooleanField(default=False)
+    verification_type = CaseInsensitiveCharField(max_length=50)  # e.g., 'id', 'address', 'phone'
+    verification_date = models.DateTimeField(auto_now_add=True)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    verification_method = CaseInsensitiveCharField(max_length=50)  # e.g., 'document', 'phone_call', 'email'
+    verification_notes = models.TextField(blank=True)
+    last_updated = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):
-        self.clean()
+        # Sanitize string fields
+        if self.verification_type:
+            self.verification_type = sanitize_string(self.verification_type)
+        if self.verification_method:
+            self.verification_method = sanitize_string(self.verification_method)
+        if self.verification_notes:
+            self.verification_notes = sanitize_string(self.verification_notes)
+        
         super().save(*args, **kwargs)
 
     def __str__(self):
-        return f"Physical Attributes for {self.profile.user.username}"
+        return f"Verification Status for {self.profile.user.username}"
+
+class VerificationAuditLog(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='verification_logs')
+    previous_status = models.BooleanField()
+    new_status = models.BooleanField()
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    verification_type = CaseInsensitiveCharField(max_length=50)
+    verification_method = CaseInsensitiveCharField(max_length=50)
+    notes = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True)
+    user_agent = models.TextField(blank=True)
 
     class Meta:
-        verbose_name = "Physical Attributes"
-        verbose_name_plural = "Physical Attributes"
-
-class MedicalInfo(models.Model):
-    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='medical_info')
-    disability_status = CaseInsensitiveCharField(max_length=50, blank=True)
-    disability_type = CaseInsensitiveCharField(max_length=50, blank=True, default="None")
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def clean(self):
-        # Sanitize string fields
-        if self.disability_status:
-            self.disability_status = sanitize_string(self.disability_status)
-        if self.disability_type:
-            self.disability_type = sanitize_string(self.disability_type)
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
+        ordering = ['-changed_at']
+        verbose_name = 'Verification Audit Log'
+        verbose_name_plural = 'Verification Audit Logs'
 
     def __str__(self):
-        return f"Medical Info for {self.profile.user.username}"
-
-    class Meta:
-        verbose_name = "Medical Information"
-        verbose_name_plural = "Medical Information"
-
-class PersonalInfo(models.Model):
-    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='personal_info')
-    first_name = CaseInsensitiveCharField(max_length=100, null=True, blank=True)
-    last_name = CaseInsensitiveCharField(max_length=100, null=True, blank=True)
-    language_proficiency = models.JSONField(default=list, null=False, blank=False)
-    custom_language = CaseInsensitiveCharField(max_length=100, blank=True, null=True)
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Personal Info for {self.profile.user.username}"
-
-    class Meta:
-        verbose_name = "Personal Information"
-        verbose_name_plural = "Personal Information"
-
-    def clean(self):
-        # Sanitize string fields
-        if self.first_name:
-            self.first_name = sanitize_string(self.first_name)
-        if self.last_name:
-            self.last_name = sanitize_string(self.last_name)
-        if self.custom_language:
-            self.custom_language = sanitize_string(self.custom_language)
-
-        # Validate language_proficiency
-        if not self.language_proficiency:
-            raise ValidationError("Language proficiency is required.")
-
-        # Validate that custom_language is provided if language_proficiency contains 'other'
-        if 'other' in self.language_proficiency and not self.custom_language:
-            raise ValidationError("Custom language is required when 'other' is selected in language proficiency.")
-
-        # Validate custom_language format if provided
-        if self.custom_language:
-            # Check for minimum length
-            if len(self.custom_language.strip()) < 2:
-                raise ValidationError("Custom language must be at least 2 characters long.")
-            
-            # Check for maximum length
-            if len(self.custom_language.strip()) > 50:
-                raise ValidationError("Custom language cannot exceed 50 characters.")
-            
-            # Check for valid characters (letters, spaces, hyphens, apostrophes)
-            if not re.match(r'^[a-zA-Z\s\-\']+$', self.custom_language.strip()):
-                raise ValidationError("Custom language can only contain letters, spaces, hyphens, and apostrophes.")
-            
-            # Check for excessive spaces
-            if '  ' in self.custom_language:
-                raise ValidationError("Custom language cannot contain excessive spaces.")
-            
-            # Check for leading/trailing spaces
-            if self.custom_language != self.custom_language.strip():
-                raise ValidationError("Custom language cannot have leading or trailing spaces.")
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
+        return f"Verification log for {self.profile.user.username} at {self.changed_at}"
 
 class NaturalPhotos(models.Model):
     profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='natural_photos')
     
     # Input fields
     natural_photo_1 = models.ImageField(
-        upload_to='natural_photos/',
+        upload_to='media/natural_photos/',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             MinValueValidator(800, message="Image width must be at least 800 pixels"),
             MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
         ],
-        help_text="First natural photo (required). Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
+        help_text="First natural photo. Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
         blank=True,
         null=True
     )
     natural_photo_2 = models.ImageField(
-        upload_to='natural_photos/',
+        upload_to='media/natural_photos/',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
             MinValueValidator(800, message="Image width must be at least 800 pixels"),
             MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
         ],
-        help_text="Second natural photo (required). Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
+        help_text="Second natural photo. Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
         blank=True,
         null=True
     )
@@ -919,47 +785,3 @@ class NaturalPhotos(models.Model):
     class Meta:
         verbose_name = "Natural Photos"
         verbose_name_plural = "Natural Photos"
-
-class VerificationStatus(models.Model):
-    profile = models.OneToOneField(Profile, on_delete=models.CASCADE, related_name='verification_status')
-    is_verified = models.BooleanField(default=False)
-    verification_type = CaseInsensitiveCharField(max_length=50)  # e.g., 'id', 'address', 'phone'
-    verification_date = models.DateTimeField(auto_now_add=True)
-    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    verification_method = CaseInsensitiveCharField(max_length=50)  # e.g., 'document', 'phone_call', 'email'
-    verification_notes = models.TextField(blank=True)
-    last_updated = models.DateTimeField(auto_now=True)
-
-    def save(self, *args, **kwargs):
-        # Sanitize string fields
-        if self.verification_type:
-            self.verification_type = sanitize_string(self.verification_type)
-        if self.verification_method:
-            self.verification_method = sanitize_string(self.verification_method)
-        if self.verification_notes:
-            self.verification_notes = sanitize_string(self.verification_notes)
-        
-        super().save(*args, **kwargs)
-
-    def __str__(self):
-        return f"Verification Status for {self.profile.user.username}"
-
-class VerificationAuditLog(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='verification_logs')
-    previous_status = models.BooleanField()
-    new_status = models.BooleanField()
-    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    changed_at = models.DateTimeField(auto_now_add=True)
-    verification_type = CaseInsensitiveCharField(max_length=50)
-    verification_method = CaseInsensitiveCharField(max_length=50)
-    notes = models.TextField(blank=True)
-    ip_address = models.GenericIPAddressField(null=True)
-    user_agent = models.TextField(blank=True)
-
-    class Meta:
-        ordering = ['-changed_at']
-        verbose_name = 'Verification Audit Log'
-        verbose_name_plural = 'Verification Audit Logs'
-
-    def __str__(self):
-        return f"Verification log for {self.profile.user.username} at {self.changed_at}"

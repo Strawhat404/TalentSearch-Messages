@@ -100,7 +100,7 @@ class RentalItemImage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     rental_item = models.ForeignKey(RentalItem, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(
-        upload_to=rental_item_image_path,
+        upload_to='media/rental_items/main/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text='Additional image for the rental item'
     )

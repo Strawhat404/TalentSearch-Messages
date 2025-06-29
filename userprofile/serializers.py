@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
-    Profile, BasicInformation, LocationInformation, IdentityVerification, PhysicalAttributes,
-    MedicalInfo, PersonalInfo, VerificationStatus, VerificationAuditLog, ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos
+    Profile, BasicInformation, LocationInformation, IdentityVerification,
+    VerificationStatus, VerificationAuditLog, ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos, Experience
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -12,6 +12,7 @@ from datetime import date
 import bleach
 import json
 from django.conf import settings
+import logging
 
 # Helper function to sanitize strings
 def sanitize_string(value):
@@ -105,98 +106,6 @@ class ActorCategorySerializer(serializers.Serializer):
     name = serializers.CharField()
     description = serializers.CharField()
 
-class PhysicalAttributesSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PhysicalAttributes
-        fields = [
-            'id', 'facial_hair', 'physical_condition'
-        ]
-        read_only_fields = ['id']
-
-    def validate(self, data):
-        # Convert string fields to lowercase for case insensitive handling
-        string_fields = ['facial_hair', 'physical_condition']
-        
-        for field in string_fields:
-            if field in data and data[field]:
-                data[field] = to_lowercase(data[field])
-        
-        # No required fields validation needed since all fields are optional
-        return data
-
-class MedicalInfoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = MedicalInfo
-        fields = [
-            'id', 'disability_status', 'disability_type'
-        ]
-        read_only_fields = ['id']
-
-    def validate(self, data):
-        # Convert string fields to lowercase for case insensitive handling
-        string_fields = ['disability_status', 'disability_type']
-        
-        for field in string_fields:
-            if field in data and data[field]:
-                data[field] = to_lowercase(data[field])
-        
-        # No required fields validation needed since all fields are optional
-        return data
-
-class PersonalInfoSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PersonalInfo
-        fields = [
-            'id', 'first_name', 'last_name', 'language_proficiency',
-            'custom_language', 'created_at', 'updated_at'
-        ]
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
-    def validate(self, data):
-        # Convert string fields to lowercase for case insensitive handling
-        string_fields = ['first_name', 'last_name', 'custom_language']
-        
-        for field in string_fields:
-            if field in data and data[field]:
-                data[field] = to_lowercase(data[field])
-        
-        # Validate language_proficiency
-        if not data.get('language_proficiency'):
-            raise serializers.ValidationError("Language proficiency is required.")
-
-        # Validate that custom_language is provided if language_proficiency contains 'other'
-        if 'other' in data.get('language_proficiency', []) and not data.get('custom_language'):
-            raise serializers.ValidationError("Custom language is required when 'other' is selected in language proficiency.")
-
-        # Validate custom_language format if provided
-        if data.get('custom_language'):
-            custom_lang = data['custom_language']
-            # Check for minimum length
-            if len(custom_lang.strip()) < 2:
-                raise serializers.ValidationError("Custom language must be at least 2 characters long.")
-            
-            # Check for maximum length
-            if len(custom_lang.strip()) > 50:
-                raise serializers.ValidationError("Custom language cannot exceed 50 characters.")
-            
-            # Check for valid characters (letters, spaces, hyphens, apostrophes)
-            if not re.match(r'^[a-zA-Z\s\-\']+$', custom_lang.strip()):
-                raise serializers.ValidationError("Custom language can only contain letters, spaces, hyphens, and apostrophes.")
-            
-            # Check for excessive spaces
-            if '  ' in custom_lang:
-                raise serializers.ValidationError("Custom language cannot contain excessive spaces.")
-            
-            # Check for leading/trailing spaces
-            if custom_lang != custom_lang.strip():
-                raise serializers.ValidationError("Custom language cannot have leading or trailing spaces.")
-
-        return data
-
-    def save(self, *args, **kwargs):
-        self.clean()
-        super().save(*args, **kwargs)
-
 class SocialMediaSerializer(serializers.ModelSerializer):
     class Meta:
         model = SocialMedia
@@ -287,6 +196,35 @@ class NaturalPhotosSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid natural photo 2 image. Must be a valid image format (jpg, jpeg, png).")
         return value
 
+class ExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Experience
+        fields = [
+            'id', 'experience_level', 'years', 'availability', 'employment_status', 'work_location', 'shift',
+            'skill_videos_url', 'experience_description', 'industry_experience', 'previous_employers',
+            'portfolio_url', 'training_workshops', 'union_membership', 'certifications',
+            'salary_range_min', 'salary_range_max', 'video_links', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        # Convert string fields to lowercase for case insensitive handling
+        string_fields = ['experience_description', 'industry_experience', 'training_workshops', 'union_membership']
+        
+        for field in string_fields:
+            if field in data and data[field]:
+                data[field] = to_lowercase(data[field])
+        
+        # Validate salary range
+        salary_range_min = data.get('salary_range_min')
+        salary_range_max = data.get('salary_range_max')
+        if salary_range_min and salary_range_max and salary_range_min > salary_range_max:
+            raise serializers.ValidationError({
+                'salary_range_max': 'Maximum salary must be greater than minimum salary.'
+            })
+        
+        return data
+
 class BasicInformationSerializer(serializers.ModelSerializer):
     class Meta:
         model = BasicInformation
@@ -302,53 +240,30 @@ class BasicInformationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Convert string fields to lowercase for case insensitive handling
         string_fields = [
-            'nationality', 'gender', 'hair_color', 'eye_color', 'skin_tone', 'body_type',
-            'marital_status', 'emergency_contact_name', 'custom_hobby', 'willing_to_travel'
+            'nationality', 'gender', 'hair_color', 'eye_color', 'skin_tone',
+            'body_type', 'medical_condition', 'medicine_type', 'marital_status', 'hobbies',
+            'emergency_contact_name', 'emergency_contact_phone', 'custom_hobby'
+            # Note: 'willing_to_travel' is excluded because it has specific choices ['Yes', 'No']
         ]
         
         for field in string_fields:
             if field in data and data[field]:
                 data[field] = to_lowercase(data[field])
         
-        # Validate required fields
-        if not data.get('nationality'):
-            raise serializers.ValidationError({"nationality": "Nationality is required."})
-        if not data.get('gender'):
-            raise serializers.ValidationError({"gender": "Gender is required."})
-        if not data.get('languages'):
-            raise serializers.ValidationError({"languages": "Languages are required."})
-        if not data.get('hair_color'):
-            raise serializers.ValidationError({"hair_color": "Hair color is required."})
-        if not data.get('eye_color'):
-            raise serializers.ValidationError({"eye_color": "Eye color is required."})
-        if not data.get('skin_tone'):
-            raise serializers.ValidationError({"skin_tone": "Skin tone is required."})
-        if not data.get('body_type'):
-            raise serializers.ValidationError({"body_type": "Body type is required."})
-        if not data.get('medical_condition'):
-            raise serializers.ValidationError({"medical_condition": "Medical condition is required."})
-        if not data.get('medicine_type'):
-            raise serializers.ValidationError({"medicine_type": "Medicine type is required."})
-        if not data.get('marital_status'):
-            raise serializers.ValidationError({"marital_status": "Marital status is required."})
-        if not data.get('hobbies'):
-            raise serializers.ValidationError({"hobbies": "Hobbies are required."})
-        if not data.get('date_of_birth'):
-            raise serializers.ValidationError({"date_of_birth": "Date of birth is required."})
-        if not data.get('height'):
-            raise serializers.ValidationError({"height": "Height is required."})
-        if not data.get('weight'):
-            raise serializers.ValidationError({"weight": "Weight is required."})
-        if not data.get('emergency_contact_name'):
-            raise serializers.ValidationError({"emergency_contact_name": "Emergency contact name is required."})
-        if not data.get('emergency_contact_phone'):
-            raise serializers.ValidationError({"emergency_contact_phone": "Emergency contact phone is required."})
-        if not data.get('willing_to_travel'):
-            raise serializers.ValidationError({"willing_to_travel": "Willingness to travel is required."})
-
-        # Validate date of birth
+        # Validate date of birth only if provided
         date_of_birth = data.get('date_of_birth')
         if date_of_birth:
+            # Convert string to date object if it's a string
+            if isinstance(date_of_birth, str):
+                try:
+                    from datetime import datetime
+                    date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                    data['date_of_birth'] = date_of_birth
+                except ValueError:
+                    raise serializers.ValidationError({
+                        'date_of_birth': 'Invalid date format. Use YYYY-MM-DD.'
+                    })
+            
             if date_of_birth > date.today():
                 raise serializers.ValidationError({
                     'date_of_birth': 'Date of birth cannot be in the future.'
@@ -385,12 +300,6 @@ class LocationInformationSerializer(serializers.ModelSerializer):
             if field in data and data[field]:
                 data[field] = to_lowercase(data[field])
         
-        # Validate required fields
-        if not data.get('address'):
-            raise serializers.ValidationError({"address": "Address is required."})
-        if not data.get('specific_area'):
-            raise serializers.ValidationError({"specific_area": "Specific area is required."})
-
         return data
 
 class ProfessionsAndSkillsSerializer(serializers.ModelSerializer):
@@ -403,40 +312,34 @@ class ProfessionsAndSkillsSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate(self, data):
-        # Validate that at least one profession is selected
-        if not data.get('professions'):
-            raise serializers.ValidationError({"professions": "At least one profession is required."})
-        
+        # All fields are now optional
         return data
 
 class ProfileSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source='user.name', read_only=True)
     email = serializers.EmailField(source='user.email', read_only=True)
-    age = serializers.IntegerField(read_only=True)
-    identity_verification = IdentityVerificationSerializer(required=True)
-    basic_information = BasicInformationSerializer(required=True)
-    location_information = LocationInformationSerializer(required=True)
-    professions_and_skills = ProfessionsAndSkillsSerializer(required=True)
-    physical_attributes = PhysicalAttributesSerializer(required=True)
-    medical_info = MedicalInfoSerializer(required=True)
-    personal_info = PersonalInfoSerializer(required=True)
+    identity_verification = IdentityVerificationSerializer(required=False)
+    basic_information = BasicInformationSerializer(required=False)
+    location_information = LocationInformationSerializer(required=False)
+    professions_and_skills = ProfessionsAndSkillsSerializer(required=False)
     social_media = SocialMediaSerializer(required=False)
     headshot = HeadshotSerializer(required=False)
     natural_photos = NaturalPhotosSerializer(required=False)
+    experience = ExperienceSerializer(required=False)
 
     class Meta:
         model = Profile
         fields = [
-            'id', 'name', 'email', 'birthdate', 'profession', 'age', 'location', 'created_at',
+            'id', 'name', 'email', 'created_at',
             'availability_status', 'verified', 'flagged', 'status',
-            'identity_verification', 'basic_information', 'location_information', 'professions_and_skills', 'physical_attributes',
-            'medical_info', 'personal_info', 'social_media', 'headshot', 'natural_photos'
+            'identity_verification', 'basic_information', 'location_information', 'professions_and_skills',
+            'social_media', 'headshot', 'natural_photos', 'experience'
         ]
-        read_only_fields = ['id', 'name', 'age', 'created_at', 'verified', 'flagged', 'email']
+        read_only_fields = ['id', 'name', 'created_at', 'verified', 'flagged', 'email']
 
     def validate(self, data):
         # Convert string fields to lowercase for case insensitive handling
-        string_fields = ['profession', 'location', 'status']
+        string_fields = ['status']
         
         for field in string_fields:
             if field in data and data[field]:
@@ -445,17 +348,23 @@ class ProfileSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
+        # Get the user from the request context
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            raise serializers.ValidationError("User must be authenticated to create a profile")
+        
+        # Set the user for the profile
+        validated_data['user'] = request.user
+        
         # Extract nested data
         identity_verification_data = validated_data.pop('identity_verification', {})
         basic_information_data = validated_data.pop('basic_information', {})
         location_information_data = validated_data.pop('location_information', {})
         professions_and_skills_data = validated_data.pop('professions_and_skills', {})
-        physical_attributes_data = validated_data.pop('physical_attributes', {})
-        medical_info_data = validated_data.pop('medical_info', {})
-        personal_info_data = validated_data.pop('personal_info', {})
         social_media_data = validated_data.pop('social_media', {})
         headshot_data = validated_data.pop('headshot', {})
         natural_photos_data = validated_data.pop('natural_photos', {})
+        experience_data = validated_data.pop('experience', {})
 
         # Create profile
         profile = Profile.objects.create(**validated_data)
@@ -466,12 +375,10 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('basic_information', BasicInformation, BasicInformationSerializer),
             ('location_information', LocationInformation, LocationInformationSerializer),
             ('professions_and_skills', ProfessionsAndSkills, ProfessionsAndSkillsSerializer),
-            ('physical_attributes', PhysicalAttributes, PhysicalAttributesSerializer),
-            ('medical_info', MedicalInfo, MedicalInfoSerializer),
-            ('personal_info', PersonalInfo, PersonalInfoSerializer),
             ('social_media', SocialMedia, SocialMediaSerializer),
             ('headshot', Headshot, HeadshotSerializer),
             ('natural_photos', NaturalPhotos, NaturalPhotosSerializer),
+            ('experience', Experience, ExperienceSerializer),
         ]
 
         for field_name, model_class, serializer_class in related_objects:
@@ -480,6 +387,12 @@ class ProfileSerializer(serializers.ModelSerializer):
                 serializer = serializer_class(data=data)
                 if serializer.is_valid():
                     model_class.objects.create(profile=profile, **serializer.validated_data)
+                else:
+                    # Log validation errors for debugging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to create {field_name} for profile {profile.id}: {serializer.errors}")
+                    # You can choose to raise an exception or continue silently
+                    # raise serializers.ValidationError({field_name: serializer.errors})
 
         return profile
 
@@ -489,12 +402,10 @@ class ProfileSerializer(serializers.ModelSerializer):
         basic_information_data = validated_data.pop('basic_information', {})
         location_information_data = validated_data.pop('location_information', {})
         professions_and_skills_data = validated_data.pop('professions_and_skills', {})
-        physical_attributes_data = validated_data.pop('physical_attributes', {})
-        medical_info_data = validated_data.pop('medical_info', {})
-        personal_info_data = validated_data.pop('personal_info', {})
         social_media_data = validated_data.pop('social_media', {})
         headshot_data = validated_data.pop('headshot', {})
         natural_photos_data = validated_data.pop('natural_photos', {})
+        experience_data = validated_data.pop('experience', {})
 
         # Update profile
         for attr, value in validated_data.items():
@@ -507,12 +418,10 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('basic_information', BasicInformation, BasicInformationSerializer),
             ('location_information', LocationInformation, LocationInformationSerializer),
             ('professions_and_skills', ProfessionsAndSkills, ProfessionsAndSkillsSerializer),
-            ('physical_attributes', PhysicalAttributes, PhysicalAttributesSerializer),
-            ('medical_info', MedicalInfo, MedicalInfoSerializer),
-            ('personal_info', PersonalInfo, PersonalInfoSerializer),
             ('social_media', SocialMedia, SocialMediaSerializer),
             ('headshot', Headshot, HeadshotSerializer),
             ('natural_photos', NaturalPhotos, NaturalPhotosSerializer),
+            ('experience', Experience, ExperienceSerializer),
         ]
 
         for field_name, model_class, serializer_class in related_objects:
@@ -568,21 +477,19 @@ class PublicProfileSerializer(serializers.ModelSerializer):
     Serializer for public profile data - excludes sensitive information
     """
     name = serializers.CharField(source='user.name', read_only=True)
-    age = serializers.IntegerField(read_only=True)
     
     # Only include basic professional and physical attributes for public viewing
     professions_and_skills = serializers.SerializerMethodField()
-    physical_attributes = serializers.SerializerMethodField()
     headshot = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = [
-            'id', 'name', 'profession', 'age', 'location', 'created_at',
+            'id', 'name', 'created_at',
             'availability_status', 'verified', 'status',
-            'professions_and_skills', 'physical_attributes', 'headshot'
+            'professions_and_skills', 'headshot'
         ]
-        read_only_fields = ['id', 'name', 'age', 'created_at', 'verified']
+        read_only_fields = ['id', 'name', 'created_at', 'verified']
 
     def get_professions_and_skills(self, obj):
         try:
@@ -592,17 +499,6 @@ class PublicProfileSerializer(serializers.ModelSerializer):
                     'skills': obj.professions_and_skills.skills,
                     'skill_description': obj.professions_and_skills.skill_description,
                     'video_url': obj.professions_and_skills.video_url
-                }
-        except:
-            pass
-        return {}
-
-    def get_physical_attributes(self, obj):
-        try:
-            if hasattr(obj, 'physical_attributes') and obj.physical_attributes:
-                return {
-                    'facial_hair': obj.physical_attributes.facial_hair,
-                    'physical_condition': obj.physical_attributes.physical_condition
                 }
         except:
             pass

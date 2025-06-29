@@ -8,6 +8,9 @@ import os
 DEBUG = True
 SECRET_KEY = 'django-insecure-key-for-development-only'
 
+# Media settings for Cloudinary
+MEDIA_URL = ''  # Empty for Cloudinary URLs
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
@@ -92,3 +95,53 @@ REST_FRAMEWORK = {
 # dev.py (for easier testing)
 MAX_LOGIN_ATTEMPTS = 10
 LOGIN_LOCKOUT_DURATION = 60  # 1 minute
+
+# Cloudinary settings for development
+# Override base Cloudinary settings for development
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': env('CLOUD_NAME', default='dummy_cloud_name'),
+    'API_KEY': env('API_KEY', default='dummy_api_key'),
+    'API_SECRET': env('API_SECRET', default='dummy_api_secret'),
+    # Development-specific settings
+    'FOLDER': 'talentsearch/dev',
+    'SECURE': False,  # Disable secure URLs for local development
+    'RESPONSIVE': True,
+    'FORMAT': 'auto',
+    'QUALITY': 'auto',
+    # Simplified transformations for development
+    'STATIC_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 200,
+            'height': 200,
+            'crop': 'fill',
+            'quality': 'auto'
+        },
+        'medium': {
+            'width': 600,
+            'height': 400,
+            'crop': 'limit',
+            'quality': 'auto'
+        }
+    },
+    'VIDEO_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 200,
+            'height': 200,
+            'crop': 'fill',
+            'video_codec': 'auto'
+        }
+    }
+}
+
+# Fallback to local storage if Cloudinary is not configured
+if not all([CLOUDINARY_STORAGE.get('CLOUD_NAME'), 
+            CLOUDINARY_STORAGE.get('API_KEY'), 
+            CLOUDINARY_STORAGE.get('API_SECRET')]):
+    print("⚠️  Cloudinary not configured, falling back to local storage")
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+else:
+    print("✅ Cloudinary configured for development")
+    # Ensure MEDIA_URL is empty for Cloudinary
+    MEDIA_URL = ''

@@ -65,7 +65,7 @@ class Advert(models.Model):
         help_text="Unique identifier for the advert"
     )
     image = models.ImageField(
-        upload_to='adverts/images/',
+        upload_to='media/adverts/images/',
         blank=True,
         null=True,
         help_text="Image for the advert"
@@ -75,7 +75,7 @@ class Advert(models.Model):
         help_text="Title of the advert"
     )
     video = models.FileField(
-        upload_to='adverts/videos/',
+        upload_to='media/adverts/videos/',
         blank=True,
         null=True,
         help_text="Video for the advert"

@@ -42,7 +42,7 @@ class FeedPost(models.Model):
         help_text="Type of media (image or video)"
     )
     media_url = models.FileField(
-        upload_to='feed_posts/media/',
+        upload_to='media/feed_posts/',
         help_text="Media file for the post (image or video)"
     )
     project_title = models.CharField(
