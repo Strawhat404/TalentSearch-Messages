@@ -2,7 +2,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.conf import settings
 from django.core.validators import MinLengthValidator, MaxLengthValidator
+from django.core.exceptions import ValidationError
 from django.utils.html import strip_tags
+from django.utils import timezone
 import bleach
 
 class MessageThread(models.Model):
@@ -28,7 +30,12 @@ class MessageThread(models.Model):
         if self.title:
             return self.title
         participants = self.participants.all()[:2]
-        names = [p.name for p in participants]
+        names = []
+        for p in participants:
+            if hasattr(p, 'name') and p.name and p.name != 'Unknown User':
+                names.append(p.name)
+            else:
+                names.append(p.email)
         if len(self.participants.all()) > 2:
             names.append(f"+{len(self.participants.all()) - 2} more")
         return " - ".join(names)
@@ -37,9 +44,34 @@ class MessageThread(models.Model):
         """Get the most recent message in the thread"""
         return self.messages.order_by('-created_at').first()
 
+    @classmethod
+    def get_last_message_optimized(cls, thread_id):
+        """Get the most recent message in the thread with optimized queries"""
+        return cls.objects.filter(id=thread_id).first().messages.select_related(
+            'sender', 'receiver'
+        ).order_by('-created_at').first()
+
     def mark_as_read(self, user):
         """Mark all messages in thread as read for a specific user"""
+        # Mark messages where user is the receiver as read
         self.messages.filter(receiver=user, is_read=False).update(is_read=True)
+        
+        # In group conversations, also mark messages sent by the user as "read by sender"
+        # This provides better UX for group chats
+        self.messages.filter(sender=user, is_read=False).update(is_read=True)
+
+    def mark_all_as_read_for_user(self, user):
+        """Mark all messages in thread as read for a specific user (alternative method)"""
+        # Mark all messages in the thread as read for this user
+        # This is useful for group conversations where we want to mark everything as read
+        self.messages.filter(is_read=False).update(is_read=True)
+
+    def validate_participants(self, sender, receiver):
+        """Validate that sender and receiver are participants in this thread"""
+        if sender not in self.participants.all():
+            raise ValidationError("Sender must be a participant in the thread")
+        if receiver not in self.participants.all():
+            raise ValidationError("Receiver must be a participant in the thread")
 
 class Message(models.Model):
     thread = models.ForeignKey(
@@ -81,12 +113,9 @@ class Message(models.Model):
 
     def clean(self):
         """Validate the message"""
-        # Ensure sender and receiver are participants in the thread
+        # Ensure sender and receiver are participants in the thread (only if thread exists)
         if self.thread and self.sender and self.receiver:
-            if self.sender not in self.thread.participants.all():
-                raise ValidationError("Sender must be a participant in the thread")
-            if self.receiver not in self.thread.participants.all():
-                raise ValidationError("Receiver must be a participant in the thread")
+            self.thread.validate_participants(self.sender, self.receiver)
 
         # Sanitize message content
         if self.message:
@@ -107,4 +136,5 @@ class Message(models.Model):
         super().save(*args, **kwargs)
         # Update thread's updated_at timestamp if thread exists
         if self.thread:
-            self.thread.save()  # This will update the updated_at field
+            # Use update() to avoid race conditions and unnecessary database writes
+            MessageThread.objects.filter(id=self.thread.id).update(updated_at=timezone.now())
