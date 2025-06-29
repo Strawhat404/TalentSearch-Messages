@@ -19,6 +19,21 @@ User = get_user_model()
 
 logger = logging.getLogger(__name__)
 
+def validate_date_of_birth(value):
+    """
+    Custom validator for date of birth
+    Ensures the person is between 18 and 100 years old
+    """
+    if value:
+        if value > date.today():
+            raise ValidationError('Date of birth cannot be in the future.')
+        
+        age = (date.today() - value).days // 365
+        if age < 18:
+            raise ValidationError('Must be at least 18 years old.')
+        if age > 100:
+            raise ValidationError('Age cannot exceed 100 years.')
+
 def get_array_field():
     """Returns the appropriate field type based on the database backend"""
     if settings.DATABASES['default']['ENGINE'] == 'django.db.backends.postgresql':
@@ -176,7 +191,12 @@ class BasicInformation(models.Model):
     hobbies = models.JSONField(default=list, null=True, blank=True, help_text="Hobbies")
     
     # Input fields
-    date_of_birth = models.DateField(null=True, blank=True, help_text="Date of birth")
+    date_of_birth = models.DateField(
+        null=True, 
+        blank=True, 
+        help_text="Date of birth (must be between 18-100 years old)",
+        validators=[validate_date_of_birth]
+    )
     height = models.DecimalField(
         max_digits=5, 
         decimal_places=1, 
@@ -251,21 +271,7 @@ class BasicInformation(models.Model):
             self.custom_hobby = sanitize_string(self.custom_hobby)
 
         # Validate date of birth
-        if self.date_of_birth:
-            if self.date_of_birth > date.today():
-                raise ValidationError({
-                    'date_of_birth': 'Date of birth cannot be in the future.'
-                })
-            # Calculate age
-            age = (date.today() - self.date_of_birth).days // 365
-            if age < 18:
-                raise ValidationError({
-                    'date_of_birth': 'Must be at least 18 years old.'
-                })
-            if age > 100:
-                raise ValidationError({
-                    'date_of_birth': 'Age cannot exceed 100 years.'
-                })
+        validate_date_of_birth(self.date_of_birth)
 
     def save(self, *args, **kwargs):
         self.clean()
