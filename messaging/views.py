@@ -4,8 +4,8 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from .models import Message, MessageThread
 from .serializers import MessageSerializer, MessageThreadSerializer
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiExample
-from drf_spectacular.types import OpenApiTypes
+from drf_yasg.utils import swagger_auto_schema
+from drf_yasg import openapi
 from django.db.models import Q
 from django.core.cache import cache
 from rest_framework.throttling import UserRateThrottle
@@ -18,13 +18,13 @@ class MessageThreadView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [MessageThreadThrottle]
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='List message threads',
-        description='Get all message threads for the current user',
+        operation_summary='List message threads',
+        operation_description='Get all message threads for the current user',
         responses={
             200: MessageThreadSerializer(many=True),
-            401: OpenApiTypes.OBJECT,
+            401: openapi.Response('Unauthorized'),
         }
     )
     def get(self, request):
@@ -45,15 +45,15 @@ class MessageThreadView(APIView):
         )
         return Response(serializer.data)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='Create message thread',
-        description='Create a new message thread with participants',
-        request=MessageThreadSerializer,
+        operation_summary='Create message thread',
+        operation_description='Create a new message thread with participants',
+        request_body=MessageThreadSerializer,
         responses={
             201: MessageThreadSerializer,
-            400: OpenApiTypes.OBJECT,
-            401: OpenApiTypes.OBJECT,
+            400: openapi.Response('Bad Request'),
+            401: openapi.Response('Unauthorized'),
         }
     )
     def post(self, request):
@@ -84,13 +84,13 @@ class MessageThreadDetailView(APIView):
         except MessageThread.DoesNotExist:
             return None
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='Get thread details',
-        description='Get details of a specific message thread',
+        operation_summary='Get thread details',
+        operation_description='Get details of a specific message thread',
         responses={
             200: MessageThreadSerializer,
-            404: OpenApiTypes.OBJECT,
+            404: openapi.Response('Not Found'),
         }
     )
     def get(self, request, thread_id):
@@ -111,15 +111,15 @@ class MessageThreadDetailView(APIView):
         )
         return Response(serializer.data)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='Update thread',
-        description='Update thread details (e.g., title)',
-        request=MessageThreadSerializer,
+        operation_summary='Update thread',
+        operation_description='Update thread details (e.g., title)',
+        request_body=MessageThreadSerializer,
         responses={
             200: MessageThreadSerializer,
-            400: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            400: openapi.Response('Bad Request'),
+            404: openapi.Response('Not Found'),
         }
     )
     def put(self, request, thread_id):
@@ -142,13 +142,13 @@ class MessageThreadDetailView(APIView):
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='Delete thread',
-        description='Soft delete a message thread',
+        operation_summary='Delete thread',
+        operation_description='Soft delete a message thread',
         responses={
-            204: None,
-            404: OpenApiTypes.OBJECT,
+            204: openapi.Response('No Content'),
+            404: openapi.Response('Not Found'),
         }
     )
     def delete(self, request, thread_id):
@@ -197,21 +197,21 @@ class MessageView(APIView):
         thread.participants.add(sender, receiver)
         return thread
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='List messages',
-        description='Get messages from a specific thread',
-        parameters=[
-            OpenApiParameter(
+        operation_summary='List messages',
+        operation_description='Get messages from a specific thread',
+        manual_parameters=[
+            openapi.Parameter(
                 name='thread_id',
-                type=int,
-                location=OpenApiParameter.QUERY,
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
                 description='Thread ID to get messages from'
             )
         ],
         responses={
             200: MessageSerializer(many=True),
-            400: OpenApiTypes.OBJECT,
+            400: openapi.Response('Bad Request'),
         }
     )
     def get(self, request):
@@ -222,7 +222,7 @@ class MessageView(APIView):
                 {"detail": "thread_id parameter is required"},
                 status=status.HTTP_400_BAD_REQUEST
             )
-
+        
         try:
             thread = MessageThread.objects.get(
                 id=thread_id,
@@ -234,70 +234,43 @@ class MessageView(APIView):
                 {"detail": "Thread not found"},
                 status=status.HTTP_404_NOT_FOUND
             )
-
-        messages = thread.messages.select_related('sender', 'receiver').all()
+        
+        # Mark messages as read
+        thread.mark_as_read(request.user)
+        
+        messages = thread.messages.all().order_by('created_at')
         serializer = MessageSerializer(messages, many=True)
         return Response(serializer.data)
 
-    @extend_schema(
+    @swagger_auto_schema(
         tags=['messages'],
-        summary='Create message',
-        description='Create a new message in a thread (thread will be auto-created if needed)',
-        request=MessageSerializer,
+        operation_summary='Create message',
+        operation_description='Create a new message in a thread (thread will be auto-created if needed)',
+        request_body=MessageSerializer,
         responses={
             201: MessageSerializer,
-            400: OpenApiTypes.OBJECT,
-            404: OpenApiTypes.OBJECT,
+            400: openapi.Response('Bad Request'),
+            404: openapi.Response('Not Found'),
         }
     )
     def post(self, request):
-        """Create a new message in a thread"""
-        # Check if message queue is full
-        if cache.get('message_queue_full'):
-            return Response(
-                {"detail": "Message queue is full. Please try again later."},
-                status=status.HTTP_503_SERVICE_UNAVAILABLE
-            )
-
-        serializer = MessageSerializer(
-            data=request.data,
-            context={'request': request}
-        )
+        """Create a new message"""
+        serializer = MessageSerializer(data=request.data)
         if serializer.is_valid():
-            try:
-                # Get receiver from validated data
-                receiver = serializer.validated_data.get('receiver')
-                thread = serializer.validated_data.get('thread')
-                
-                # If no thread provided, find or create one
-                if not thread:
-                    thread = self.find_or_create_thread(request.user, receiver)
-                    # Update the serializer data with the found/created thread
-                    serializer.validated_data['thread'] = thread
-                
-                # Automatically set the sender to the current user
-                message = serializer.save(sender=request.user)
-                return Response(
-                    MessageSerializer(message, context={'request': request}).data,
-                    status=status.HTTP_201_CREATED
-                )
-            except ValidationError as e:
-                return Response(
-                    {"detail": "Validation error", "errors": e.message_dict if hasattr(e, 'message_dict') else str(e)},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            except MessageThread.DoesNotExist:
-                return Response(
-                    {"detail": "Thread not found or access denied"},
-                    status=status.HTTP_404_NOT_FOUND
-                )
-            except Exception as e:
-                # Log the unexpected error for debugging
-                import logging
-                logger = logging.getLogger(__name__)
-                logger.error(f"Unexpected error in message creation: {str(e)}", exc_info=True)
-                return Response(
-                    {"detail": "An unexpected error occurred. Please try again."},
-                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
-                )
+            # Get receiver from validated data
+            receiver = serializer.validated_data.get('receiver')
+            
+            # Find or create thread
+            thread = self.find_or_create_thread(request.user, receiver)
+            
+            # Create message
+            message = serializer.save(
+                sender=request.user,
+                thread=thread
+            )
+            
+            return Response(
+                MessageSerializer(message).data,
+                status=status.HTTP_201_CREATED
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
