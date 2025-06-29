@@ -11,6 +11,9 @@ from django.conf import settings
 from datetime import timedelta
 from django.core.files.storage import default_storage
 
+# Set up logger early
+logger = logging.getLogger("django")
+
 print(">>> DJANGO_SETTINGS_MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
 
 # Print ALLOWED_HOSTS for debugging
@@ -352,6 +355,5 @@ CORS_ALLOWED_HEADERS = [
     'x-requested-with',
 ]
 
-logger = logging.getLogger("django")
 logger.warning(f"DJANGO STORAGE BACKEND: {default_storage.__class__}")
 
