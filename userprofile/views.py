@@ -178,7 +178,7 @@ class ProfileView(APIView):
                     del data[field]
             
             # Handle nested data
-            for nested_field in ['identity_verification', 'basic_information', 'location_information', 'professions_and_skills', 'social_media', 'headshot', 'natural_photos']:
+            for nested_field in ['identity_verification', 'basic_information', 'location_information', 'professions_and_skills', 'social_media', 'headshot', 'natural_photos', 'experience']:
                 if nested_field in data:
                     try:
                         nested_data = data[nested_field]
@@ -194,7 +194,7 @@ class ProfileView(APIView):
                                 # Create a new instance - import the model dynamically
                                 from userprofile.models import (
                                     IdentityVerification, BasicInformation, LocationInformation,
-                                    ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos
+                                    ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos, Experience
                                 )
                                 
                                 model_mapping = {
@@ -204,7 +204,8 @@ class ProfileView(APIView):
                                     'professions_and_skills': ProfessionsAndSkills,
                                     'social_media': SocialMedia,
                                     'headshot': Headshot,
-                                    'natural_photos': NaturalPhotos
+                                    'natural_photos': NaturalPhotos,
+                                    'experience': Experience
                                 }
                                 
                                 model_class = model_mapping.get(nested_field)
