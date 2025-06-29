@@ -1,3 +1,4 @@
+-r base.txt
 asgiref==3.8.1
 asttokens==3.0.0
 attrs==25.3.0
@@ -14,7 +15,6 @@ django-redis==5.4.0
 django-taggit==6.1.0
 djangorestframework==3.16.0
 djangorestframework_simplejwt==5.5.0
-drf-spectacular==0.28.0
 drf-yasg==1.21.10
 executing==2.2.0
 flake8==7.0.0
