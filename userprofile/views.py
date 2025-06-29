@@ -169,66 +169,21 @@ class ProfileView(APIView):
     def patch(self, request):
         try:
             profile = Profile.objects.get(user=request.user)
-            # Create a copy of the data to avoid modifying the original
-            data = request.data.copy()
             
-            # Remove fields that shouldn't be updated
-            for field in ['user', 'id', 'email', 'created_at', 'verified', 'flagged']:
-                if field in data:
-                    del data[field]
-            
-            # Handle nested data
-            for nested_field in ['identity_verification', 'basic_information', 'location_information', 'professions_and_skills', 'social_media', 'headshot', 'natural_photos', 'experience']:
-                if nested_field in data:
-                    try:
-                        nested_data = data[nested_field]
-                        if isinstance(nested_data, dict):
-                            # Get the existing nested instance
-                            nested_instance = getattr(profile, nested_field, None)
-                            if nested_instance:
-                                # Update the existing instance
-                                for key, value in nested_data.items():
-                                    setattr(nested_instance, key, value)
-                                nested_instance.save()
-                            else:
-                                # Create a new instance - import the model dynamically
-                                from userprofile.models import (
-                                    IdentityVerification, BasicInformation, LocationInformation,
-                                    ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos, Experience
-                                )
-                                
-                                model_mapping = {
-                                    'identity_verification': IdentityVerification,
-                                    'basic_information': BasicInformation,
-                                    'location_information': LocationInformation,
-                                    'professions_and_skills': ProfessionsAndSkills,
-                                    'social_media': SocialMedia,
-                                    'headshot': Headshot,
-                                    'natural_photos': NaturalPhotos,
-                                    'experience': Experience
-                                }
-                                
-                                model_class = model_mapping.get(nested_field)
-                                if model_class:
-                                    model_class.objects.create(profile=profile, **nested_data)
-                                else:
-                                    raise Exception(f"Unknown nested field: {nested_field}")
-                            # Remove the nested data from the main data
-                            del data[nested_field]
-                    except Exception as e:
-                        print(f"Error processing {nested_field}: {str(e)}")
-                        raise Exception(f"Error processing {nested_field}: {str(e)}")
-            
-            # Update the main profile fields
-            for attr, value in data.items():
-                setattr(profile, attr, value)
-            profile.save()
-
-            response_data = {
-                "id": profile.id,
-                "message": "Profile updated successfully."
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+            # Use the serializer for proper validation and data handling
+            serializer = ProfileSerializer(profile, data=request.data, partial=True, context={'request': request})
+            if serializer.is_valid():
+                serializer.save()
+                response_data = {
+                    "id": profile.id,
+                    "message": "Profile updated successfully."
+                }
+                return Response(response_data, status=status.HTTP_200_OK)
+            else:
+                return Response(
+                    {"message": "Validation error", "errors": serializer.errors},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
             
         except Profile.DoesNotExist:
             return Response({"message": "Profile not found."}, status=status.HTTP_404_NOT_FOUND)

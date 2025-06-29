@@ -239,8 +239,9 @@ class BasicInformationSerializer(serializers.ModelSerializer):
     def validate(self, data):
         # Convert string fields to lowercase for case insensitive handling
         string_fields = [
-            'nationality', 'gender', 'hair_color', 'eye_color', 'skin_tone', 'body_type',
-            'marital_status', 'emergency_contact_name', 'custom_hobby', 'willing_to_travel'
+            'nationality', 'gender', 'hair_color', 'eye_color', 'skin_tone',
+            'body_type', 'medical_condition', 'medicine_type', 'marital_status', 'hobbies',
+            'emergency_contact_name', 'emergency_contact_phone', 'custom_hobby', 'willing_to_travel'
         ]
         
         for field in string_fields:
@@ -250,6 +251,17 @@ class BasicInformationSerializer(serializers.ModelSerializer):
         # Validate date of birth only if provided
         date_of_birth = data.get('date_of_birth')
         if date_of_birth:
+            # Convert string to date object if it's a string
+            if isinstance(date_of_birth, str):
+                try:
+                    from datetime import datetime
+                    date_of_birth = datetime.strptime(date_of_birth, '%Y-%m-%d').date()
+                    data['date_of_birth'] = date_of_birth
+                except ValueError:
+                    raise serializers.ValidationError({
+                        'date_of_birth': 'Invalid date format. Use YYYY-MM-DD.'
+                    })
+            
             if date_of_birth > date.today():
                 raise serializers.ValidationError({
                     'date_of_birth': 'Date of birth cannot be in the future.'
