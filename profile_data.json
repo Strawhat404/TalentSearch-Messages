@@ -1,0 +1,72 @@
+{
+  "availability_status": true,
+  "status": "active",
+  "identity_verification": {
+    "id_type": "national_id",
+    "id_number": "1234567890",
+    "id_expiry_date": "2025-12-31"
+  },
+  "basic_information": {
+    "nationality": "ethiopian",
+    "gender": "male",
+    "languages": ["amharic", "english"],
+    "hair_color": "black",
+    "eye_color": "brown",
+    "skin_tone": "medium",
+    "body_type": "athletic",
+    "date_of_birth": "1990-01-15",
+    "height": 175.5,
+    "weight": 70.0,
+    "emergency_contact_name": "Jane Smith",
+    "emergency_contact_phone": "+251912345681",
+    "driving_license": true,
+    "visible_piercings": false,
+    "visible_tattoos": false,
+    "willing_to_travel": "Yes"
+  },
+  "location_information": {
+    "housing_status": "rented",
+    "region": "addis_ababa",
+    "city": "addis_ababa",
+    "country": "ET",
+    "address": "123 Main Street",
+    "specific_area": "bole"
+  },
+  "professions_and_skills": {
+    "professions": ["actor", "model"],
+    "actor_category": ["tv_actor", "film_actor"],
+    "model_categories": ["fashion_model", "commercial_model"],
+    "skills": ["acting", "dancing", "singing"],
+    "main_skill": ["acting"],
+    "skill_description": "Professional actor with 3-5 years experience",
+    "video_url": "https://example.com/portfolio"
+  },
+  "social_media": {
+    "instagram_username": "johnsmith",
+    "instagram_followers": 5000,
+    "facebook_username": "johnsmith.fb",
+    "facebook_followers": 3000,
+    "youtube_username": "johnsmith.yt",
+    "youtube_followers": 2000,
+    "tiktok_username": "johnsmith.tt",
+    "tiktok_followers": 1500
+  },
+  "experience": {
+    "experience_level": ["intermediate"],
+    "years": ["3-5_years"],
+    "availability": ["full_time", "part_time"],
+    "employment_status": ["freelance"],
+    "work_location": ["addis_ababa"],
+    "shift": ["day_shift", "night_shift"],
+    "experience_description": "Experienced actor in TV commercials and short films",
+    "portfolio_url": "https://example.com/portfolio",
+    "salary_range_min": 5000.00,
+    "salary_range_max": 15000.00,
+    "skill_videos_url": ["https://example.com/video1", "https://example.com/video2"],
+    "previous_employers": ["ABC Productions", "XYZ Studios"],
+    "training_workshops": "Acting workshops at National Theatre",
+    "union_membership": "Member of Ethiopian Actors Guild",
+    "certifications": ["Acting Certificate", "Dance Certificate"],
+    "video_links": ["https://example.com/showreel", "https://example.com/demo"]
+  }
+} 
