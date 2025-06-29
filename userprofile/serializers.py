@@ -12,6 +12,7 @@ from datetime import date
 import bleach
 import json
 from django.conf import settings
+import logging
 
 # Helper function to sanitize strings
 def sanitize_string(value):
@@ -241,7 +242,8 @@ class BasicInformationSerializer(serializers.ModelSerializer):
         string_fields = [
             'nationality', 'gender', 'hair_color', 'eye_color', 'skin_tone',
             'body_type', 'medical_condition', 'medicine_type', 'marital_status', 'hobbies',
-            'emergency_contact_name', 'emergency_contact_phone', 'custom_hobby', 'willing_to_travel'
+            'emergency_contact_name', 'emergency_contact_phone', 'custom_hobby'
+            # Note: 'willing_to_travel' is excluded because it has specific choices ['Yes', 'No']
         ]
         
         for field in string_fields:
@@ -385,6 +387,12 @@ class ProfileSerializer(serializers.ModelSerializer):
                 serializer = serializer_class(data=data)
                 if serializer.is_valid():
                     model_class.objects.create(profile=profile, **serializer.validated_data)
+                else:
+                    # Log validation errors for debugging
+                    logger = logging.getLogger(__name__)
+                    logger.error(f"Failed to create {field_name} for profile {profile.id}: {serializer.errors}")
+                    # You can choose to raise an exception or continue silently
+                    # raise serializers.ValidationError({field_name: serializer.errors})
 
         return profile
 
