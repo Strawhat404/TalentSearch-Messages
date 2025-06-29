@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from .models import (
     Profile, BasicInformation, LocationInformation, IdentityVerification,
-    VerificationStatus, VerificationAuditLog, ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos
+    VerificationStatus, VerificationAuditLog, ProfessionsAndSkills, SocialMedia, Headshot, NaturalPhotos, Experience
 )
 from django.core.files.storage import default_storage
 from django.db import IntegrityError, transaction
@@ -195,6 +195,35 @@ class NaturalPhotosSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Invalid natural photo 2 image. Must be a valid image format (jpg, jpeg, png).")
         return value
 
+class ExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Experience
+        fields = [
+            'id', 'experience_level', 'years', 'availability', 'employment_status', 'work_location', 'shift',
+            'skill_videos_url', 'experience_description', 'industry_experience', 'previous_employers',
+            'portfolio_url', 'training_workshops', 'union_membership', 'certifications',
+            'salary_range_min', 'salary_range_max', 'video_links', 'created_at', 'updated_at'
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate(self, data):
+        # Convert string fields to lowercase for case insensitive handling
+        string_fields = ['experience_description', 'industry_experience', 'training_workshops', 'union_membership']
+        
+        for field in string_fields:
+            if field in data and data[field]:
+                data[field] = to_lowercase(data[field])
+        
+        # Validate salary range
+        salary_range_min = data.get('salary_range_min')
+        salary_range_max = data.get('salary_range_max')
+        if salary_range_min and salary_range_max and salary_range_min > salary_range_max:
+            raise serializers.ValidationError({
+                'salary_range_max': 'Maximum salary must be greater than minimum salary.'
+            })
+        
+        return data
+
 class BasicInformationSerializer(serializers.ModelSerializer):
     class Meta:
         model = BasicInformation
@@ -282,6 +311,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     social_media = SocialMediaSerializer(required=False)
     headshot = HeadshotSerializer(required=False)
     natural_photos = NaturalPhotosSerializer(required=False)
+    experience = ExperienceSerializer(required=False)
 
     class Meta:
         model = Profile
@@ -289,7 +319,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             'id', 'name', 'email', 'created_at',
             'availability_status', 'verified', 'flagged', 'status',
             'identity_verification', 'basic_information', 'location_information', 'professions_and_skills',
-            'social_media', 'headshot', 'natural_photos'
+            'social_media', 'headshot', 'natural_photos', 'experience'
         ]
         read_only_fields = ['id', 'name', 'created_at', 'verified', 'flagged', 'email']
 
@@ -320,6 +350,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         social_media_data = validated_data.pop('social_media', {})
         headshot_data = validated_data.pop('headshot', {})
         natural_photos_data = validated_data.pop('natural_photos', {})
+        experience_data = validated_data.pop('experience', {})
 
         # Create profile
         profile = Profile.objects.create(**validated_data)
@@ -333,6 +364,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('social_media', SocialMedia, SocialMediaSerializer),
             ('headshot', Headshot, HeadshotSerializer),
             ('natural_photos', NaturalPhotos, NaturalPhotosSerializer),
+            ('experience', Experience, ExperienceSerializer),
         ]
 
         for field_name, model_class, serializer_class in related_objects:
@@ -353,6 +385,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         social_media_data = validated_data.pop('social_media', {})
         headshot_data = validated_data.pop('headshot', {})
         natural_photos_data = validated_data.pop('natural_photos', {})
+        experience_data = validated_data.pop('experience', {})
 
         # Update profile
         for attr, value in validated_data.items():
@@ -368,6 +401,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             ('social_media', SocialMedia, SocialMediaSerializer),
             ('headshot', Headshot, HeadshotSerializer),
             ('natural_photos', NaturalPhotos, NaturalPhotosSerializer),
+            ('experience', Experience, ExperienceSerializer),
         ]
 
         for field_name, model_class, serializer_class in related_objects:
