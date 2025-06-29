@@ -86,7 +86,7 @@ class NewsImage(models.Model):
     ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp']
 
     image = models.ImageField(
-        upload_to='news_images/',
+        upload_to='media/news_images/',
         help_text="Upload an image for the news gallery.",
         validators=[
             FileExtensionValidator(

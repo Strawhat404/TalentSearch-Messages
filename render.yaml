@@ -44,6 +44,14 @@ services:
         sync: false
       - key: DEFAULT_FROM_EMAIL
         sync: false
+      - key: CLOUD_NAME
+        sync: false
+      - key: API_KEY
+        sync: false
+      - key: API_SECRET
+        sync: false
+      - key: DB_SSL_MODE
+        value: require
     healthCheckPath: /api/health/  # We'll create this endpoint
     autoDeploy: true
     numInstances: 1
