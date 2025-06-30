@@ -1,22 +1,31 @@
 from rest_framework import serializers
-from .models import FeedPost
+from .models import FeedPost, UserFollow
 from userprofile.models import Profile
 from django.core.validators import FileExtensionValidator
 import os
 import logging
 from feed_likes.models import FeedLike
 from feed_comments.models import Comment
+from feed_comments.serializers import CommentSerializer
 
 logger = logging.getLogger(__name__)
+
+class UserFollowSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UserFollow
+        fields = ['id', 'follower', 'following', 'created_at']
+        read_only_fields = ['id', 'created_at']
 
 class ProfileSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
     experience_level = serializers.SerializerMethodField()
     profession = serializers.SerializerMethodField()
+    follower_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
     
     class Meta:
         model = Profile
-        fields = ['id', 'name', 'photo', 'profession', 'verified', 'experience_level']
+        fields = ['id', 'name', 'photo', 'profession', 'verified', 'experience_level', 'follower_count', 'following_count']
     
     def get_photo(self, obj):
         """Get photo from related Headshot model"""
@@ -52,12 +61,19 @@ class ProfileSerializer(serializers.ModelSerializer):
             logger.warning(f"Error getting profession for profile {obj.id}: {e}")
             return None
 
+    def get_follower_count(self, obj):
+        return UserFollow.objects.filter(following=obj.user).count()
+
+    def get_following_count(self, obj):
+        return UserFollow.objects.filter(follower=obj.user).count()
+
 class FeedPostSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(source='user.id', read_only=True)
     profiles = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
 
     media_url = serializers.FileField(
         validators=[
@@ -74,7 +90,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user_id', 'content', 'media_type', 'media_url',
             'project_title', 'project_type', 'location', 'created_at', 'updated_at',
-            'likes_count', 'comments_count', 'user_has_liked', 'profiles'
+            'likes_count', 'comments_count', 'user_has_liked', 'profiles', 'replies'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'user_id']
 
@@ -97,6 +113,13 @@ class FeedPostSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
+
+    def get_replies(self, obj):
+        # Only get first level replies
+        if obj.parent is None:  # Only get replies for top-level comments
+            replies = obj.replies.all()[:5]  # Limit to 5 replies
+            return CommentSerializer(replies, many=True).data
+        return []
 
     def validate(self, data):
         """
