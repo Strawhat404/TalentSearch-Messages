@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 class ProfileSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
     experience_level = serializers.SerializerMethodField()
+    profession = serializers.SerializerMethodField()
     
     class Meta:
         model = Profile
@@ -26,13 +27,27 @@ class ProfileSerializer(serializers.ModelSerializer):
             return None
     
     def get_experience_level(self, obj):
-        """Get experience_level from related ProfessionalQualifications model"""
+        """Get experience_level from related Experience model"""
         try:
-            if hasattr(obj, 'professional_qualifications') and obj.professional_qualifications:
-                return obj.professional_qualifications.experience_level
+            if hasattr(obj, 'experience') and obj.experience and obj.experience.experience_level:
+                return obj.experience.experience_level
             return None
         except Exception as e:
             logger.warning(f"Error getting experience_level for profile {obj.id}: {e}")
+            return None
+    
+    def get_profession(self, obj):
+        """Get profession from related ProfessionsAndSkills model"""
+        try:
+            if hasattr(obj, 'professions_and_skills') and obj.professions_and_skills:
+                # Return the first profession from the professions list, or a default value
+                professions = obj.professions_and_skills.professions
+                if professions and len(professions) > 0:
+                    return professions[0]  # Return the first profession
+                return None
+            return None
+        except Exception as e:
+            logger.warning(f"Error getting profession for profile {obj.id}: {e}")
             return None
 
 class FeedPostSerializer(serializers.ModelSerializer):
