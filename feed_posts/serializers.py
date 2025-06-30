@@ -4,6 +4,8 @@ from userprofile.models import Profile
 from django.core.validators import FileExtensionValidator
 import os
 import logging
+from feed_likes.models import FeedLike
+from feed_comments.models import Comment
 
 logger = logging.getLogger(__name__)
 
@@ -85,15 +87,15 @@ class FeedPostSerializer(serializers.ModelSerializer):
             return None
 
     def get_likes_count(self, obj):
-        # TODO: Implement likes count
-        return 0
+        return obj.likes.count()
 
     def get_comments_count(self, obj):
-        # TODO: Implement comments count
-        return 0
+        return obj.comments.count()
 
     def get_user_has_liked(self, obj):
-        # TODO: Implement user has liked check
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
         return False
 
     def validate(self, data):
