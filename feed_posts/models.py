@@ -6,12 +6,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def feed_post_upload_path(instance, filename):
-    ext = filename.split('.')[-1]
-    # Use UUID for unique file names
-    filename = f"{uuid.uuid4()}.{ext}"
-    return os.path.join('feed_posts', filename)
-
 class FeedPost(models.Model):
     MEDIA_TYPE_CHOICES = (
         ('image', 'Image'),
@@ -48,7 +42,7 @@ class FeedPost(models.Model):
         help_text="Type of media (image or video)"
     )
     media_url = models.FileField(
-        upload_to=feed_post_upload_path,
+        upload_to='feed_posts/',
         help_text="Media file for the post (image or video)"
     )
     project_title = models.CharField(
@@ -94,4 +88,26 @@ class FeedPost(models.Model):
                     os.remove(self.media_url.path)
             except Exception as e:
                 logger.error(f"Error deleting media file: {e}")
-        super().delete(*args, **kwargs) 
+        super().delete(*args, **kwargs)
+
+class UserFollow(models.Model):
+    follower = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='following',
+        help_text='The user who is following.'
+    )
+    following = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='followers',
+        help_text='The user being followed.'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('follower', 'following')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.follower} follows {self.following}" 
