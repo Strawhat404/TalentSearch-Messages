@@ -6,6 +6,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def feed_post_upload_path(instance, filename):
+    return f'feed_posts/media/{filename}'
+
 class FeedPost(models.Model):
     MEDIA_TYPE_CHOICES = (
         ('image', 'Image'),
@@ -42,7 +45,7 @@ class FeedPost(models.Model):
         help_text="Type of media (image or video)"
     )
     media_url = models.FileField(
-        upload_to='feed_posts/',
+        upload_to=feed_post_upload_path,
         help_text="Media file for the post (image or video)"
     )
     project_title = models.CharField(
