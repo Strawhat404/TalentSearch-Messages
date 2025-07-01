@@ -125,6 +125,7 @@ if not all([cloud_name, api_key, api_secret]):
     print("⚠️  Falling back to local file storage (not recommended for production)")
 else:
     print("✅ Cloudinary configured for production")
+    MEDIA_URL = ''
 
 # Get SECRET_KEY from environment or generate a new one
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')

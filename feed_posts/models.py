@@ -69,6 +69,14 @@ class FeedPost(models.Model):
         auto_now=True,
         help_text="Date and time when the post was last updated"
     )
+    parent = models.ForeignKey(
+        'self',
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name='replies',
+        help_text='Parent post for replies (null for top-level posts)'
+    )
 
     def __str__(self):
         return f"{self.user.username}'s post - {self.project_title}"

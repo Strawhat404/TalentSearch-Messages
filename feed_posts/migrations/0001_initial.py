@@ -92,6 +92,17 @@ class Migration(migrations.Migration):
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
+                (
+                    "parent",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="replies",
+                        to="feed_posts.FeedPost",
+                        help_text="Parent post for replies (null for top-level posts)",
+                    ),
+                ),
             ],
         ),
     ]
