@@ -50,10 +50,13 @@ class RentalItem(models.Model):
         default=list,
         help_text='List of additional image paths'
     )
-    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.0)
     location = models.CharField(max_length=255, blank=True)
     rating_count = models.IntegerField(default=0)
-    rating_distribution = models.JSONField(default=dict, help_text="Rating distribution (1-5 stars)")
+    rating_distribution = models.JSONField(
+        default=dict, 
+        help_text="Rating distribution (1-5 stars)"
+    )
     tags = models.JSONField(default=list, help_text="Searchable tags")
 
     class Meta:
