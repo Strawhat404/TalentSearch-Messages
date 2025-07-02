@@ -50,6 +50,11 @@ class RentalItem(models.Model):
         default=list,
         help_text='List of additional image paths'
     )
+    location = models.CharField(max_length=255, blank=True)
+    tags = models.JSONField(default=list, help_text="Searchable tags")
+    rating_count = models.IntegerField(default=0)
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.00)
+    rating_distribution = models.JSONField(default=dict, help_text="Rating distribution (1-5 stars)")
 
     class Meta:
         ordering = ['-created_at']
@@ -69,6 +74,30 @@ class RentalItem(models.Model):
             image.delete()
         
         super().delete(*args, **kwargs)
+
+    def update_rating_stats(self):
+        """Update rating statistics when ratings change"""
+        ratings = self.ratings.all()
+        self.rating_count = ratings.count()
+        
+        if self.rating_count > 0:
+            self.average_rating = sum(r.rating for r in ratings) / self.rating_count
+            
+            # Calculate rating distribution
+            distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+            for rating in ratings:
+                distribution[rating.rating] += 1
+            
+            # Convert to percentages
+            for key in distribution:
+                distribution[key] = (distribution[key] / self.rating_count) * 100
+                
+            self.rating_distribution = distribution
+        else:
+            self.average_rating = 0.00
+            self.rating_distribution = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
+        
+        self.save(update_fields=['rating_count', 'average_rating', 'rating_distribution'])
 
 @receiver(pre_save, sender=RentalItem)
 def delete_old_image(sender, instance, **kwargs):
