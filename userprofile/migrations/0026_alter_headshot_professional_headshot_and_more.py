@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("userprofile", "0023_remove_profile_fields"),
+        ("userprofile", "0025_alter_headshot_professional_headshot_and_more"),
     ]
 
     operations = [
