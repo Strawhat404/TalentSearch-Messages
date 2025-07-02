@@ -16,9 +16,12 @@ from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from authapp.services import notify_new_rental_posted, notify_rental_verification_status
+from rest_framework.generics import ListCreateAPIView
+from rest_framework.viewsets import ModelViewSet
 
-class RentalItemViewSet(viewsets.ModelViewSet):
+class RentalItemViewSet(ModelViewSet):
     queryset = RentalItem.objects.all()
+    serializer_class = RentalItemSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['type', 'category', 'available', 'featured_item', 'approved', 'user']
@@ -196,4 +199,8 @@ class RatingViewSet(viewsets.ModelViewSet):
         return Response({
             'message': 'Rating deleted successfully.'
         })
+
+class RentalItemListCreateView(ListCreateAPIView):
+    queryset = RentalItem.objects.all()
+    serializer_class = RentalItemSerializer
 

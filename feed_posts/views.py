@@ -2,8 +2,8 @@ from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
-from .models import FeedPost
-from .serializers import FeedPostSerializer
+from .models import FeedPost, UserFollow
+from .serializers import FeedPostSerializer, UserFollowSerializer
 from django.utils import timezone
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
@@ -186,4 +186,176 @@ class FeedPostMediaView(APIView):
                 }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response({
             "message": "No media to delete"
-        }, status=status.HTTP_200_OK) 
+        }, status=status.HTTP_200_OK)
+
+class FollowUserView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_summary='Follow a user',
+        operation_description='Follow another user by providing their user ID',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['following_id'],
+            properties={
+                'following_id': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_UUID,
+                    description='ID of the user to follow',
+                    example='123e4567-e89b-12d3-a456-426614174000'
+                )
+            }
+        ),
+        responses={
+            201: openapi.Response(
+                description="User followed successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            example='Followed successfully.'
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            example='following_id is required'
+                        )
+                    }
+                )
+            ),
+            401: openapi.Response(description="Unauthorized")
+        },
+        tags=['follow']
+    )
+    def post(self, request, *args, **kwargs):
+        following_id = request.data.get('following_id')
+        if not following_id:
+            return Response({'error': 'following_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        if str(request.user.id) == str(following_id):
+            return Response({'error': 'You cannot follow yourself.'}, status=status.HTTP_400_BAD_REQUEST)
+        follow, created = UserFollow.objects.get_or_create(follower=request.user, following_id=following_id)
+        if not created:
+            return Response({'error': 'Already following.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'message': 'Followed successfully.'}, status=status.HTTP_201_CREATED)
+
+class UnfollowUserView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_summary='Unfollow a user',
+        operation_description='Unfollow another user by providing their user ID',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['following_id'],
+            properties={
+                'following_id': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    format=openapi.FORMAT_UUID,
+                    description='ID of the user to unfollow',
+                    example='123e4567-e89b-12d3-a456-426614174000'
+                )
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="User unfollowed successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            example='Unfollowed successfully.'
+                        )
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(
+                            type=openapi.TYPE_STRING,
+                            example='following_id is required'
+                        )
+                    }
+                )
+            ),
+            401: openapi.Response(description="Unauthorized")
+        },
+        tags=['follow']
+    )
+    def delete(self, request, *args, **kwargs):
+        following_id = request.data.get('following_id')
+        if not following_id:
+            return Response({'error': 'following_id is required'}, status=status.HTTP_400_BAD_REQUEST)
+        deleted, _ = UserFollow.objects.filter(follower=request.user, following_id=following_id).delete()
+        if deleted:
+            return Response({'message': 'Unfollowed successfully.'}, status=status.HTTP_200_OK)
+        return Response({'error': 'Not following.'}, status=status.HTTP_400_BAD_REQUEST)
+
+class FollowersListView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_summary='Get user followers',
+        operation_description='Get list of users who are following the specified user (or current user if no user_id provided)',
+        manual_parameters=[
+            openapi.Parameter(
+                'user_id',
+                openapi.IN_QUERY,
+                description='ID of the user whose followers to get (optional, defaults to current user)',
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_UUID,
+                required=False,
+                example='123e4567-e89b-12d3-a456-426614174000'
+            )
+        ],
+        responses={
+            200: UserFollowSerializer(many=True),
+            401: openapi.Response(description="Unauthorized")
+        },
+        tags=['follow']
+    )
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id', request.user.id)
+        followers = UserFollow.objects.filter(following_id=user_id)
+        serializer = UserFollowSerializer(followers, many=True)
+        return Response(serializer.data)
+
+class FollowingListView(APIView):
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        operation_summary='Get users being followed',
+        operation_description='Get list of users that the specified user is following (or current user if no user_id provided)',
+        manual_parameters=[
+            openapi.Parameter(
+                'user_id',
+                openapi.IN_QUERY,
+                description='ID of the user whose following list to get (optional, defaults to current user)',
+                type=openapi.TYPE_STRING,
+                format=openapi.FORMAT_UUID,
+                required=False,
+                example='123e4567-e89b-12d3-a456-426614174000'
+            )
+        ],
+        responses={
+            200: UserFollowSerializer(many=True),
+            401: openapi.Response(description="Unauthorized")
+        },
+        tags=['follow']
+    )
+    def get(self, request, *args, **kwargs):
+        user_id = request.query_params.get('user_id', request.user.id)
+        following = UserFollow.objects.filter(follower_id=user_id)
+        serializer = UserFollowSerializer(following, many=True)
+        return Response(serializer.data) 
