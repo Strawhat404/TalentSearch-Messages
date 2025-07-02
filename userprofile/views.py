@@ -14,6 +14,9 @@ from django.conf import settings
 from django.db import IntegrityError
 from django.shortcuts import get_object_or_404
 from authapp.services import notify_user_verified_by_admin, notify_user_rejected_by_admin
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
 
 @method_decorator(csrf_exempt, name='dispatch')
 class ProfileView(APIView):
@@ -478,5 +481,96 @@ class PublicProfilesView(APIView):
         except Exception as e:
             return Response(
                 {"error": f"An error occurred: {str(e)}"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+@method_decorator(csrf_exempt, name='dispatch')
+class UserProfileView(APIView):
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @swagger_auto_schema(
+        tags=['profile'],
+        summary="Get specific user profile by ID",
+        description="Retrieve a specific user's profile by their user ID. Any authenticated user can access this endpoint.",
+        parameters=[
+            openapi.Parameter(
+                'user_id',
+                openapi.IN_PATH,
+                description="ID of the user whose profile to retrieve",
+                type=openapi.TYPE_INTEGER,
+                required=True
+            ),
+        ],
+        responses={
+            200: openapi.Response(
+                description="Profile retrieved successfully",
+                schema=ProfileSerializer,
+                examples={
+                    'application/json': {
+                        "id": 3,
+                        "name": "mak",
+                        "email": "makdatse@gmail.com",
+                        "created_at": "2025-05-27T05:37:38.297856Z",
+                        "availability_status": True,
+                        "verified": False,
+                        "flagged": False,
+                        "status": "",
+                        "identity_verification": {
+                            "id_type": None,
+                            "id_number": None,
+                            "id_expiry_date": None,
+                            "id_front": None,
+                            "id_back": None
+                        },
+                        "professions_and_skills": {
+                            "professions": [],
+                            "actor_category": [],
+                            "model_categories": [],
+                            "performer_categories": [],
+                            "influencer_categories": [],
+                            "skills": [],
+                            "main_skill": [],
+                            "skill_description": None,
+                            "video_url": None
+                        },
+                        "natural_photos": {
+                            "natural_photo_1": None,
+                            "natural_photo_2": None
+                        },
+                        "headshot": {
+                            "professional_headshot": None
+                        }
+                    }
+                }
+            ),
+            404: openapi.Response(description="User or profile not found"),
+            401: openapi.Response(description="Unauthorized"),
+        }
+    )
+    def get(self, request, user_id):
+        try:
+            # Get the user by ID
+            user = get_object_or_404(User, id=user_id)
+            
+            # Get the user's profile
+            profile = get_object_or_404(Profile, user=user)
+            
+            serializer = ProfileSerializer(profile)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+            
+        except User.DoesNotExist:
+            return Response(
+                {"message": "User not found."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Profile.DoesNotExist:
+            return Response(
+                {"message": "Profile not found for this user."}, 
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"message": f"An error occurred while retrieving the profile: {str(e)}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )

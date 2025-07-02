@@ -372,6 +372,16 @@ class IdentityVerification(models.Model):
         self.clean()
         super().save(*args, **kwargs)
 
+    def delete(self, *args, **kwargs):
+        # Delete associated files
+        if self.id_front:
+            if os.path.isfile(self.id_front.path):
+                os.remove(self.id_front.path)
+        if self.id_back:
+            if os.path.isfile(self.id_back.path):
+                os.remove(self.id_back.path)
+        super().delete(*args, **kwargs)
+
     def __str__(self):
         return f"ID Verification for {self.profile.user.username}"
 
@@ -614,11 +624,9 @@ class Headshot(models.Model):
     professional_headshot = models.ImageField(
         upload_to='headshots/',
         validators=[
-            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
-            MinValueValidator(800, message="Image width must be at least 800 pixels"),
-            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
         ],
-        help_text="Professional headshot. Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
+        help_text="Professional headshot. Must be JPG/PNG/JPEG format.",
         blank=True,
         null=True
     )
@@ -632,16 +640,9 @@ class Headshot(models.Model):
             self._validate_image(self.professional_headshot, 'professional_headshot')
 
     def _validate_image(self, image, field_name):
-        """Validate image dimensions and format"""
+        """Validate image format and file size"""
         try:
             img = Image.open(image)
-            width, height = img.size
-            
-            # Check dimensions
-            if width < 800 or width > 2000:
-                raise ValidationError({
-                    field_name: f'Image width must be between 800 and 2000 pixels. Current width: {width}px'
-                })
             
             # Check file size
             if image.size > 5 * 1024 * 1024:
@@ -658,6 +659,13 @@ class Headshot(models.Model):
     def save(self, *args, **kwargs):
         self.clean()
         super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        # Delete associated files
+        if self.professional_headshot:
+            if os.path.isfile(self.professional_headshot.path):
+                os.remove(self.professional_headshot.path)
+        super().delete(*args, **kwargs)
 
     def __str__(self):
         return f"Headshot for {self.profile.user.username}"
@@ -717,22 +725,18 @@ class NaturalPhotos(models.Model):
     natural_photo_1 = models.ImageField(
         upload_to='natural_photos/',
         validators=[
-            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
-            MinValueValidator(800, message="Image width must be at least 800 pixels"),
-            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
         ],
-        help_text="First natural photo. Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
+        help_text="First natural photo. Must be JPG/PNG/JPEG format.",
         blank=True,
         null=True
     )
     natural_photo_2 = models.ImageField(
         upload_to='natural_photos/',
         validators=[
-            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png']),
-            MinValueValidator(800, message="Image width must be at least 800 pixels"),
-            MaxValueValidator(2000, message="Image width must not exceed 2000 pixels")
+            FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
         ],
-        help_text="Second natural photo. Must be JPG/PNG/JPEG format, minimum 800px width, maximum 2000px width.",
+        help_text="Second natural photo. Must be JPG/PNG/JPEG format.",
         blank=True,
         null=True
     )
@@ -748,19 +752,12 @@ class NaturalPhotos(models.Model):
             self._validate_image(self.natural_photo_2, 'natural_photo_2')
 
     def _validate_image(self, image, field_name):
-        """Validate image dimensions and format"""
+        """Validate image format and file size"""
         try:
             with Image.open(image) as img:
                 # Check image format
                 if img.format not in ['JPEG', 'PNG']:
                     raise ValidationError(f"{field_name} must be in JPEG or PNG format.")
-                
-                # Check image dimensions
-                width, height = img.size
-                if width < 800:
-                    raise ValidationError(f"{field_name} width must be at least 800 pixels.")
-                if width > 2000:
-                    raise ValidationError(f"{field_name} width must not exceed 2000 pixels.")
                 
                 # Check file size (5MB limit)
                 if image.size > 5 * 1024 * 1024:
