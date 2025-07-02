@@ -75,7 +75,7 @@ class RentalItemSerializer(serializers.ModelSerializer):
 
 class RentalItemListSerializer(serializers.ModelSerializer):
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
-    average_rating = serializers.SerializerMethodField()
+    rating_stats = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
     class Meta:
@@ -83,17 +83,17 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'type', 'category', 'daily_rate', 'image',
             'available', 'featured_item', 'approved', 'user_profile',
-            'average_rating'
+            'average_rating', 'rating_count', 'rating_stats', 'location'
         ]
 
-    def get_average_rating(self, obj):
-        ratings = obj.ratings.all()
-        if not ratings:
-            return None
-        return sum(r.rating for r in ratings) / len(ratings)
+    def get_rating_stats(self, obj):
+        return {
+            'average': obj.average_rating,
+            'count': obj.rating_count,
+            'distribution': obj.rating_distribution
+        }
 
     def get_image(self, obj):
-        # Handle ImageField objects
         if obj.image:
             return obj.image.url
         return None
