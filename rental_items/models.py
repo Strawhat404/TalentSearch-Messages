@@ -149,3 +149,16 @@ class RentalItemRating(models.Model):
 
     def __str__(self):
         return f"{self.user.email}'s rating for {self.rental_item.name}"
+
+class Wishlist(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlist_items')
+    rental_item = models.ForeignKey(RentalItem, on_delete=models.CASCADE, related_name='wishlisted_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['user', 'rental_item']
+
+    def __str__(self):
+        return f"{self.user.email}'s wishlist item: {self.rental_item.name}"

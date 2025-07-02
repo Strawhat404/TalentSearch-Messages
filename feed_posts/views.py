@@ -359,3 +359,4 @@ class FollowingListView(APIView):
         following = UserFollow.objects.filter(follower_id=user_id)
         serializer = UserFollowSerializer(following, many=True)
         return Response(serializer.data) 
+    

@@ -1,7 +1,8 @@
 from rest_framework import serializers
-from .models import RentalItem, RentalItemRating, RentalItemImage
+from .models import RentalItem, RentalItemRating, RentalItemImage, Wishlist
 from userprofile.serializers import ProfileSerializer
 from django.core.files.storage import default_storage
+from django.shortcuts import get_object_or_404
 import os
 
 class RentalItemImageSerializer(serializers.ModelSerializer):
@@ -158,3 +159,19 @@ class RentalItemUpdateSerializer(serializers.ModelSerializer):
             for img in instance.images.all()
         ]
         return representation 
+
+class WishlistSerializer(serializers.ModelSerializer):
+    rental_item = RentalItemListSerializer(read_only=True)
+    rental_item_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = Wishlist
+        fields = ['id', 'rental_item', 'rental_item_id', 'created_at']
+        read_only_fields = ['id', 'created_at']
+
+    def create(self, validated_data):
+        rental_item_id = validated_data.pop('rental_item_id')
+        rental_item = get_object_or_404(RentalItem, id=rental_item_id)
+        validated_data['rental_item'] = rental_item
+        validated_data['user'] = self.context['request'].user
+        return super().create(validated_data) 
