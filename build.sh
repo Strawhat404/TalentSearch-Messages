@@ -72,6 +72,8 @@ if ! python manage.py migrate authapp --noinput; then
     exit 1
 fi
 
+
+
 python manage.py migrate news 0002_initial --fake || python manage.py migrate news 0001_initial --fake
 python manage.py migrate --fake-initial
 
