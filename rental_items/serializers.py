@@ -13,12 +13,13 @@ class RentalItemImageSerializer(serializers.ModelSerializer):
 
 class RentalItemRatingSerializer(serializers.ModelSerializer):
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     item_details = serializers.SerializerMethodField()
 
     class Meta:
         model = RentalItemRating
-        fields = ['id', 'rental_item', 'user_id', 'rating', 'comment', 'created_at', 'user_profile', 'item_details']
-        read_only_fields = ['id', 'created_at', 'user_profile', 'item_details']
+        fields = ['id', 'rental_item', 'user_id', 'rating', 'comment', 'created_at', 'user_profile', 'username', 'item_details']
+        read_only_fields = ['id', 'created_at', 'user_profile', 'username', 'item_details']
 
     def get_item_details(self, obj):
         return {
@@ -75,7 +76,7 @@ class RentalItemSerializer(serializers.ModelSerializer):
 
 class RentalItemListSerializer(serializers.ModelSerializer):
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
-    rating_stats = serializers.SerializerMethodField()
+    average_rating = serializers.SerializerMethodField()
     image = serializers.SerializerMethodField()
 
     class Meta:
@@ -83,17 +84,17 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'type', 'category', 'daily_rate', 'image',
             'available', 'featured_item', 'approved', 'user_profile',
-            'average_rating', 'rating_count', 'rating_stats', 'location'
+            'average_rating'
         ]
 
-    def get_rating_stats(self, obj):
-        return {
-            'average': obj.average_rating,
-            'count': obj.rating_count,
-            'distribution': obj.rating_distribution
-        }
+    def get_average_rating(self, obj):
+        ratings = obj.ratings.all()
+        if not ratings:
+            return None
+        return sum(r.rating for r in ratings) / len(ratings)
 
     def get_image(self, obj):
+        # Handle ImageField objects
         if obj.image:
             return obj.image.url
         return None
