@@ -200,13 +200,28 @@ class MessageView(APIView):
     @swagger_auto_schema(
         tags=['messages'],
         operation_summary='List messages',
-        operation_description='Get messages from a specific thread',
+        operation_description='Get all messages for the user or messages from a specific thread',
         manual_parameters=[
             openapi.Parameter(
                 name='thread_id',
                 in_=openapi.IN_QUERY,
                 type=openapi.TYPE_INTEGER,
-                description='Thread ID to get messages from'
+                required=False,
+                description='Thread ID to get messages from (optional - if not provided, returns all user messages)'
+            ),
+            openapi.Parameter(
+                name='sender',
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description='Filter messages by sender ID'
+            ),
+            openapi.Parameter(
+                name='receiver',
+                in_=openapi.IN_QUERY,
+                type=openapi.TYPE_INTEGER,
+                required=False,
+                description='Filter messages by receiver ID'
             )
         ],
         responses={
@@ -215,31 +230,42 @@ class MessageView(APIView):
         }
     )
     def get(self, request):
-        """Get messages from a specific thread"""
+        """Get messages - either all user messages or from a specific thread"""
         thread_id = request.query_params.get('thread_id')
-        if not thread_id:
-            return Response(
-                {"detail": "thread_id parameter is required"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        sender_id = request.query_params.get('sender')
+        receiver_id = request.query_params.get('receiver')
         
-        try:
-            thread = MessageThread.objects.get(
-                id=thread_id,
-                participants=request.user,
-                is_active=True
-            )
-        except MessageThread.DoesNotExist:
-            return Response(
-                {"detail": "Thread not found"},
-                status=status.HTTP_404_NOT_FOUND
-            )
+        # If thread_id is provided, get messages from that specific thread
+        if thread_id:
+            try:
+                thread = MessageThread.objects.get(
+                    id=thread_id,
+                    participants=request.user,
+                    is_active=True
+                )
+            except MessageThread.DoesNotExist:
+                return Response(
+                    {"detail": "Thread not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+            
+            # Mark messages as read
+            thread.mark_as_read(request.user)
+            
+            messages = thread.messages.all().order_by('created_at')
+        else:
+            # Get all messages where user is sender or receiver
+            messages = Message.objects.filter(
+                Q(sender=request.user) | Q(receiver=request.user)
+            ).select_related('sender', 'receiver', 'thread').order_by('-created_at')
+            
+            # Apply additional filters if provided
+            if sender_id:
+                messages = messages.filter(sender_id=sender_id)
+            if receiver_id:
+                messages = messages.filter(receiver_id=receiver_id)
         
-        # Mark messages as read
-        thread.mark_as_read(request.user)
-        
-        messages = thread.messages.all().order_by('created_at')
-        serializer = MessageSerializer(messages, many=True)
+        serializer = MessageSerializer(messages, many=True, context={'request': request})
         return Response(serializer.data)
 
     @swagger_auto_schema(
@@ -255,7 +281,7 @@ class MessageView(APIView):
     )
     def post(self, request):
         """Create a new message"""
-        serializer = MessageSerializer(data=request.data)
+        serializer = MessageSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             # Get receiver from validated data
             receiver = serializer.validated_data.get('receiver')
@@ -270,7 +296,111 @@ class MessageView(APIView):
             )
             
             return Response(
-                MessageSerializer(message).data,
+                MessageSerializer(message, context={'request': request}).data,
                 status=status.HTTP_201_CREATED
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class MessageDetailView(APIView):
+    permission_classes = [IsAuthenticated]
+    throttle_classes = [MessageThreadThrottle]
+
+    def get_object(self, message_id):
+        """Get message object, ensuring user has permission to access it"""
+        try:
+            return Message.objects.filter(
+                id=message_id
+            ).filter(
+                Q(sender=self.request.user) | Q(receiver=self.request.user)
+            ).first()
+        except Message.DoesNotExist:
+            return None
+
+    @swagger_auto_schema(
+        tags=['messages'],
+        operation_summary='Get message details',
+        operation_description='Get details of a specific message',
+        responses={
+            200: MessageSerializer,
+            404: openapi.Response('Not Found'),
+        }
+    )
+    def get(self, request, message_id):
+        """Get a specific message"""
+        message = self.get_object(message_id)
+        if not message:
+            return Response(
+                {"detail": "Message not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        serializer = MessageSerializer(message, context={'request': request})
+        return Response(serializer.data)
+
+    @swagger_auto_schema(
+        tags=['messages'],
+        operation_summary='Update message',
+        operation_description='Update message content or read status',
+        request_body=MessageSerializer,
+        responses={
+            200: MessageSerializer,
+            400: openapi.Response('Bad Request'),
+            404: openapi.Response('Not Found'),
+        }
+    )
+    def patch(self, request, message_id):
+        """Update a message (only sender can update content)"""
+        message = self.get_object(message_id)
+        if not message:
+            return Response(
+                {"detail": "Message not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Only sender can update message content
+        if 'message' in request.data and message.sender != request.user:
+            return Response(
+                {"detail": "Only the sender can update message content"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        serializer = MessageSerializer(
+            message,
+            data=request.data,
+            partial=True,
+            context={'request': request}
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @swagger_auto_schema(
+        tags=['messages'],
+        operation_summary='Delete message',
+        operation_description='Delete a message (only sender can delete)',
+        responses={
+            204: openapi.Response('No Content'),
+            403: openapi.Response('Forbidden'),
+            404: openapi.Response('Not Found'),
+        }
+    )
+    def delete(self, request, message_id):
+        """Delete a message (only sender can delete)"""
+        message = self.get_object(message_id)
+        if not message:
+            return Response(
+                {"detail": "Message not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        
+        # Only sender can delete message
+        if message.sender != request.user:
+            return Response(
+                {"detail": "Only the sender can delete the message"},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        
+        message.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
