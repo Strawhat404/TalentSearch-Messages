@@ -78,6 +78,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
     'authapp.views.TokenAuthenticationMiddleware',
     'authapp.middleware.AutoTokenRefreshMiddleware',  # Add new middleware
     'django.contrib.messages.middleware.MessageMiddleware',
@@ -208,7 +209,7 @@ AUTH_USER_MODEL = 'authapp.User'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'authapp.authentication.BlacklistCheckingJWTAuthentication',
-
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -224,6 +225,9 @@ REST_FRAMEWORK = {
         'auth': '10/minute',
     },
 }
+
+
+
 
 # JWT Settings - Remove the duplicate and use proper token lifetimes
 SIMPLE_JWT = {
