@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import MessageView, MessageThreadView, MessageThreadDetailView
+from .views import MessageView, MessageThreadView, MessageThreadDetailView, MessageDetailView
 
 urlpatterns = [
     # Thread endpoints
@@ -8,4 +8,5 @@ urlpatterns = [
     
     # Message endpoints
     path('messages/', MessageView.as_view(), name='message-list'),
+    path('messages/<int:message_id>/', MessageDetailView.as_view(), name='message-detail'),
 ]
