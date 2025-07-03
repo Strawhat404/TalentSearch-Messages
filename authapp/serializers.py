@@ -378,3 +378,50 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         attrs['email'] = user.email
         attrs['password'] = password
         return super().validate(attrs)
+
+
+class TokenRefreshSerializer(serializers.Serializer):
+    """
+    Enhanced token refresh serializer with additional validation and user info.
+    """
+    refresh = serializers.CharField(required=True)
+    
+    def validate(self, attrs):
+        refresh_token = attrs.get('refresh')
+        
+        try:
+            # Validate the refresh token
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken(refresh_token)
+            
+            # Check if token is blacklisted
+            if refresh.token_type != 'refresh':
+                raise serializers.ValidationError('Invalid token type')
+            
+            # Get user from token
+            user_id = refresh.payload.get('user_id')
+            if not user_id:
+                raise serializers.ValidationError('Invalid token payload')
+            
+            # Verify user exists and is active
+            try:
+                user = User.objects.get(id=user_id, is_active=True)
+                attrs['user'] = user
+            except User.DoesNotExist:
+                raise serializers.ValidationError('User not found or inactive')
+            
+            attrs['refresh'] = refresh
+            return attrs
+            
+        except Exception as e:
+            raise serializers.ValidationError('Invalid refresh token')
+
+class TokenResponseSerializer(serializers.Serializer):
+    """
+    Serializer for token response with user information.
+    """
+    access = serializers.CharField()
+    refresh = serializers.CharField()
+    user = UserSerializer()
+    expires_in = serializers.IntegerField(help_text="Access token expiry time in seconds")
+    refresh_expires_in = serializers.IntegerField(help_text="Refresh token expiry time in seconds")
