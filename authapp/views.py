@@ -34,7 +34,7 @@ from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
     NotificationSerializer, TokenSerializer, PasswordChangeSerializer,
     ForgotPasswordOTPSerializer, ResetPasswordOTPSerializer, CustomTokenObtainPairSerializer,
-    AdminUserSerializer
+    AdminUserSerializer, TokenRefreshSerializer, TokenResponseSerializer
 )
 from .utils import password_reset_token_generator, BruteForceProtection
 from .models import Notification, SecurityLog, PasswordResetToken, PasswordResetOTP, UserReport
@@ -1551,3 +1551,169 @@ class UserReportView(APIView):
             'message': 'User reported successfully',
             'report_id': report.id
         }, status=status.HTTP_200_OK)
+
+class EnhancedTokenRefreshView(APIView):
+    """
+    Enhanced token refresh view that provides better user experience.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [UserRateThrottle]
+    
+    @swagger_auto_schema(
+        tags=['auth'],
+        summary='Refresh access token',
+        description='Refresh the access token using a valid refresh token',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['refresh'],
+            properties={
+                'refresh': openapi.Schema(
+                    type=openapi.TYPE_STRING, 
+                    description='Valid refresh token',
+                    example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
+                ),
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'access': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
+                        'refresh': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
+                        'user': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                                'username': openapi.Schema(type=openapi.TYPE_STRING, example='john_doe'),
+                                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                                'email': openapi.Schema(type=openapi.TYPE_STRING, example='john@example.com'),
+                            }
+                        ),
+                        'expires_in': openapi.Schema(type=openapi.TYPE_INTEGER, example=3600),
+                        'refresh_expires_in': openapi.Schema(type=openapi.TYPE_INTEGER, example=2592000),
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid refresh token')
+                    }
+                )
+            ),
+            401: openapi.Response(
+                description="Unauthorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Token expired or invalid')
+                    }
+                )
+            )
+        }
+    )
+    def post(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                refresh = serializer.validated_data['refresh']
+                user = serializer.validated_data['user']
+                
+                # Generate new tokens
+                new_refresh = RefreshToken.for_user(user)
+                new_access = new_refresh.access_token
+                
+                # Blacklist the old refresh token
+                refresh.blacklist()
+                
+                # Calculate expiry times
+                from django.utils import timezone
+                now = timezone.now()
+                access_expiry = new_access.current_time + new_access.lifetime
+                refresh_expiry = new_refresh.current_time + new_refresh.lifetime
+                
+                expires_in = int((access_expiry - now).total_seconds())
+                refresh_expires_in = int((refresh_expiry - now).total_seconds())
+                
+                return Response({
+                    'access': str(new_access),
+                    'refresh': str(new_refresh),
+                    'user': UserSerializer(user).data,
+                    'expires_in': expires_in,
+                    'refresh_expires_in': refresh_expires_in,
+                }, status=status.HTTP_200_OK)
+                
+            except Exception as e:
+                logger.error(f"Token refresh error: {str(e)}")
+                return Response({
+                    'error': 'Failed to refresh token'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TokenStatusView(APIView):
+    """
+    View to check token status and get user information.
+    """
+    permission_classes = [IsAuthenticated]
+    
+    @swagger_auto_schema(
+        tags=['auth'],
+        summary='Check token status',
+        description='Check if the current access token is valid and get user information',
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'valid': openapi.Schema(type=openapi.TYPE_BOOLEAN, example=True),
+                        'user': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                                'username': openapi.Schema(type=openapi.TYPE_STRING, example='john_doe'),
+                                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                                'email': openapi.Schema(type=openapi.TYPE_STRING, example='john@example.com'),
+                            }
+                        ),
+                        'expires_in': openapi.Schema(type=openapi.TYPE_INTEGER, example=3600),
+                    }
+                )
+            ),
+            401: openapi.Response(description="Token invalid or expired"),
+        }
+    )
+    def get(self, request):
+        # Token is already validated by IsAuthenticated permission
+        user = request.user
+        
+        # Calculate remaining time for the token
+        from rest_framework_simplejwt.tokens import AccessToken
+        from django.utils import timezone
+        
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token_str = auth_header.split(' ')[1]
+            try:
+                token = AccessToken(token_str)
+                now = timezone.now()
+                expiry = token.current_time + token.lifetime
+                expires_in = max(0, int((expiry - now).total_seconds()))
+                
+                return Response({
+                    'valid': True,
+                    'user': UserSerializer(user).data,
+                    'expires_in': expires_in,
+                }, status=status.HTTP_200_OK)
+            except Exception:
+                pass
+        
+        return Response({
+            'valid': False,
+            'error': 'Invalid token'
+        }, status=status.HTTP_401_UNAUTHORIZED)
