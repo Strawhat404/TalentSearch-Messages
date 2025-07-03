@@ -69,6 +69,9 @@ class Job(models.Model):
         """
         return f"{self.job_title} at {self.company_name}"
 
+    class Meta:
+        ordering = ['-created_at']
+
 class Application(models.Model):
     """
     Represents a job application submitted by a user.

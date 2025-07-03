@@ -60,10 +60,20 @@ class GalleryItemSerializer(serializers.ModelSerializer):
                 photo_url = obj.profile_id.headshot.professional_headshot.url
         except:
             pass
-        
+
+        basic_info = getattr(obj.profile_id.basic_information, 'all', [None])[0] if hasattr(obj.profile_id,
+                                                                                            'basic_information') else None
+        name = basic_info.nationality if basic_info and basic_info.nationality else obj.profile_id.name
+
+        professions_and_skills = obj.profile_id.professions_and_skills if hasattr(obj.profile_id,
+                                                                                  'professions_and_skills') else ProfessionsAndSkills.objects.filter(
+            profile_id=obj.profile_id).first()
+        profession = professions_and_skills.professions if professions_and_skills and professions_and_skills.professions else [
+            "Not specified"]
+
         return {
-            'name': obj.profile_id.name,
-            'profession': obj.profile_id.profession,
+            'name': name,
+            'profession': profession,
             'photo_url': photo_url
         }
 

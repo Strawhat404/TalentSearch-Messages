@@ -5,20 +5,24 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import RentalItem, RentalItemRating
+from .models import RentalItem, RentalItemRating, Wishlist
 from .serializers import (
     RentalItemSerializer,
     RentalItemListSerializer,
     RentalItemUpdateSerializer,
-    RentalItemRatingSerializer
+    RentalItemRatingSerializer,
+    WishlistSerializer
 )
 from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from authapp.services import notify_new_rental_posted, notify_rental_verification_status
+from rest_framework.generics import ListCreateAPIView
+from rest_framework.viewsets import ModelViewSet
 
-class RentalItemViewSet(viewsets.ModelViewSet):
+class RentalItemViewSet(ModelViewSet):
     queryset = RentalItem.objects.all()
+    serializer_class = RentalItemSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['type', 'category', 'available', 'featured_item', 'approved', 'user']
@@ -197,3 +201,163 @@ class RatingViewSet(viewsets.ModelViewSet):
             'message': 'Rating deleted successfully.'
         })
 
+class RentalItemListCreateView(ListCreateAPIView):
+    queryset = RentalItem.objects.all()
+    serializer_class = RentalItemSerializer
+
+class WishlistViewSet(viewsets.ModelViewSet):
+    serializer_class = WishlistSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'post', 'delete']
+
+    def get_queryset(self):
+        return Wishlist.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @swagger_auto_schema(
+        tags=['wishlist'],
+        summary='Get all wishlist items',
+        description='Retrieve all items in the authenticated user\'s wishlist',
+        responses={
+            200: WishlistSerializer(many=True),
+            401: openapi.Response(description='Authentication required'),
+        },
+        help_text='Get all items in user\'s wishlist',
+        example=[
+            {
+                'id': 'uuid',
+                'rental_item': {
+                    'id': 'uuid',
+                    'name': 'Camera Equipment',
+                    'type': 'electronics',
+                    'category': 'photography',
+                    'daily_rate': 50.00,
+                    'image': 'image_url',
+                    'user_profile': {
+                        'name': 'Owner Name',
+                        'photo': 'photo_url'
+                    }
+                },
+                'created_at': '2024-01-01T12:00:00Z'
+            }
+        ]
+    )
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['wishlist'],
+        summary='Add item to wishlist',
+        description='Add a rental item to the authenticated user\'s wishlist',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'rental_item_id': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID, description='UUID of the rental item to add to wishlist')
+            },
+            required=['rental_item_id']
+        ),
+        responses={
+            201: WishlistSerializer,
+            400: openapi.Response(description='Validation error'),
+            401: openapi.Response(description='Authentication required'),
+            404: openapi.Response(description='Rental item not found'),
+        },
+        help_text='Add a rental item to wishlist',
+        example={
+            'rental_item_id': 'uuid-of-rental-item'
+        }
+    )
+    def create(self, request, *args, **kwargs):
+        return super().create(request, *args, **kwargs)
+
+    @swagger_auto_schema(
+        tags=['wishlist'],
+        summary='Get wishlist count',
+        description='Get the total count of items in the authenticated user\'s wishlist',
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'count': openapi.Schema(type=openapi.TYPE_INTEGER, description='Number of items in wishlist')
+                }
+            ),
+            401: openapi.Response(description='Authentication required'),
+        },
+        help_text='Get wishlist count',
+        example={'count': 5}
+    )
+    @action(detail=False, methods=['get'])
+    def count(self, request):
+        """Get the count of items in user's wishlist"""
+        count = self.get_queryset().count()
+        return Response({'count': count})
+
+    @swagger_auto_schema(
+        tags=['wishlist'],
+        summary='Check if item is in wishlist',
+        description='Check if a specific rental item is in the authenticated user\'s wishlist',
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'is_in_wishlist': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Whether the item is in wishlist'),
+                    'wishlist_item_id': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID, description='Wishlist item ID if found'),
+                    'added_at': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME, description='When item was added to wishlist')
+                }
+            ),
+            401: openapi.Response(description='Authentication required'),
+        },
+        help_text='Check if item is in wishlist',
+        example={
+            'is_in_wishlist': True,
+            'wishlist_item_id': 'uuid',
+            'added_at': '2024-01-01T12:00:00Z'
+        }
+    )
+    @action(detail=True, methods=['get'])
+    def check(self, request, pk=None):
+        """Check if a specific item is in user's wishlist"""
+        try:
+            wishlist_item = self.get_queryset().get(rental_item_id=pk)
+            return Response({
+                'is_in_wishlist': True,
+                'wishlist_item_id': str(wishlist_item.id),
+                'added_at': wishlist_item.created_at
+            })
+        except Wishlist.DoesNotExist:
+            return Response({
+                'is_in_wishlist': False
+            })
+
+    @swagger_auto_schema(
+        tags=['wishlist'],
+        summary='Remove item from wishlist',
+        description='Remove a rental item from the authenticated user\'s wishlist',
+        responses={
+            200: openapi.Schema(
+                type=openapi.TYPE_OBJECT,
+                properties={
+                    'message': openapi.Schema(type=openapi.TYPE_STRING, description='Success message')
+                }
+            ),
+            401: openapi.Response(description='Authentication required'),
+            404: openapi.Response(description='Item not found in wishlist'),
+        },
+        help_text='Remove item from wishlist',
+        example={'message': 'Item removed from wishlist successfully.'}
+    )
+    def destroy(self, request, *args, **kwargs):
+        """Remove item from wishlist by rental item ID"""
+        rental_item_id = kwargs.get('pk')
+        try:
+            wishlist_item = self.get_queryset().get(rental_item_id=rental_item_id)
+            wishlist_item.delete()
+            return Response({
+                'message': 'Item removed from wishlist successfully.'
+            }, status=status.HTTP_200_OK)
+        except Wishlist.DoesNotExist:
+            return Response({
+                'message': 'Item not found in wishlist.'
+            }, status=status.HTTP_404_NOT_FOUND)
