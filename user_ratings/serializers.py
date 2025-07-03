@@ -26,15 +26,17 @@ class RaterProfileSerializer(serializers.ModelSerializer):
 
 class UserRatingSerializer(serializers.ModelSerializer):
     rater_profile = RaterProfileSerializer(source='rater_profile_id', read_only=True)
+    rater_username = serializers.CharField(source='rating_user_id.username', read_only=True)
+    rated_username = serializers.CharField(source='rated_user_id.username', read_only=True)
 
     class Meta:
         model = UserRating
         fields = [
             'id', 'rating_user_id', 'rated_user_id', 'rating', 'feedback',
             'created_at', 'updated_at', 'rater_profile_id', 'rated_profile_id',
-            'rater_profile'
+            'rater_profile', 'rater_username', 'rated_username'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'rater_profile']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'rater_profile', 'rater_username', 'rated_username']
 
     def validate_rating_user_id(self, value):
         """

@@ -69,6 +69,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class FeedPostSerializer(serializers.ModelSerializer):
     user_id = serializers.UUIDField(source='user.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     profiles = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
@@ -88,11 +89,11 @@ class FeedPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeedPost
         fields = [
-            'id', 'user_id', 'content', 'media_type', 'media_url',
+            'id', 'user_id', 'username', 'content', 'media_type', 'media_url',
             'project_title', 'project_type', 'location', 'created_at', 'updated_at',
             'likes_count', 'comments_count', 'user_has_liked', 'profiles', 'replies'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'user_id']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'user_id', 'username']
 
     def get_profiles(self, obj):
         try:

@@ -10,6 +10,7 @@ class CommentLikeSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(source='user.profile', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     replies = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
     user_has_disliked = serializers.SerializerMethodField()
@@ -19,11 +20,11 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'post', 'user', 'content', 'parent',
             'created_at', 'updated_at', 'likes_count', 'dislikes_count',
-            'profile', 'replies', 'user_has_liked', 'user_has_disliked'
+            'profile', 'username', 'replies', 'user_has_liked', 'user_has_disliked'
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at',
-            'likes_count', 'dislikes_count', 'profile',
+            'likes_count', 'dislikes_count', 'profile', 'username',
             'replies', 'user_has_liked', 'user_has_disliked'
         ]
 
