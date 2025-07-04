@@ -74,7 +74,6 @@ class FeedPostSerializer(serializers.ModelSerializer):
     likes_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
-    replies = serializers.SerializerMethodField()
 
     media_url = serializers.FileField(
         validators=[
@@ -91,7 +90,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'user_id', 'username', 'content', 'media_type', 'media_url',
             'project_title', 'project_type', 'location', 'created_at', 'updated_at',
-            'likes_count', 'comments_count', 'user_has_liked', 'profiles', 'replies'
+            'likes_count', 'comments_count', 'user_has_liked', 'profiles'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'user_id', 'username']
 
@@ -123,13 +122,6 @@ class FeedPostSerializer(serializers.ModelSerializer):
         if request and request.user.is_authenticated:
             return obj.likes.filter(user=request.user).exists()
         return False
-
-    def get_replies(self, obj):
-        # Only get first level replies
-        if obj.parent is None:  # Only get replies for top-level comments
-            replies = obj.replies.all()[:5]  # Limit to 5 replies
-            return CommentSerializer(replies, many=True).data
-        return []
 
     def validate(self, data):
         """
