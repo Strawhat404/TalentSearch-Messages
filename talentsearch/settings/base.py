@@ -78,7 +78,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    # 'authapp.views.TokenAuthenticationMiddleware',  # Temporarily disabled for Postman testing
+
+    'authapp.views.TokenAuthenticationMiddleware',
+    'authapp.middleware.AutoTokenRefreshMiddleware',  # Add new middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
@@ -144,13 +146,60 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
-MEDIA_URL = '' # Not needed for Cloudinary
+MEDIA_URL = ''  # Not needed for Cloudinary
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
 
+# Cloudinary Configuration
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': env('CLOUD_NAME', default='dummy_cloud_name'),
     'API_KEY': env('API_KEY', default='dummy_api_key'),
     'API_SECRET': env('API_SECRET', default='dummy_api_secret'),
+    # Additional Cloudinary settings for better performance
+    'STATIC_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 300,
+            'height': 300,
+            'crop': 'fill',
+            'quality': 'auto'
+        },
+        'medium': {
+            'width': 800,
+            'height': 600,
+            'crop': 'limit',
+            'quality': 'auto'
+        },
+        'large': {
+            'width': 1200,
+            'height': 800,
+            'crop': 'limit',
+            'quality': 'auto'
+        }
+    },
+    # Video transformations
+    'VIDEO_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 300,
+            'height': 300,
+            'crop': 'fill',
+            'video_codec': 'auto'
+        },
+        'medium': {
+            'width': 800,
+            'height': 600,
+            'crop': 'limit',
+            'video_codec': 'auto'
+        }
+    },
+    # Folder structure for better organization
+    'FOLDER': 'talentsearch',
+    # Enable secure URLs
+    'SECURE': True,
+    # Enable responsive images
+    'RESPONSIVE': True,
+    # Enable automatic format optimization
+    'FORMAT': 'auto',
+    # Enable automatic quality optimization
+    'QUALITY': 'auto',
 }
 
 # Custom user model
@@ -177,13 +226,16 @@ REST_FRAMEWORK = {
     },
 }
 
-# JWT Settings
+
+
+
+# JWT Settings - Remove the duplicate and use proper token lifetimes
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # Token will be valid for 7 days
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),  # Refresh token will be valid for 30 days
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # 1 hour for security
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),  # 30 days for long-term sessions
+    'ROTATE_REFRESH_TOKENS': True,  # Generate new refresh token on each refresh
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old refresh tokens
+    'UPDATE_LAST_LOGIN': True,  # Update last login timestamp
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
@@ -192,6 +244,9 @@ SIMPLE_JWT = {
     'USER_ID_CLAIM': 'user_id',
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
+    # Additional settings for better security
+    'ACCESS_TOKEN_REFRESH_THRESHOLD': timedelta(minutes=5),  # Refresh 5 minutes before expiry
+    'REFRESH_TOKEN_REFRESH_THRESHOLD': timedelta(hours=1),  # Refresh refresh token 1 hour before expiry
 }
 
 # Session settings

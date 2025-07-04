@@ -50,6 +50,14 @@ class RentalItem(models.Model):
         default=list,
         help_text='List of additional image paths'
     )
+    average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0.0)
+    location = models.CharField(max_length=255, blank=True)
+    rating_count = models.IntegerField(default=0)
+    rating_distribution = models.JSONField(
+        default=dict, 
+        help_text="Rating distribution (1-5 stars)"
+    )
+    tags = models.JSONField(default=list, help_text="Searchable tags")
 
     class Meta:
         ordering = ['-created_at']
@@ -100,7 +108,7 @@ class RentalItemImage(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     rental_item = models.ForeignKey(RentalItem, on_delete=models.CASCADE, related_name='images')
     image = models.ImageField(
-        upload_to=rental_item_image_path,
+        upload_to='media/rental_items/main/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text='Additional image for the rental item'
     )
@@ -149,3 +157,16 @@ class RentalItemRating(models.Model):
 
     def __str__(self):
         return f"{self.user.email}'s rating for {self.rental_item.name}"
+
+class Wishlist(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='wishlist_items')
+    rental_item = models.ForeignKey(RentalItem, on_delete=models.CASCADE, related_name='wishlisted_by')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        unique_together = ['user', 'rental_item']
+
+    def __str__(self):
+        return f"{self.user.email}'s wishlist item: {self.rental_item.name}"

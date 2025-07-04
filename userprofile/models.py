@@ -342,14 +342,14 @@ class IdentityVerification(models.Model):
     
     # Input fields
     id_front = models.ImageField(
-        upload_to='id_fronts/',
+        upload_to='media/id_fronts/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text="Front photo of ID document",
         null=True,
         blank=True
     )
     id_back = models.ImageField(
-        upload_to='id_backs/',
+        upload_to='media/id_backs/',
         validators=[FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png', 'gif'])],
         help_text="Back photo of ID document",
         null=True,
@@ -622,7 +622,7 @@ class Headshot(models.Model):
     
     # Input fields
     professional_headshot = models.ImageField(
-        upload_to='headshots/',
+        upload_to='media/headshots/',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
         ],
@@ -723,7 +723,7 @@ class NaturalPhotos(models.Model):
     
     # Input fields
     natural_photo_1 = models.ImageField(
-        upload_to='natural_photos/',
+        upload_to='media/natural_photos/',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
         ],
@@ -732,7 +732,7 @@ class NaturalPhotos(models.Model):
         null=True
     )
     natural_photo_2 = models.ImageField(
-        upload_to='natural_photos/',
+        upload_to='media/natural_photos/',
         validators=[
             FileExtensionValidator(allowed_extensions=['jpg', 'jpeg', 'png'])
         ],

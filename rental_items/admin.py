@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import RentalItem, RentalItemImage, RentalItemRating
+from .models import RentalItem, RentalItemImage, RentalItemRating, Wishlist
 from django.utils.html import format_html
 
 class RentalItemImageInline(admin.TabularInline):
@@ -59,3 +59,10 @@ class RentalItemRatingAdmin(admin.ModelAdmin):
     list_display = ('rental_item', 'user', 'rating', 'comment', 'created_at')
     search_fields = ('rental_item__name', 'user__email', 'comment')
     list_filter = ('rating', 'created_at')
+
+@admin.register(Wishlist)
+class WishlistAdmin(admin.ModelAdmin):
+    list_display = ('user', 'rental_item', 'created_at')
+    search_fields = ('user__email', 'rental_item__name')
+    list_filter = ('created_at',)
+    readonly_fields = ('created_at',)
