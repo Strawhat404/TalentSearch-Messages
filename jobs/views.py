@@ -27,14 +27,12 @@ class JobListCreateView(APIView):
         Returns a list of serialized job data.
         """
         current_date = timezone.now().date()
-        if request.user.is_superuser or hasattr(request.user.profile,
-                                                'is_admin') and request.user.profile.is_admin:  # Example admin check
+        if request.user.is_superuser or request.user.is_staff:  # Check superuser or staff
             jobs = Job.objects.all().order_by('-created_at')
         else:
             jobs = Job.objects.filter(project_end_date__gte=current_date).order_by('-created_at')
         serializer = JobSerializer(jobs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
-
     def post(self, request):
         """
         Create a new job for the authenticated user.
