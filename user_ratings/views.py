@@ -112,12 +112,16 @@ class UserRatingUpdateDeleteView(APIView):
 
     def put(self, request, id):
         """
-        Update an existing rating by ID.
+        Update an existing rating by ID, only allowed for the rater (rating_user_id).
         """
         try:
             rating = UserRating.objects.get(id=id)
         except UserRating.DoesNotExist:
             return Response({"error": "Rating not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the requesting user is the rater
+        if request.user.id != rating.rating_user_id.id:
+            return Response({"error": "Only the rater can update this rating."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = UserRatingUpdateSerializer(rating, data=request.data, partial=True)
         if serializer.is_valid():
@@ -147,14 +151,19 @@ class UserRatingUpdateDeleteView(APIView):
 
     def delete(self, request, id):
         """
-        Delete a rating by ID.
+        Delete a rating by ID, only allowed for the rater (rating_user_id) or rated user (rated_user_id).
         """
         try:
             rating = UserRating.objects.get(id=id)
-            rating.delete()
-            return Response({"message": "Rating deleted successfully"}, status=status.HTTP_200_OK)
         except UserRating.DoesNotExist:
             return Response({"error": "Rating not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the requesting user is the rater or rated user
+        if request.user.id not in [rating.rating_user_id.id, rating.rated_user_id.id]:
+            return Response({"error": "Only the rater or rated user can delete this rating."}, status=status.HTTP_403_FORBIDDEN)
+
+        rating.delete()
+        return Response({"message": "Rating deleted successfully"}, status=status.HTTP_200_OK)
 
 # Keep UserRatingSummaryView unchanged
 class UserRatingSummaryView(APIView):

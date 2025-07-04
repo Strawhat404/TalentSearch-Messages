@@ -8,10 +8,11 @@ User = get_user_model()
 
 class RaterProfileSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
+    profession = serializers.SerializerMethodField()  # Explicitly defined as a method field
 
     class Meta:
         model = Profile
-        fields = ['name', 'photo_url', 'profession']
+        fields = ['name', 'photo_url', 'profession']  # 'profession' is valid as it’s a SerializerMethodField
 
     def get_photo_url(self, obj):
         """
