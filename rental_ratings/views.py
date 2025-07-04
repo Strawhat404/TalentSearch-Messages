@@ -15,6 +15,15 @@ from rental_items.permissions import IsOwnerOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
+# Create a custom permission for reporting
+class CanReportRating(IsAuthenticated):
+    """
+    Custom permission that allows any authenticated user to report ratings.
+    """
+    def has_object_permission(self, request, view, obj):
+        # Any authenticated user can report any rating
+        return True
+
 # Create your views here.
 
 class RatingViewSet(viewsets.ModelViewSet):
@@ -233,10 +242,17 @@ class RatingViewSet(viewsets.ModelViewSet):
             'helpful_votes': rating.helpful_votes
         })
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=['post'], permission_classes=[CanReportRating])
     def report(self, request, pk=None):
         """Report a rating"""
         rating = self.get_object()
+        
+        # Prevent users from reporting their own ratings
+        if rating.user == request.user:
+            return Response({
+                'error': 'You cannot report your own rating'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
         rating.reported = True
         rating.save()
         
