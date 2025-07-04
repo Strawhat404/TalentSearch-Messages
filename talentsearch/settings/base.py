@@ -78,7 +78,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
     'authapp.views.TokenAuthenticationMiddleware',
+    'authapp.middleware.AutoTokenRefreshMiddleware',  # Add new middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
@@ -207,7 +209,7 @@ AUTH_USER_MODEL = 'authapp.User'
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'authapp.authentication.BlacklistCheckingJWTAuthentication',
-
+        'rest_framework.authentication.SessionAuthentication',
     ],
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
@@ -224,30 +226,16 @@ REST_FRAMEWORK = {
     },
 }
 
-# JWT Settings
-SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
-    'ALGORITHM': 'HS256',
-    'SIGNING_KEY': SECRET_KEY,
-    'VERIFYING_KEY': None,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
-    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
-    'TOKEN_TYPE_CLAIM': 'token_type',
-}
 
-# JWT Settings
+
+
+# JWT Settings - Remove the duplicate and use proper token lifetimes
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # Token will be valid for 7 days
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),  # Refresh token will be valid for 30 days
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'UPDATE_LAST_LOGIN': True,
+    'ACCESS_TOKEN_LIFETIME': timedelta(hours=1),  # 1 hour for security
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),  # 30 days for long-term sessions
+    'ROTATE_REFRESH_TOKENS': True,  # Generate new refresh token on each refresh
+    'BLACKLIST_AFTER_ROTATION': True,  # Blacklist old refresh tokens
+    'UPDATE_LAST_LOGIN': True,  # Update last login timestamp
     'ALGORITHM': 'HS256',
     'SIGNING_KEY': SECRET_KEY,
     'VERIFYING_KEY': None,
@@ -256,6 +244,9 @@ SIMPLE_JWT = {
     'USER_ID_CLAIM': 'user_id',
     'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
     'TOKEN_TYPE_CLAIM': 'token_type',
+    # Additional settings for better security
+    'ACCESS_TOKEN_REFRESH_THRESHOLD': timedelta(minutes=5),  # Refresh 5 minutes before expiry
+    'REFRESH_TOKEN_REFRESH_THRESHOLD': timedelta(hours=1),  # Refresh refresh token 1 hour before expiry
 }
 
 # Session settings
