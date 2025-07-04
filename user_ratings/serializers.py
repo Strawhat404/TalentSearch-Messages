@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import UserRating
-from userprofile.models import Profile
+from userprofile.models import Profile, ProfessionsAndSkills
 from django.core.files.storage import default_storage
 
 User = get_user_model()
@@ -23,6 +23,19 @@ class RaterProfileSerializer(serializers.ModelSerializer):
         except:
             pass
         return None
+
+    def get_profession(self, obj):
+        """
+        Get the list of professions from the related ProfessionsAndSkills object.
+        Returns an empty list if no professions are available.
+        """
+        try:
+            professions_and_skills = obj.professions_and_skills
+            if professions_and_skills and professions_and_skills.professions:
+                return professions_and_skills.professions  # Returns the full list
+        except ProfessionsAndSkills.DoesNotExist:
+            pass
+        return []
 
 class UserRatingSerializer(serializers.ModelSerializer):
     rater_profile = RaterProfileSerializer(source='rater_profile_id', read_only=True)
