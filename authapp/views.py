@@ -34,7 +34,7 @@ from .serializers import (
     UserSerializer, LoginSerializer, AdminLoginSerializer,
     NotificationSerializer, TokenSerializer, PasswordChangeSerializer,
     ForgotPasswordOTPSerializer, ResetPasswordOTPSerializer, CustomTokenObtainPairSerializer,
-    AdminUserSerializer
+    AdminUserSerializer, TokenRefreshSerializer, TokenResponseSerializer
 )
 from .utils import password_reset_token_generator, BruteForceProtection
 from .models import Notification, SecurityLog, PasswordResetToken, PasswordResetOTP, UserReport
@@ -55,7 +55,7 @@ logger = logging.getLogger(__name__)
 class RegisterView(APIView):
     throttle_classes = [AuthRateThrottle]
     permission_classes = [AllowAny]
-    
+
     @swagger_auto_schema(
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
@@ -85,13 +85,13 @@ class RegisterView(APIView):
         serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        
+
         # Generate JWT tokens
         refresh = RefreshToken.for_user(user)
-        
+
         # Notify admins about new user registration
         notify_new_user_registration(user)
-        
+
         return Response({
             'id': user.id,
             'username': user.username,
@@ -114,17 +114,17 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 
     def post(self, request, *args, **kwargs):
         response = super().post(request, *args, **kwargs)
-        
+
         if response.status_code == 200:
             # Get user from the response
             user = User.objects.get(email=request.data.get('email'))
-            
+
             # Send login notification
             from .services import notify_user_login
             ip_address = request.META.get('REMOTE_ADDR')
             user_agent = request.META.get('HTTP_USER_AGENT', '')
             notify_user_login(user, ip_address, user_agent)
-        
+
         return response
 
 class AdminLoginView(APIView):
@@ -175,7 +175,7 @@ class AdminLoginView(APIView):
             )
         }
     )
-    
+
     def post(self, request):
         serializer = AdminLoginSerializer(data=request.data)
         if serializer.is_valid():
@@ -378,8 +378,23 @@ class NotificationListView(generics.ListCreateAPIView):
         return Notification.objects.filter(user=user).order_by('-created_at')
 
     def perform_create(self, serializer):
-        """Set the user when creating a notification."""
-        serializer.save(user=self.request.user)
+        """Set the user when creating a notification, avoiding duplicates."""
+        user = self.request.user
+        title = serializer.validated_data.get('title')
+        message = serializer.validated_data.get('message')
+        link = serializer.validated_data.get('link')
+
+        # Check for existing unread notification with the same title, message, and link
+        if Notification.objects.filter(
+                user=user,
+                title=title,
+                message=message,
+                link=link,
+                read=False
+        ).exists():
+            return  # Skip creation if duplicate exists
+        serializer.save(user=user)
+
 
 class NotificationDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -437,6 +452,7 @@ class NotificationDetailView(generics.RetrieveUpdateDestroyAPIView):
             from .services import NotificationService
             NotificationService._update_unread_count(self.request.user)
 
+
 class NotificationUnreadCountView(APIView):
     """
     View for getting unread notification count.
@@ -462,10 +478,11 @@ class NotificationUnreadCountView(APIView):
     def get(self, request):
         from .services import NotificationService
         unread_count = NotificationService.get_unread_count(request.user)
-        
+
         return Response({
             'unread_count': unread_count
         }, status=status.HTTP_200_OK)
+
 
 class SystemNotificationView(APIView):
     """
@@ -484,7 +501,7 @@ class SystemNotificationView(APIView):
                 'message': openapi.Schema(type=openapi.TYPE_STRING, example='System will be down for maintenance'),
                 'link': openapi.Schema(type=openapi.TYPE_STRING, example='https://example.com/maintenance'),
                 'user_ids': openapi.Schema(
-                    type=openapi.TYPE_ARRAY, 
+                    type=openapi.TYPE_ARRAY,
                     items=openapi.Schema(type=openapi.TYPE_INTEGER),
                     example=[1, 2, 3],
                     description='Optional: specific user IDs to notify. If not provided, all active users will be notified.'
@@ -515,30 +532,39 @@ class SystemNotificationView(APIView):
 
         if not title or not message:
             return Response(
-                {'error': 'title and message are required'}, 
+                {'error': 'title and message are required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         from .services import NotificationService
-        
+
         if user_ids:
-            # Notify specific users
+            # Notify specific users, avoiding duplicates
+            user_ids = list(set(user_ids))  # Remove duplicate user_ids
             users = User.objects.filter(id__in=user_ids, is_active=True)
             notifications = []
             for user in users:
-                try:
-                    notification = NotificationService.create_notification(
+                # Check for existing unread notification
+                if not Notification.objects.filter(
                         user=user,
                         title=title,
                         message=message,
-                        notification_type=NotificationService.NOTIFICATION_TYPES['SYSTEM'],
-                        link=link
-                    )
-                    notifications.append(notification)
-                except Exception as e:
-                    continue
+                        link=link,
+                        read=False
+                ).exists():
+                    try:
+                        notification = NotificationService.create_notification(
+                            user=user,
+                            title=title,
+                            message=message,
+                            notification_type=NotificationService.NOTIFICATION_TYPES['SYSTEM'],
+                            link=link
+                        )
+                        notifications.append(notification)
+                    except Exception as e:
+                        continue
         else:
-            # Notify all active users
+            # Notify all active users, avoiding duplicates
             notifications = NotificationService.create_system_notification(
                 title=title,
                 message=message,
@@ -549,6 +575,7 @@ class SystemNotificationView(APIView):
             'message': 'System notification created',
             'count': len(notifications)
         }, status=status.HTTP_200_OK)
+
 
 class NotificationStatsView(APIView):
     """
@@ -585,25 +612,26 @@ class NotificationStatsView(APIView):
     )
     def get(self, request):
         user = request.user
-        
+
         # Get counts
         total_count = Notification.objects.filter(user=user).count()
         unread_count = Notification.objects.filter(user=user, read=False).count()
         read_count = total_count - unread_count
-        
+
         # Get counts by type
         by_type = {}
         for notification_type, _ in Notification.NOTIFICATION_TYPES:
             count = Notification.objects.filter(user=user, notification_type=notification_type).count()
             if count > 0:
                 by_type[notification_type] = count
-        
+
         return Response({
             'total_count': total_count,
             'unread_count': unread_count,
             'read_count': read_count,
             'by_type': by_type
         }, status=status.HTTP_200_OK)
+
 
 class NotificationCleanupView(APIView):
     """
@@ -618,7 +646,8 @@ class NotificationCleanupView(APIView):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'days': openapi.Schema(type=openapi.TYPE_INTEGER, example=30, description='Number of days to keep notifications'),
+                'days': openapi.Schema(type=openapi.TYPE_INTEGER, example=30,
+                                       description='Number of days to keep notifications'),
             },
         ),
         responses={
@@ -638,10 +667,10 @@ class NotificationCleanupView(APIView):
     )
     def post(self, request):
         days = request.data.get('days', 30)
-        
+
         if not isinstance(days, int) or days < 1:
             return Response(
-                {'error': 'days must be a positive integer'}, 
+                {'error': 'days must be a positive integer'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -788,7 +817,7 @@ class ChangePasswordView(APIView):
         # Verify old password
         if not request.user.check_password(old_password):
             return Response(
-                {'error': 'Invalid old password'}, 
+                {'error': 'Invalid old password'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
@@ -799,7 +828,7 @@ class ChangePasswordView(APIView):
 
         # Blacklist all JWT tokens
         OutstandingToken.objects.filter(user=request.user).delete()
-        
+
         # Clear session
         request.session.flush()
 
@@ -809,7 +838,7 @@ class ChangePasswordView(APIView):
         notify_password_change(request.user, ip_address)
 
         return Response(
-            {'message': 'Password changed successfully. Please login again.'}, 
+            {'message': 'Password changed successfully. Please login again.'},
             status=status.HTTP_200_OK
         )
 
@@ -934,10 +963,10 @@ class RotateAPIKeyView(APIView):
         """Rotate the user's API key."""
         # Delete existing token
         Token.objects.filter(user=request.user).delete()
-        
+
         # Create new token
         token = Token.objects.create(user=request.user)
-        
+
         # Log the rotation
         SecurityLog.objects.create(
             user=request.user,
@@ -946,7 +975,7 @@ class RotateAPIKeyView(APIView):
             user_agent=request.META.get('HTTP_USER_AGENT', ''),
             details={'old_token_id': None, 'new_token_id': token.id}
         )
-        
+
         return Response({
             'api_key': token.key,
             'message': 'API key rotated successfully'
@@ -986,12 +1015,12 @@ class LogoutAllDevicesView(APIView):
                     {'error': 'Authentication required'},
                     status=status.HTTP_401_UNAUTHORIZED
                 )
-            
+
             # Blacklist all outstanding tokens for this user
             tokens = OutstandingToken.objects.filter(user_id=request.user.id)
             for token in tokens:
                 BlacklistedToken.objects.get_or_create(token=token)
-            
+
             # Log the logout all devices
             SecurityLog.objects.create(
                 user=request.user,
@@ -999,7 +1028,7 @@ class LogoutAllDevicesView(APIView):
                 ip_address=request.META.get('REMOTE_ADDR'),
                 user_agent=request.META.get('HTTP_USER_AGENT', '')
             )
-            
+
             return Response(
                 {'message': 'Successfully logged out from all devices'},
                 status=status.HTTP_200_OK
@@ -1015,7 +1044,7 @@ class AccountRecoveryView(APIView):
     View for handling account recovery via backup email or phone number.
     """
     permission_classes = [AllowAny]
-    
+
     @swagger_auto_schema(
         tags=['auth'],
         summary='Request account recovery',
@@ -1063,17 +1092,17 @@ class AccountRecoveryView(APIView):
     def post(self, request):
         identifier = request.data.get('identifier')  # email or phone
         recovery_method = request.data.get('recovery_method')  # 'email' or 'phone'
-        
+
         try:
             if recovery_method == 'email':
                 user = User.objects.get(backup_email=identifier)
             else:  # phone
                 user = User.objects.get(phone_number=identifier)
-                
+
             # Generate recovery token
             token = default_token_generator.make_token(user)
             uid = urlsafe_base64_encode(force_bytes(user.pk))
-            
+
             # Log recovery attempt
             SecurityLog.objects.create(
                 user=user,
@@ -1082,17 +1111,17 @@ class AccountRecoveryView(APIView):
                 user_agent=request.META.get('HTTP_USER_AGENT', ''),
                 details=f'Recovery requested via {recovery_method}'
             )
-            
+
             # Send recovery email/SMS
             if recovery_method == 'email':
                 send_recovery_email(user, token, uid)
             else:
                 send_recovery_sms(user, token, uid)
-                
+
             return Response({
                 'message': f'Recovery instructions sent to your {recovery_method}'
             }, status=status.HTTP_200_OK)
-            
+
         except User.DoesNotExist:
             return Response({
                 'error': 'No account found with the provided information'
@@ -1107,12 +1136,12 @@ class UserProfileView(APIView):
     View for retrieving and updating user profile information.
     """
     permission_classes = [IsAuthenticated]
-    
+
     def get(self, request):
         """Retrieve user profile information."""
         serializer = UserSerializer(request.user)
         return Response(serializer.data)
-        
+
     def put(self, request):
         """Update user profile information."""
         serializer = UserSerializer(request.user, data=request.data, partial=True)
@@ -1126,13 +1155,13 @@ def send_recovery_email(user, token, uid):
     subject = 'Account Recovery Request'
     message = f'''
     Hello {user.email},
-    
+
     You have requested to recover your account. Please click the link below to reset your password:
-    
+
     {settings.FRONTEND_URL}/recover-account/{uid}/{token}/
-    
+
     If you did not request this, please ignore this email.
-    
+
     Best regards,
     Your App Team
     '''
@@ -1393,16 +1422,16 @@ class NotificationMarkReadView(APIView):
     )
     def post(self, request):
         notification_id = request.data.get('notification_id')
-        
+
         if not notification_id:
             return Response(
-                {'error': 'notification_id is required'}, 
+                {'error': 'notification_id is required'},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
         from .services import NotificationService
         success = NotificationService.mark_as_read(notification_id, request.user)
-        
+
         if success:
             return Response({
                 'message': 'Notification marked as read',
@@ -1410,7 +1439,7 @@ class NotificationMarkReadView(APIView):
             }, status=status.HTTP_200_OK)
         else:
             return Response(
-                {'error': 'Notification not found or could not be marked as read'}, 
+                {'error': 'Notification not found or could not be marked as read'},
                 status=status.HTTP_404_NOT_FOUND
             )
 
@@ -1551,3 +1580,171 @@ class UserReportView(APIView):
             'message': 'User reported successfully',
             'report_id': report.id
         }, status=status.HTTP_200_OK)
+
+class EnhancedTokenRefreshView(APIView):
+    """
+    Enhanced token refresh view that provides better user experience.
+    """
+    permission_classes = [AllowAny]
+    throttle_classes = [UserRateThrottle]
+
+    @swagger_auto_schema(
+        tags=['auth'],
+        summary='Refresh access token',
+        description='Refresh the access token using a valid refresh token',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['refresh'],
+            properties={
+                'refresh': openapi.Schema(
+                    type=openapi.TYPE_STRING,
+                    description='Valid refresh token',
+                    example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'
+                ),
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'access': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
+                        'refresh': openapi.Schema(type=openapi.TYPE_STRING, example='eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...'),
+                        'user': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                                'username': openapi.Schema(type=openapi.TYPE_STRING, example='john_doe'),
+                                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                                'email': openapi.Schema(type=openapi.TYPE_STRING, example='john@example.com'),
+                            }
+                        ),
+                        'expires_in': openapi.Schema(type=openapi.TYPE_INTEGER, example=3600),
+                        'refresh_expires_in': openapi.Schema(type=openapi.TYPE_INTEGER, example=2592000),
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Invalid refresh token')
+                    }
+                )
+            ),
+            401: openapi.Response(
+                description="Unauthorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Token expired or invalid')
+                    }
+                )
+            )
+        }
+    )
+    def post(self, request):
+        serializer = TokenRefreshSerializer(data=request.data)
+        if serializer.is_valid():
+            try:
+                refresh = serializer.validated_data['refresh']
+                user = serializer.validated_data['user']
+
+                # Generate new tokens
+                new_refresh = RefreshToken.for_user(user)
+                new_access = new_refresh.access_token
+
+                # Blacklist the old refresh token
+                refresh.blacklist()
+
+                # Calculate expiry times
+                from django.utils import timezone
+                now = timezone.now()
+                access_expiry = new_access.current_time + new_access.lifetime
+                refresh_expiry = new_refresh.current_time + new_refresh.lifetime
+
+                expires_in = int((access_expiry - now).total_seconds())
+                refresh_expires_in = int((refresh_expiry - now).total_seconds())
+
+                return Response({
+                    'access': str(new_access),
+                    'refresh': str(new_refresh),
+                    'user': UserSerializer(user).data,
+                    'expires_in': expires_in,
+                    'refresh_expires_in': refresh_expires_in,
+                }, status=status.HTTP_200_OK)
+
+            except Exception as e:
+                logger.error(f"Token refresh error: {str(e)}")
+                return Response({
+                    'error': 'Failed to refresh token'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class TokenStatusView(APIView):
+    """
+    View to check token status and get user information.
+    """
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        tags=['auth'],
+        summary='Check token status',
+        description='Check if the current access token is valid and get user information',
+        responses={
+            200: openapi.Response(
+                description="Success",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'valid': openapi.Schema(type=openapi.TYPE_BOOLEAN, example=True),
+                        'user': openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                                'username': openapi.Schema(type=openapi.TYPE_STRING, example='john_doe'),
+                                'name': openapi.Schema(type=openapi.TYPE_STRING, example='John Doe'),
+                                'email': openapi.Schema(type=openapi.TYPE_STRING, example='john@example.com'),
+                            }
+                        ),
+                        'expires_in': openapi.Schema(type=openapi.TYPE_INTEGER, example=3600),
+                    }
+                )
+            ),
+            401: openapi.Response(description="Token invalid or expired"),
+        }
+    )
+    def get(self, request):
+        # Token is already validated by IsAuthenticated permission
+        user = request.user
+
+        # Calculate remaining time for the token
+        from rest_framework_simplejwt.tokens import AccessToken
+        from django.utils import timezone
+
+        auth_header = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            token_str = auth_header.split(' ')[1]
+            try:
+                token = AccessToken(token_str)
+                now = timezone.now()
+                expiry = token.current_time + token.lifetime
+                expires_in = max(0, int((expiry - now).total_seconds()))
+
+                return Response({
+                    'valid': True,
+                    'user': UserSerializer(user).data,
+                    'expires_in': expires_in,
+                }, status=status.HTTP_200_OK)
+            except Exception:
+                pass
+
+        return Response({
+            'valid': False,
+            'error': 'Invalid token'
+        }, status=status.HTTP_401_UNAUTHORIZED)
+
+

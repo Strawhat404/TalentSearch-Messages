@@ -4,12 +4,13 @@ from userprofile.serializers import ProfileSerializer
 
 class CommentReactionSerializer(serializers.ModelSerializer):
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     user = serializers.UUIDField(source='user.id', read_only=True)
 
     class Meta:
         model = CommentReaction
-        fields = ['id', 'comment', 'user', 'is_dislike', 'created_at', 'user_profile']
-        read_only_fields = ['id', 'created_at', 'user_profile', 'user']
+        fields = ['id', 'comment', 'user', 'is_dislike', 'created_at', 'user_profile', 'username']
+        read_only_fields = ['id', 'created_at', 'user_profile', 'username', 'user']
 
 class CommentReactionCreateSerializer(serializers.ModelSerializer):
     class Meta:
