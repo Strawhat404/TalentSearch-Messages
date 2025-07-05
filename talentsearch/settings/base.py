@@ -78,6 +78,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    # 'authapp.views.TokenAuthenticationMiddleware',  # Temporarily disabled for Postman testing
 
     'authapp.views.TokenAuthenticationMiddleware',
     'authapp.middleware.AutoTokenRefreshMiddleware',  # Add new middleware
@@ -226,6 +227,13 @@ REST_FRAMEWORK = {
     },
 }
 
+# JWT Settings
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),  # Token will be valid for 7 days
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),  # Refresh token will be valid for 30 days
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+    'UPDATE_LAST_LOGIN': True,
 
 
 
