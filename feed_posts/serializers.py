@@ -69,7 +69,7 @@ class ProfileSerializer(serializers.ModelSerializer):
 
 class FeedPostSerializer(serializers.ModelSerializer):
     profile_id = serializers.IntegerField(source='profile.id', read_only=True)
-    username = serializers.CharField(source='profile.user.username', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     profiles = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
