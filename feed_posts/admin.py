@@ -7,6 +7,15 @@ class FeedPostAdmin(admin.ModelAdmin):
     list_filter = ('project_type', 'media_type', 'created_at')
     search_fields = ('project_title', 'content', 'location', 'profile__user__username')
     readonly_fields = ('id', 'created_at', 'updated_at')
+    
+    def get_profile_display(self, obj):
+        if hasattr(obj, 'profile') and obj.profile:
+            return obj.profile.user.username
+        elif hasattr(obj, 'user'):
+            return obj.user.username
+        return "No Profile"
+    get_profile_display.short_description = 'Profile'
+    
     fieldsets = (
         ('Basic Information', {
             'fields': ('id', 'profile', 'project_title', 'content')

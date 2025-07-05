@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -24,7 +24,7 @@ class FeedPostListView(generics.ListCreateAPIView):
             # Filter by profile_id
             profile_id = self.request.query_params.get('profile_id')
             if profile_id:
-                queryset = queryset.filter(profile_id=profile_id)
+                queryset = queryset.filter(profile=profile_id)
             
             # Filter by project_type
             project_type = self.request.query_params.get('project_type')
