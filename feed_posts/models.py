@@ -32,10 +32,12 @@ class FeedPost(models.Model):
         help_text="Unique identifier for the post"
     )
     user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name='feed_posts',
-        help_text="User who created the post"
+    settings.AUTH_USER_MODEL,
+    on_delete=models.CASCADE,
+    related_name='feed_posts',
+    null=True,
+    blank=True,
+    help_text="User who created the post"
     )
     profile = models.ForeignKey(
         Profile,
@@ -46,29 +48,40 @@ class FeedPost(models.Model):
         help_text="Profile who created the post"
     )
     content = models.TextField(
+        null=True,
+        blank=True,
         help_text="Content of the post"
     )
     media_type = models.CharField(
-        max_length=10,
-        choices=MEDIA_TYPE_CHOICES,
-        help_text="Type of media (image or video)"
+    max_length=10,
+    choices=MEDIA_TYPE_CHOICES,
+    default='image',
+    help_text="Type of media (image or video)"
     )
     media_url = models.FileField(
-        upload_to=feed_post_upload_path,
-        help_text="Media file for the post (image or video)"
+    upload_to=feed_post_upload_path,
+    null=True,
+    blank=True,
+    help_text="Media file for the post (image or video)"
     )
     project_title = models.CharField(
-        max_length=200,
-        help_text="Title of the project"
+    max_length=200,
+    null=True,
+    blank=True,
+    help_text="Title of the project"
     )
     project_type = models.CharField(
-        max_length=20,
-        choices=PROJECT_TYPE_CHOICES,
-        help_text="Type of project"
+    max_length=20,
+    choices=PROJECT_TYPE_CHOICES,
+    null=True,
+    blank=True,
+    help_text="Type of project"
     )
     location = models.CharField(
-        max_length=200,
-        help_text="Location of the project"
+    max_length=200,
+    null=True,
+    blank=True,
+    help_text="Location of the project"
     )
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -122,4 +135,4 @@ class UserFollow(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.follower} follows {self.following}" 
+        return f"{self.follower} follows {self.following}"
