@@ -9,9 +9,9 @@ import bleach
 
 class MessageThread(models.Model):
     participants = models.ManyToManyField(
-        settings.AUTH_USER_MODEL,
+        'userprofile.Profile',  # Changed from settings.AUTH_USER_MODEL to Profile
         related_name='threads',
-        help_text="Users participating in this conversation"
+        help_text="Profiles participating in this conversation"
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -35,7 +35,7 @@ class MessageThread(models.Model):
             if hasattr(p, 'name') and p.name and p.name != 'Unknown User':
                 names.append(p.name)
             else:
-                names.append(p.email)
+                names.append(p.user.email if p.user else 'Unknown Profile')
         if len(self.participants.all()) > 2:
             names.append(f"+{len(self.participants.all()) - 2} more")
         return " - ".join(names)
@@ -51,18 +51,18 @@ class MessageThread(models.Model):
             'sender', 'receiver'
         ).order_by('-created_at').first()
 
-    def mark_as_read(self, user):
-        """Mark all messages in thread as read for a specific user"""
-        # Mark messages where user is the receiver as read
-        self.messages.filter(receiver=user, is_read=False).update(is_read=True)
+    def mark_as_read(self, profile):
+        """Mark all messages in thread as read for a specific profile"""
+        # Mark messages where profile is the receiver as read
+        self.messages.filter(receiver=profile, is_read=False).update(is_read=True)
         
-        # In group conversations, also mark messages sent by the user as "read by sender"
+        # In group conversations, also mark messages sent by the profile as "read by sender"
         # This provides better UX for group chats
-        self.messages.filter(sender=user, is_read=False).update(is_read=True)
+        self.messages.filter(sender=profile, is_read=False).update(is_read=True)
 
-    def mark_all_as_read_for_user(self, user):
-        """Mark all messages in thread as read for a specific user (alternative method)"""
-        # Mark all messages in the thread as read for this user
+    def mark_all_as_read_for_profile(self, profile):
+        """Mark all messages in thread as read for a specific profile (alternative method)"""
+        # Mark all messages in the thread as read for this profile
         # This is useful for group conversations where we want to mark everything as read
         self.messages.filter(is_read=False).update(is_read=True)
 
@@ -83,16 +83,16 @@ class Message(models.Model):
         blank=True  # Allow blank in forms
     )
     sender = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'userprofile.Profile',  # Changed from settings.AUTH_USER_MODEL to Profile
         related_name='sent_messages',
         on_delete=models.CASCADE,
-        help_text="User who sent the message"
+        help_text="Profile who sent the message"
     )
     receiver = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        'userprofile.Profile',  # Changed from settings.AUTH_USER_MODEL to Profile
         related_name='received_messages',
         on_delete=models.CASCADE,
-        help_text="User who should receive the message"
+        help_text="Profile who should receive the message"
     )
     message = models.TextField(
         validators=[
