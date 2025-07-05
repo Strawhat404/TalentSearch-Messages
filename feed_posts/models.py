@@ -1,6 +1,7 @@
 from django.db import models
 import uuid
 from django.conf import settings
+from userprofile.models import Profile
 import os
 import logging
 
@@ -35,6 +36,14 @@ class FeedPost(models.Model):
         on_delete=models.CASCADE,
         related_name='feed_posts',
         help_text="User who created the post"
+    )
+    profile = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name='feed_posts',
+        null=True,
+        blank=True,
+        help_text="Profile who created the post"
     )
     content = models.TextField(
         help_text="Content of the post"
@@ -71,7 +80,7 @@ class FeedPost(models.Model):
     )
 
     def __str__(self):
-        return f"{self.user.username}'s post - {self.project_title}"
+        return f"{self.user}'s post - {self.project_title}"
 
     def save(self, *args, **kwargs):
         if self.pk and FeedPost.objects.filter(pk=self.pk).exists():
@@ -95,16 +104,16 @@ class FeedPost(models.Model):
 
 class UserFollow(models.Model):
     follower = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        Profile,
         on_delete=models.CASCADE,
         related_name='following',
-        help_text='The user who is following.'
+        help_text='The profile who is following.'
     )
     following = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
+        Profile,
         on_delete=models.CASCADE,
         related_name='followers',
-        help_text='The user being followed.'
+        help_text='The profile being followed.'
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
