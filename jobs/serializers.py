@@ -129,14 +129,15 @@ class ApplicationSerializer(serializers.ModelSerializer):
     """
     user = serializers.PrimaryKeyRelatedField(read_only=True)
     job = serializers.PrimaryKeyRelatedField(read_only=True)
+    profile_id = serializers.PrimaryKeyRelatedField(source='profile_id', read_only=True)
     opportunity_description = serializers.CharField(required=True)
     applicant_name = serializers.SerializerMethodField()
     applicant_email = serializers.SerializerMethodField()
 
     class Meta:
         model = Application
-        fields = ['user', 'job', 'opportunity_description', 'applied_at', 'applicant_name', 'applicant_email']  # Added 'applicant_email'
-        read_only_fields = ['user', 'job', 'applied_at', 'applicant_name', 'applicant_email']  # Added 'applicant_email'
+        fields = ['user', 'job','profile_id', 'opportunity_description', 'applied_at', 'applicant_name', 'applicant_email']  # Added 'applicant_email'
+        read_only_fields = ['user', 'job', 'profile_id', 'applied_at', 'applicant_name', 'applicant_email']  # Added 'applicant_email'
 
     def validate_opportunity_description(self, value):
         """

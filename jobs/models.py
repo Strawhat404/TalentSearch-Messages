@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.core.validators import RegexValidator
 from datetime import date
+from userprofile.models import Profile
 
 User = get_user_model()
 
@@ -77,6 +78,7 @@ class Application(models.Model):
     Represents a job application submitted by a user.
     """
     user = models.ForeignKey(User, on_delete=models.CASCADE)
+    profile_id = models.ForeignKey('userprofile.Profile', on_delete=models.CASCADE)
     job = models.ForeignKey(Job, on_delete=models.CASCADE)
     opportunity_description = models.TextField()
     applied_at = models.DateTimeField(auto_now_add=True)
