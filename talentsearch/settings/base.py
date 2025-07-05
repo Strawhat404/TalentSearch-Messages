@@ -78,7 +78,9 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+
     'authapp.views.TokenAuthenticationMiddleware',
+    'authapp.middleware.AutoTokenRefreshMiddleware',  # Add new middleware
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'talentsearch.middleware.AdminRateLimitMiddleware',
