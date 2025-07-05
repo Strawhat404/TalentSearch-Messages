@@ -12,9 +12,9 @@ class FeedLikeListView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        queryset = FeedLike.objects.all()
+        queryset = FeedLike.objects.select_related('profile', 'profile__user', 'post')
         post_id = self.request.query_params.get('post_id')
-        user_id = self.request.query_params.get('user_id')
+        profile_id = self.request.query_params.get('profile_id')
 
         # Apply filters one at a time
         if post_id:
@@ -24,10 +24,10 @@ class FeedLikeListView(generics.ListCreateAPIView):
             except ValueError:
                 return FeedLike.objects.none()
 
-        if user_id:
+        if profile_id:
             try:
-                user_id = int(user_id)
-                queryset = queryset.filter(user_id=user_id)
+                profile_id = int(profile_id)
+                queryset = queryset.filter(profile_id=profile_id)
             except ValueError:
                 return FeedLike.objects.none()
 
@@ -35,7 +35,7 @@ class FeedLikeListView(generics.ListCreateAPIView):
 
     @swagger_auto_schema(
         operation_summary='List feed likes',
-        operation_description='Get all feed likes with optional filtering by post_id and user_id',
+        operation_description='Get all feed likes with optional filtering by post_id and profile_id',
         responses={
             200: FeedLikeSerializer(many=True),
             400: openapi.Response(description="Validation Error")
@@ -58,6 +58,14 @@ class FeedLikeListView(generics.ListCreateAPIView):
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def perform_create(self, serializer):
+        # Get the user's profile
+        try:
+            user_profile = self.request.user.profile
+            serializer.save(profile=user_profile)
+        except Exception as e:
+            raise serializers.ValidationError(f"User profile not found: {str(e)}")
 
 
 class FeedLikeDeleteView(generics.GenericAPIView):
@@ -92,9 +100,14 @@ class FeedLikeDeleteView(generics.GenericAPIView):
         except ValueError:
             return Response({'error': 'Invalid UUID format for post_id'}, status=status.HTTP_400_BAD_REQUEST)
 
-        like = FeedLike.objects.filter(post_id=post_uuid, user=request.user).first()
-        if not like:
-            return Response({'error': 'Like not found'}, status=status.HTTP_404_NOT_FOUND)
+        try:
+            # Get the user's profile
+            user_profile = request.user.profile
+            like = FeedLike.objects.filter(post_id=post_uuid, profile=user_profile).first()
+            if not like:
+                return Response({'error': 'Like not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        like.delete()
-        return Response({'message': 'Post unliked successfully'}, status=status.HTTP_200_OK)
+            like.delete()
+            return Response({'message': 'Post unliked successfully'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': f'User profile not found: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
