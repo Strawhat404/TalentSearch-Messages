@@ -394,7 +394,7 @@ class PublicProfilesView(APIView):
     @swagger_auto_schema(
         tags=['public-profiles'],
         summary="Get all public profiles",
-        description="Retrieve all public profiles with limited information (no sensitive data). Anyone can access this endpoint without authentication.",
+        description="Retrieve all public profiles with complete information. Anyone can access this endpoint without authentication.",
         parameters=[
             openapi.Parameter(
                 'verified',
@@ -414,33 +414,98 @@ class PublicProfilesView(APIView):
         responses={
             200: openapi.Response(
                 description="Public profiles retrieved successfully",
-                schema=PublicProfileSerializer(many=True),
+                schema=ProfileSerializer(many=True),
                 examples={
                     'application/json': [
                         {
                             "id": 1,
                             "name": "John Doe",
+                            "email": "john@example.com",
                             "created_at": "2025-01-15T10:30:00Z",
                             "availability_status": True,
                             "verified": True,
+                            "flagged": False,
                             "status": "active",
+                            "identity_verification": {
+                                "id_type": "National ID",
+                                "id_number": "****1234",
+                                "id_expiry_date": "2025-12-31",
+                                "id_front": "https://cloudinary.com/...",
+                                "id_back": "https://cloudinary.com/...",
+                                "id_verified": True
+                            },
+                            "basic_information": {
+                                "nationality": "Ethiopian",
+                                "gender": "male",
+                                "languages": ["Amharic", "English"],
+                                "hair_color": "black",
+                                "eye_color": "brown",
+                                "skin_tone": "medium",
+                                "body_type": "athletic",
+                                "date_of_birth": "1990-05-15",
+                                "height": 175.5,
+                                "weight": 70.0,
+                                "emergency_contact_name": "Jane Doe",
+                                "emergency_contact_phone": "+251912345678",
+                                "driving_license": True,
+                                "visible_piercings": False,
+                                "visible_tattoos": False,
+                                "willing_to_travel": "Yes"
+                            },
+                            "location_information": {
+                                "housing_status": "owned",
+                                "region": "Addis Ababa",
+                                "city": "Addis Ababa",
+                                "country": "ET",
+                                "address": "123 Main Street",
+                                "specific_area": "Bole"
+                            },
                             "professions_and_skills": {
                                 "professions": ["actor", "model"],
-                                "actor_category": [],
-                                "model_categories": [],
-                                "performer_categories": [],
-                                "influencer_categories": [],
+                                "actor_category": ["drama", "comedy"],
+                                "model_categories": ["fashion", "commercial"],
+                                "performer_categories": ["dance", "music"],
+                                "influencer_categories": ["lifestyle", "fashion"],
                                 "skills": ["acting", "dancing", "singing"],
-                                "main_skill": [],
+                                "main_skill": ["acting"],
                                 "skill_description": "Professional actor with 3-5 years experience",
                                 "video_url": "https://example.com/portfolio"
                             },
-                            "natural_photos": {
-                                "natural_photo_1": None,
-                                "natural_photo_2": None
+                            "social_media": {
+                                "instagram_username": "johndoe",
+                                "instagram_followers": 5000,
+                                "facebook_username": "johndoe.fb",
+                                "facebook_followers": 3000,
+                                "youtube_username": "johndoe.yt",
+                                "youtube_followers": 2000,
+                                "tiktok_username": "johndoe.tt",
+                                "tiktok_followers": 8000
                             },
                             "headshot": {
-                                "professional_headshot": None
+                                "professional_headshot": "https://cloudinary.com/..."
+                            },
+                            "natural_photos": {
+                                "natural_photo_1": "https://cloudinary.com/...",
+                                "natural_photo_2": "https://cloudinary.com/..."
+                            },
+                            "experience": {
+                                "experience_level": ["intermediate"],
+                                "years": ["3-5"],
+                                "availability": ["full-time", "part-time"],
+                                "employment_status": ["freelance"],
+                                "work_location": ["on-site", "remote"],
+                                "shift": ["day", "evening"],
+                                "skill_videos_url": ["https://example.com/video1"],
+                                "experience_description": "Experienced actor with diverse portfolio",
+                                "industry_experience": "Worked in film, TV, and theater",
+                                "previous_employers": ["Studio A", "Production B"],
+                                "portfolio_url": "https://example.com/portfolio",
+                                "training_workshops": "Acting workshops and voice training",
+                                "union_membership": "Member of Actors Guild",
+                                "certifications": ["Acting Certificate", "Voice Training"],
+                                "salary_range_min": 5000.00,
+                                "salary_range_max": 15000.00,
+                                "video_links": ["https://example.com/showreel"]
                             }
                         }
                     ]
@@ -462,6 +527,8 @@ class PublicProfilesView(APIView):
                 'identity_verification',
                 'basic_information',
                 'location_information',
+                'experience',
+                'user'
             ).order_by('-created_at')
 
             # Apply filters if provided
@@ -475,7 +542,7 @@ class PublicProfilesView(APIView):
                 available_bool = available.lower() == 'true'
                 profiles = profiles.filter(availability_status=available_bool)
 
-            serializer = PublicProfileSerializer(profiles, many=True)
+            serializer = ProfileSerializer(profiles, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -491,13 +558,13 @@ class UserProfileView(APIView):
 
     @swagger_auto_schema(
         tags=['profile'],
-        summary="Get specific user profile by ID",
-        description="Retrieve a specific user's profile by their user ID. Any authenticated user can access this endpoint.",
+        summary="Get specific user profile by profile ID",
+        description="Retrieve a specific user's profile by their profile ID. Any authenticated user can access this endpoint.",
         parameters=[
             openapi.Parameter(
-                'user_id',
+                'profile_id',
                 openapi.IN_PATH,
-                description="ID of the user whose profile to retrieve",
+                description="ID of the profile to retrieve",
                 type=openapi.TYPE_INTEGER,
                 required=True
             ),
@@ -544,29 +611,19 @@ class UserProfileView(APIView):
                     }
                 }
             ),
-            404: openapi.Response(description="User or profile not found"),
+            404: openapi.Response(description="Profile not found"),
             401: openapi.Response(description="Unauthorized"),
         }
     )
-    def get(self, request, user_id):
+    def get(self, request, profile_id):
         try:
-            # Get the user by ID
-            user = get_object_or_404(User, id=user_id)
-            
-            # Get the user's profile
-            profile = get_object_or_404(Profile, user=user)
-            
+            # Get the profile by profile_id
+            profile = get_object_or_404(Profile, id=profile_id)
             serializer = ProfileSerializer(profile)
             return Response(serializer.data, status=status.HTTP_200_OK)
-            
-        except User.DoesNotExist:
-            return Response(
-                {"message": "User not found."}, 
-                status=status.HTTP_404_NOT_FOUND
-            )
         except Profile.DoesNotExist:
             return Response(
-                {"message": "Profile not found for this user."}, 
+                {"message": "Profile not found."}, 
                 status=status.HTTP_404_NOT_FOUND
             )
         except Exception as e:

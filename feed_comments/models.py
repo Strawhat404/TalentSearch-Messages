@@ -2,6 +2,7 @@ import uuid
 from django.db import models
 from django.conf import settings
 from feed_posts.models import FeedPost
+from userprofile.models import Profile
 
 class Comment(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
@@ -15,7 +16,17 @@ class Comment(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='comments',
-        db_column='user_id'
+        db_column='user_id',
+        help_text="User who created the comment"
+    )
+    profile = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name='comments',
+        db_column='profile_id',
+        null=True,
+        blank=True,
+        help_text="Profile who created the comment"
     )
     content = models.TextField()
     parent = models.ForeignKey(
@@ -55,7 +66,17 @@ class CommentLike(models.Model):
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
         related_name='comment_likes',
-        db_column='user_id'
+        db_column='user_id',
+        help_text="User who liked/disliked the comment"
+    )
+    profile = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name='comment_likes',
+        db_column='profile_id',
+        null=True,
+        blank=True,
+        help_text="Profile who liked/disliked the comment"
     )
     is_like = models.BooleanField(default=True)  # True for like, False for dislike
     created_at = models.DateTimeField(auto_now_add=True)

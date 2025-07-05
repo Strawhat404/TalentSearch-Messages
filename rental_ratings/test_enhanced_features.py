@@ -25,7 +25,8 @@ class EnhancedRatingModelTests(TestCase):
             category='photography',
             description='Test camera for rental',
             daily_rate=50.00,
-            user=self.user
+            user=self.user,
+            specs={'resolution': '4K'}
         )
 
     def test_rating_creation_with_new_fields(self):
@@ -137,7 +138,8 @@ class EnhancedRatingAPITests(APITestCase):
             category='photography',
             description='Test camera for rental',
             daily_rate=50.00,
-            user=self.user
+            user=self.user,
+            specs={'resolution': '4K'}
         )
         
         # Create test ratings
@@ -357,6 +359,19 @@ class EnhancedRatingAPITests(APITestCase):
         response = self.client.post(url, data)
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('already rated', response.data['detail'])
+
+    def test_rating_serializer_includes_username(self):
+        """Test that the rating serializer includes the username field"""
+        from .serializers import RatingSerializer
+        
+        # Use the existing rating from setUp
+        serializer = RatingSerializer(self.rating1)
+        data = serializer.data
+        
+        # Check that username is included
+        self.assertIn('username', data)
+        self.assertEqual(data['username'], self.user.username)
+        self.assertIn('user_profile', data)  # Ensure backward compatibility
 
 
 class RatingPerformanceTests(APITestCase):

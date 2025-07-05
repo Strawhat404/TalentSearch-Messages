@@ -361,4 +361,3 @@ class WishlistViewSet(viewsets.ModelViewSet):
             return Response({
                 'message': 'Item not found in wishlist.'
             }, status=status.HTTP_404_NOT_FOUND)
-        
