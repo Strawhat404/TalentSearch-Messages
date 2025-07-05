@@ -69,5 +69,7 @@ class Migration(migrations.Migration):
                 "ordering": ["-created_at"],
                 "unique_together": {("follower", "following")},
             },
-        ),
+        )
     ]
+
+
