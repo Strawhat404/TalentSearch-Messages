@@ -357,4 +357,3 @@ CORS_ALLOWED_HEADERS = [
 ]
 
 logger.warning(f"DJANGO STORAGE BACKEND: {default_storage.__class__}")
-
