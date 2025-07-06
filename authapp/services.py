@@ -23,11 +23,11 @@ class NotificationService:
     Service class for handling system notifications.
     Provides methods for creating, managing, and sending notifications.
     """
-    
+
     # Notification type constants
     NOTIFICATION_TYPES = {
         'SYSTEM': 'system',
-        'SECURITY': 'security', 
+        'SECURITY': 'security',
         'ACCOUNT': 'account',
         'MESSAGE': 'message',
         'JOB': 'job',
@@ -42,7 +42,7 @@ class NotificationService:
         'PAYMENT': 'payment',
         'SUPPORT': 'support',
     }
-    
+
     @classmethod
     def create_notification(
         cls,
@@ -55,7 +55,7 @@ class NotificationService:
     ) -> Notification:
         """
         Create a new notification for a user.
-        
+
         Args:
             user: The user to send the notification to
             title: Notification title
@@ -63,7 +63,7 @@ class NotificationService:
             notification_type: Type of notification (info, warning, alert, system, etc.)
             link: Optional link for the notification
             data: Optional additional data to store with the notification
-            
+
         Returns:
             Created notification object
         """
@@ -76,17 +76,17 @@ class NotificationService:
                     notification_type=notification_type,
                     link=link
                 )
-                
+
                 # Update user's unread notification count in cache
                 cls._update_unread_count(user)
-                
+
                 logger.info(f"Created notification for user {user.email}: {title}")
                 return notification
-                
+
         except Exception as e:
             logger.error(f"Error creating notification for user {user.email}: {str(e)}")
             raise
-    
+
     @classmethod
     def create_system_notification(
         cls,
@@ -98,20 +98,20 @@ class NotificationService:
     ) -> List[Notification]:
         """
         Create system notifications for multiple users or all users.
-        
+
         Args:
             title: Notification title
             message: Notification message
             users: List of users to notify (if None, notify all active users)
             link: Optional link for the notification
             data: Optional additional data
-            
+
         Returns:
             List of created notifications
         """
         if users is None:
             users = User.objects.filter(is_active=True)
-        
+
         notifications = []
         for user in users:
             try:
@@ -127,10 +127,10 @@ class NotificationService:
             except Exception as e:
                 logger.error(f"Error creating system notification for user {user.email}: {str(e)}")
                 continue
-        
+
         logger.info(f"Created {len(notifications)} system notifications")
         return notifications
-    
+
     @classmethod
     def create_security_notification(
         cls,
@@ -142,14 +142,14 @@ class NotificationService:
     ) -> Notification:
         """
         Create a security-related notification.
-        
+
         Args:
             user: The user to notify
             title: Notification title
             message: Notification message
             link: Optional link
             data: Optional additional data
-            
+
         Returns:
             Created notification
         """
@@ -161,7 +161,7 @@ class NotificationService:
             link=link,
             data=data
         )
-    
+
     @classmethod
     def create_account_notification(
         cls,
@@ -173,14 +173,14 @@ class NotificationService:
     ) -> Notification:
         """
         Create an account-related notification.
-        
+
         Args:
             user: The user to notify
             title: Notification title
             message: Notification message
             link: Optional link
             data: Optional additional data
-            
+
         Returns:
             Created notification
         """
@@ -192,16 +192,16 @@ class NotificationService:
             link=link,
             data=data
         )
-    
+
     @classmethod
     def mark_as_read(cls, notification_id: int, user: User) -> bool:
         """
         Mark a notification as read.
-        
+
         Args:
             notification_id: ID of the notification
             user: The user who owns the notification
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -219,15 +219,15 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Error marking notification {notification_id} as read: {str(e)}")
             return False
-    
+
     @classmethod
     def mark_all_as_read(cls, user: User) -> int:
         """
         Mark all notifications as read for a user.
-        
+
         Args:
             user: The user whose notifications to mark as read
-            
+
         Returns:
             Number of notifications marked as read
         """
@@ -239,16 +239,16 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Error marking all notifications as read for user {user.email}: {str(e)}")
             return 0
-    
+
     @classmethod
     def delete_notification(cls, notification_id: int, user: User) -> bool:
         """
         Delete a notification.
-        
+
         Args:
             notification_id: ID of the notification
             user: The user who owns the notification
-            
+
         Returns:
             True if successful, False otherwise
         """
@@ -264,61 +264,61 @@ class NotificationService:
         except Exception as e:
             logger.error(f"Error deleting notification {notification_id}: {str(e)}")
             return False
-    
+
     @classmethod
     def get_unread_count(cls, user: User) -> int:
         """
         Get the number of unread notifications for a user.
-        
+
         Args:
             user: The user to get count for
-            
+
         Returns:
             Number of unread notifications
         """
         cache_key = f"unread_notifications_{user.id}"
         count = cache.get(cache_key)
-        
+
         if count is None:
             count = Notification.objects.filter(user=user, read=False).count()
             cache.set(cache_key, count, 300)  # Cache for 5 minutes
-        
+
         return count
-    
+
     @classmethod
     def _update_unread_count(cls, user: User) -> None:
         """
         Update the cached unread notification count for a user.
-        
+
         Args:
             user: The user to update count for
         """
         cache_key = f"unread_notifications_{user.id}"
         count = Notification.objects.filter(user=user, read=False).count()
         cache.set(cache_key, count, 300)  # Cache for 5 minutes
-    
+
     @classmethod
     def get_recent_notifications(cls, user: User, limit: int = 10) -> List[Notification]:
         """
         Get recent notifications for a user.
-        
+
         Args:
             user: The user to get notifications for
             limit: Maximum number of notifications to return
-            
+
         Returns:
             List of recent notifications
         """
         return Notification.objects.filter(user=user).order_by('-created_at')[:limit]
-    
+
     @classmethod
     def cleanup_old_notifications(cls, days: int = 30) -> int:
         """
         Clean up old notifications.
-        
+
         Args:
             days: Number of days to keep notifications
-            
+
         Returns:
             Number of notifications deleted
         """
@@ -338,7 +338,7 @@ def notify_user_login(user: User, ip_address: str = None, device_info: str = Non
         message += f" from IP: {ip_address}"
     if device_info:
         message += f" using {device_info}"
-    
+
     NotificationService.create_security_notification(
         user=user,
         title="Login Successful",
@@ -351,7 +351,7 @@ def notify_user_logout(user: User, ip_address: str = None):
     message = "You have been logged out of your account"
     if ip_address:
         message += f" from IP: {ip_address}"
-    
+
     NotificationService.create_security_notification(
         user=user,
         title="Logout Successful",
@@ -364,7 +364,7 @@ def notify_password_change(user: User, ip_address: str = None):
     message = "Your password has been changed successfully"
     if ip_address:
         message += f" from IP: {ip_address}"
-    
+
     NotificationService.create_security_notification(
         user=user,
         title="Password Changed",
@@ -377,7 +377,7 @@ def notify_suspicious_activity(user: User, activity_type: str, ip_address: str =
     message = f"Suspicious {activity_type} detected on your account"
     if ip_address:
         message += f" from IP: {ip_address}"
-    
+
     NotificationService.create_security_notification(
         user=user,
         title="Suspicious Activity Detected",
@@ -441,7 +441,7 @@ def notify_new_user_registration(user: User):
     """
     # Get all admin users
     admin_users = User.objects.filter(is_staff=True, is_active=True)
-    
+
     # Create notification for each admin
     for admin in admin_users:
         NotificationService.create_system_notification(
@@ -463,7 +463,7 @@ def notify_user_reported(reported_user: User, reporter_user: User, reason: str):
     """
     # Get all admin users
     admin_users = User.objects.filter(is_staff=True, is_active=True)
-    
+
     # Create notification for each admin
     for admin in admin_users:
         NotificationService.create_system_notification(
@@ -491,7 +491,7 @@ def notify_new_feed_posted(feed_post):
     # For now, notify all active users (you can customize this logic)
     # In a real implementation, you might want to notify only followers or users with similar interests
     active_users = User.objects.filter(is_active=True).exclude(id=feed_post.user.id)
-    
+
     # Limit to first 100 users to avoid performance issues
     # In production, you might want to use a queue system for this
     for user in active_users[:100]:
@@ -511,13 +511,39 @@ def notify_new_feed_posted(feed_post):
         )
 
 
+# def notify_new_job_posted(job):
+#     """
+#     Notify relevant users when a new job is posted.
+#     """
+#     # Notify all active users (you can customize this based on job requirements)
+#     active_users = User.objects.filter(is_active=True).exclude(id=job.profile_id.user.id)
+#
+#     # Limit to first 100 users to avoid performance issues
+#     for user in active_users[:100]:
+#         NotificationService.create_notification(
+#             user=user,
+#             title="New Job Posted",
+#             message=f"{job.profile_id.user.username or job.profile_id.user.email} posted a new job: '{job.job_title}'.",
+#             notification_type=NotificationService.NOTIFICATION_TYPES['JOB'],
+#             data={
+#                 'job_id': job.id,
+#                 'job_title': job.job_title,
+#                 'company_name': job.company_name,
+#                 'project_type': job.project_type,
+#                 'talents': job.talents,
+#                 'poster_id': job.profile_id.user.id,
+#                 'poster_username': job.profile_id.user.username,
+#                 'poster_email': job.profile_id.user.email
+#             }
+#         )
+
 def notify_new_job_posted(job):
     """
     Notify relevant users when a new job is posted.
     """
     # Notify all active users (you can customize this based on job requirements)
     active_users = User.objects.filter(is_active=True).exclude(id=job.user_id.id)
-    
+
     # Limit to first 100 users to avoid performance issues
     for user in active_users[:100]:
         NotificationService.create_notification(
@@ -536,15 +562,13 @@ def notify_new_job_posted(job):
                 'poster_email': job.user_id.email
             }
         )
-
-
 def notify_new_rental_posted(rental_item):
     """
     Notify relevant users when a new rental item is posted.
     """
     # Notify all active users (you can customize this based on rental category)
     active_users = User.objects.filter(is_active=True).exclude(id=rental_item.user.id)
-    
+
     # Limit to first 100 users to avoid performance issues
     for user in active_users[:100]:
         NotificationService.create_notification(
@@ -590,7 +614,7 @@ def notify_user_rejected_by_admin(user: User, admin_user: User, reason: str = ""
     message = f"User {user.username or user.email} has been rejected by {admin_user.username or admin_user.email}."
     if reason:
         message += f" Reason: {reason}"
-    
+
     NotificationService.create_account_notification(
         user=user,
         title="User Rejected",
@@ -618,7 +642,7 @@ def notify_rental_verification_status(rental_item, admin_user: User, is_approved
         message = f"Your rental item '{rental_item.name}' has been rejected by {admin_user.username or admin_user.email}."
         if reason:
             message += f" Reason: {reason}"
-    
+
     NotificationService.create_notification(
         user=rental_item.user,
         title=title,
@@ -644,7 +668,7 @@ def notify_admins_of_system_event(event_type: str, event_details: str, data: dic
     """
     # Get all admin users
     admin_users = User.objects.filter(is_staff=True, is_active=True)
-    
+
     for admin in admin_users:
         NotificationService.create_system_notification(
             title=f"System Event: {event_type}",
@@ -670,7 +694,7 @@ def notify_user_of_profile_verification(user: User, verification_type: str, is_a
             message += f" by {admin_user.username or admin_user.email}"
         if reason:
             message += f" Reason: {reason}"
-    
+
     NotificationService.create_account_notification(
         user=user,
         title=title,
@@ -684,4 +708,4 @@ def notify_user_of_profile_verification(user: User, verification_type: str, is_a
             'review_reason': reason,
             'review_date': timezone.now().isoformat()
         }
-    ) 
+    )
