@@ -62,18 +62,18 @@ class ProfileSerializer(serializers.ModelSerializer):
             return None
 
     def get_follower_count(self, obj):
-        return UserFollow.objects.filter(following=obj.user).count()
+        return UserFollow.objects.filter(following=obj).count()
 
     def get_following_count(self, obj):
-        return UserFollow.objects.filter(follower=obj.user).count()
+        return UserFollow.objects.filter(follower=obj).count()
 
 class FeedPostSerializer(serializers.ModelSerializer):
-    user_id = serializers.UUIDField(source='user.id', read_only=True)
+    profile_id = serializers.IntegerField(source='profile.id', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     profiles = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     comments_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
-    replies = serializers.SerializerMethodField()
 
     media_url = serializers.FileField(
         validators=[
@@ -88,21 +88,20 @@ class FeedPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = FeedPost
         fields = [
-            'id', 'user_id', 'content', 'media_type', 'media_url',
+            'id', 'profile_id', 'username', 'content', 'media_type', 'media_url',
             'project_title', 'project_type', 'location', 'created_at', 'updated_at',
-            'likes_count', 'comments_count', 'user_has_liked', 'profiles', 'replies'
+            'likes_count', 'comments_count', 'user_has_liked', 'profiles'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'user_id']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'profile_id', 'username']
 
     def get_profiles(self, obj):
         try:
-            profile = Profile.objects.get(user=obj.user)
-            return ProfileSerializer(profile).data
-        except Profile.DoesNotExist:
-            # Create a basic profile data structure instead of logging a warning
+            return ProfileSerializer(obj.profile).data
+        except Exception as e:
+            logger.warning(f"Error getting profile for post {obj.id}: {e}")
             return {
                 'id': None,
-                'name': obj.user.name or obj.user.username,
+                'name': obj.profile.user.username if obj.profile and obj.profile.user else 'Unknown',
                 'photo': None,
                 'profession': None,
                 'verified': False,
@@ -120,15 +119,12 @@ class FeedPostSerializer(serializers.ModelSerializer):
     def get_user_has_liked(self, obj):
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            return obj.likes.filter(user=request.user).exists()
+            try:
+                user_profile = request.user.profile
+                return obj.likes.filter(profile=user_profile).exists()
+            except:
+                return False
         return False
-
-    def get_replies(self, obj):
-        # Only get first level replies
-        if obj.parent is None:  # Only get replies for top-level comments
-            replies = obj.replies.all()[:5]  # Limit to 5 replies
-            return CommentSerializer(replies, many=True).data
-        return []
 
     def validate(self, data):
         """
@@ -157,8 +153,12 @@ class FeedPostSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        user = self.context['request'].user
-        validated_data['user'] = user
+        # Get the user's profile
+        try:
+            user_profile = self.context['request'].user.profile
+            validated_data['profile'] = user_profile
+        except Exception as e:
+            raise serializers.ValidationError(f"User profile not found: {str(e)}")
         
         # Set media_url based on media_type
         if validated_data.get('media_type') == 'image':
@@ -189,3 +189,4 @@ class FeedPostSerializer(serializers.ModelSerializer):
         
         instance.save()
         return instance 
+    

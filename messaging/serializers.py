@@ -4,27 +4,29 @@ from django.contrib.auth import get_user_model
 from django.core.validators import MinLengthValidator, MaxLengthValidator
 from django.utils.html import strip_tags
 import bleach
+from userprofile.models import Profile
 
 User = get_user_model()
 
-class UserSerializer(serializers.ModelSerializer):
+class ProfileSerializer(serializers.ModelSerializer):
     display_name = serializers.SerializerMethodField()
+    user_email = serializers.EmailField(source='user.email', read_only=True)
     
     class Meta:
-        model = User
-        fields = ['id', 'display_name', 'email']
+        model = Profile
+        fields = ['id', 'display_name', 'user_email', 'name']
     
     def get_display_name(self, obj):
         """Get display name with fallback to email"""
         if hasattr(obj, 'name') and obj.name and obj.name != 'Unknown User':
             return obj.name
-        return obj.email
+        return obj.user.email if obj.user else 'Unknown Profile'
 
 class MessageSerializer(serializers.ModelSerializer):
-    sender = UserSerializer(read_only=True)
-    receiver = UserSerializer(read_only=True)
+    sender = ProfileSerializer(read_only=True)
+    receiver = ProfileSerializer(read_only=True)
     receiver_id = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(is_active=True),
+        queryset=Profile.objects.filter(availability_status=True),
         source='receiver',
         write_only=True
     )
@@ -45,31 +47,36 @@ class MessageSerializer(serializers.ModelSerializer):
     def validate(self, data):
         """
         Validate that:
-        1. Sender and receiver are different users
-        2. Both users are active
-        3. Both users are participants in the thread (if thread provided)
+        1. Sender and receiver are different profiles
+        2. Both profiles are active
+        3. Both profiles are participants in the thread (if thread provided)
         4. Clean and sanitize message content
         """
-        # Get sender from context (current authenticated user)
+        # Get sender profile from context (current authenticated user's profile)
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             raise serializers.ValidationError("User must be authenticated")
         
-        sender = request.user
+        # Get the profile of the authenticated user
+        try:
+            sender_profile = request.user.profile
+        except Profile.DoesNotExist:
+            raise serializers.ValidationError("User must have a profile to send messages")
+        
         receiver = data.get('receiver')
         thread = data.get('thread')
         message = data.get('message')
 
         # Check if sender and receiver are the same
-        if sender == receiver:
+        if sender_profile == receiver:
             raise serializers.ValidationError({
                 "receiver_id": "You cannot send messages to yourself"
             })
 
         # Validate thread participants (only if thread is explicitly provided)
         if thread:
-            # If thread is provided, ensure both users are participants
-            if sender not in thread.participants.all():
+            # If thread is provided, ensure both profiles are participants
+            if sender_profile not in thread.participants.all():
                 raise serializers.ValidationError({
                     "thread_id": "You must be a participant in the specified thread to send messages"
                 })
@@ -96,9 +103,9 @@ class MessageSerializer(serializers.ModelSerializer):
         return data
 
 class MessageThreadSerializer(serializers.ModelSerializer):
-    participants = UserSerializer(many=True, read_only=True)
+    participants = ProfileSerializer(many=True, read_only=True)
     participant_ids = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.filter(is_active=True),
+        queryset=Profile.objects.filter(availability_status=True),
         many=True,
         source='participants',
         write_only=True
@@ -121,13 +128,16 @@ class MessageThreadSerializer(serializers.ModelSerializer):
         return None
 
     def get_unread_count(self, obj):
-        """Get the number of unread messages for the current user"""
+        """Get the number of unread messages for the current user's profile"""
         request = self.context.get('request')
         if request and request.user.is_authenticated:
-            user = request.user
+            try:
+                user_profile = request.user.profile
+            except Profile.DoesNotExist:
+                return 0
             
-            # Count unread messages where user is the receiver
-            unread_received = obj.messages.filter(receiver=user, is_read=False).count()
+            # Count unread messages where user's profile is the receiver
+            unread_received = obj.messages.filter(receiver=user_profile, is_read=False).count()
             
             # For group conversations, also consider messages sent by others that user hasn't seen
             # This provides a more comprehensive unread count
@@ -135,7 +145,7 @@ class MessageThreadSerializer(serializers.ModelSerializer):
                 sender__in=obj.participants.all(),
                 receiver__in=obj.participants.all()
             ).exclude(
-                sender=user
+                sender=user_profile
             ).filter(is_read=False).count()
             
             # Return the higher count to ensure user sees all unread activity
@@ -146,7 +156,7 @@ class MessageThreadSerializer(serializers.ModelSerializer):
         """
         Validate that:
         1. Thread has at least 2 participants
-        2. All participants are active users
+        2. All participants are active profiles
         """
         participants = data.get('participants', [])
         if len(participants) < 2:

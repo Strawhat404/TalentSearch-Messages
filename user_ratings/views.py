@@ -19,7 +19,7 @@ class UserRatingCreateListView(APIView):
 
     def post(self, request):
         """
-        Create a new user rating, preventing duplicate ratings for the same user pair.
+        Create a new user rating, preventing duplicate ratings for the same profile pair.
         """
         serializer = UserRatingSerializer(data=request.data)
         if serializer.is_valid():
@@ -28,7 +28,7 @@ class UserRatingCreateListView(APIView):
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             except IntegrityError:
                 return Response(
-                    {"error": "You have already rated this user. Please update the existing rating."},
+                    {"error": "You have already rated this profile. Please update the existing rating."},
                     status=status.HTTP_400_BAD_REQUEST
                 )
             except Exception as e:
@@ -37,21 +37,21 @@ class UserRatingCreateListView(APIView):
 
     def get(self, request):
         """
-        Get ratings for a specific user with optional filtering and sorting.
-        Query parameters: rated_user_id (required), min_rating, sort, limit.
+        Get ratings for a specific profile with optional filtering and sorting.
+        Query parameters: rated_profile_id (required), min_rating, sort, limit.
         """
-        rated_user_id = request.query_params.get('rated_user_id')
-        if not rated_user_id:
-            return Response({"error": "rated_user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        rated_profile_id = request.query_params.get('rated_profile_id')
+        if not rated_profile_id:
+            return Response({"error": "rated_profile_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            rated_user_id = int(rated_user_id)
-            if not User.objects.filter(id=rated_user_id).exists():
-                return Response({"error": "rated_user_id does not exist."}, status=status.HTTP_404_NOT_FOUND)
+            rated_profile_id = int(rated_profile_id)
+            if not Profile.objects.filter(id=rated_profile_id).exists():
+                return Response({"error": "rated_profile_id does not exist."}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
-            return Response({"error": "rated_user_id must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "rated_profile_id must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
 
-        queryset = UserRating.objects.filter(rated_user_id=rated_user_id)
+        queryset = UserRating.objects.filter(rated_profile_id=rated_profile_id)
 
         # Filter by min_rating
         min_rating = request.query_params.get('min_rating')
@@ -112,12 +112,16 @@ class UserRatingUpdateDeleteView(APIView):
 
     def put(self, request, id):
         """
-        Update an existing rating by ID.
+        Update an existing rating by ID, only allowed for the rater (rater_profile_id).
         """
         try:
             rating = UserRating.objects.get(id=id)
         except UserRating.DoesNotExist:
             return Response({"error": "Rating not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        # Check if the requesting user is the rater
+        if request.user.id != rating.rater_profile_id.user.id:
+            return Response({"error": "Only the rater can update this rating."}, status=status.HTTP_403_FORBIDDEN)
 
         serializer = UserRatingUpdateSerializer(rating, data=request.data, partial=True)
         if serializer.is_valid():
@@ -147,37 +151,41 @@ class UserRatingUpdateDeleteView(APIView):
 
     def delete(self, request, id):
         """
-        Delete a rating by ID.
+        Delete a rating by ID, only allowed for the rater (rater_profile_id) or rated profile (rated_profile_id).
         """
         try:
             rating = UserRating.objects.get(id=id)
-            rating.delete()
-            return Response({"message": "Rating deleted successfully"}, status=status.HTTP_200_OK)
         except UserRating.DoesNotExist:
             return Response({"error": "Rating not found."}, status=status.HTTP_404_NOT_FOUND)
 
-# Keep UserRatingSummaryView unchanged
+        # Check if the requesting user is the rater or rated user
+        if request.user.id not in [rating.rater_profile_id.user.id, rating.rated_profile_id.user.id]:
+            return Response({"error": "Only the rater or rated user can delete this rating."}, status=status.HTTP_403_FORBIDDEN)
+
+        rating.delete()
+        return Response({"message": "Rating deleted successfully"}, status=status.HTTP_200_OK)
+
 class UserRatingSummaryView(APIView):
     permission_classes = [IsAuthenticated]
     throttle_classes = [UserRateThrottle]  # Apply default UserRateThrottle (1000/day)
 
     def get(self, request):
         """
-        Get rating summary for a specific user.
-        Query parameter: user_id (required).
+        Get rating summary for a specific profile.
+        Query parameter: profile_id (required).
         """
-        user_id = request.query_params.get('user_id')
-        if not user_id:
-            return Response({"error": "user_id is required."}, status=status.HTTP_400_BAD_REQUEST)
+        profile_id = request.query_params.get('profile_id')
+        if not profile_id:
+            return Response({"error": "profile_id is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            user_id = int(user_id)
-            if not User.objects.filter(id=user_id).exists():
-                return Response({"error": "user_id does not exist."}, status=status.HTTP_404_NOT_FOUND)
+            profile_id = int(profile_id)
+            if not Profile.objects.filter(id=profile_id).exists():
+                return Response({"error": "profile_id does not exist."}, status=status.HTTP_404_NOT_FOUND)
         except ValueError:
-            return Response({"error": "user_id must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "profile_id must be an integer."}, status=status.HTTP_400_BAD_REQUEST)
 
-        queryset = UserRating.objects.filter(rated_user_id=user_id)
+        queryset = UserRating.objects.filter(rated_profile_id=profile_id)
         stats = queryset.aggregate(
             average_rating=Coalesce(Avg('rating'), 0.0),
             total_ratings=Count('id')
@@ -201,7 +209,7 @@ class UserRatingSummaryView(APIView):
             }
 
         response_data = {
-            'user_id': user_id,
+            'profile_id': profile_id,
             'average_rating': average_rating,
             'total_ratings': total_ratings,
             'rating_distribution': rating_distribution,

@@ -2,6 +2,7 @@ from django.db import models
 import uuid
 from django.conf import settings
 from feed_posts.models import FeedPost
+from userprofile.models import Profile
 
 class FeedLike(models.Model):
     id = models.UUIDField(
@@ -22,6 +23,14 @@ class FeedLike(models.Model):
         related_name='feed_likes',
         help_text="User who liked the post"
     )
+    profile = models.ForeignKey(
+        Profile,
+        on_delete=models.CASCADE,
+        related_name='feed_likes',
+        null=True,
+        blank=True,
+        help_text="Profile who liked the post"
+    )
     created_at = models.DateTimeField(
         auto_now_add=True,
         help_text="When the post was liked"
@@ -32,4 +41,4 @@ class FeedLike(models.Model):
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"{self.user.username} liked {self.post.project_title}"
+        return f"{self.user} liked {self.post.project_title}"

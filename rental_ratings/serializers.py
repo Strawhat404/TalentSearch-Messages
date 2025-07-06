@@ -5,6 +5,7 @@ from rental_items.models import RentalItem
 
 class RatingSerializer(serializers.ModelSerializer):
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
+    username = serializers.CharField(source='user.username', read_only=True)
     item_details = serializers.SerializerMethodField()
     rating_stats = serializers.SerializerMethodField()
 
@@ -12,11 +13,11 @@ class RatingSerializer(serializers.ModelSerializer):
         model = Rating
         fields = [
             'id', 'item_id', 'user_id', 'rating', 'comment', 'created_at', 
-            'updated_at', 'user_profile', 'item_details', 'rating_stats',
+            'updated_at', 'user_profile', 'username', 'item_details', 'rating_stats',
             'is_verified_purchase', 'helpful_votes', 'reported', 'is_edited'
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at', 'user_profile', 'item_details', 
+            'id', 'created_at', 'updated_at', 'user_profile', 'username', 'item_details', 
             'rating_stats', 'helpful_votes', 'reported'
         ]
 
