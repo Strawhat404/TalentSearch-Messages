@@ -33,43 +33,6 @@ class Migration(migrations.Migration):
                 upload_to=feed_posts.models.feed_post_upload_path,
             ),
         ),
-        migrations.CreateModel(
-            name="UserFollow",
-            fields=[
-                (
-                    "id",
-                    models.BigAutoField(
-                        auto_created=True,
-                        primary_key=True,
-                        serialize=False,
-                        verbose_name="ID",
-                    ),
-                ),
-                ("created_at", models.DateTimeField(auto_now_add=True)),
-                (
-                    "follower",
-                    models.ForeignKey(
-                        help_text="The profile who is following.",
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="following",
-                        to="userprofile.profile",
-                    ),
-                ),
-                (
-                    "following",
-                    models.ForeignKey(
-                        help_text="The profile being followed.",
-                        on_delete=django.db.models.deletion.CASCADE,
-                        related_name="followers",
-                        to="userprofile.profile",
-                    ),
-                ),
-            ],
-            options={
-                "ordering": ["-created_at"],
-                "unique_together": {("follower", "following")},
-            },
-        )
     ]
 
 
