@@ -10,6 +10,7 @@ from django.db import IntegrityError
 from django.core.exceptions import ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.throttling import UserRateThrottle  # Import for default throttling
+from userprofile.models import Profile
 
 User = get_user_model()
 
