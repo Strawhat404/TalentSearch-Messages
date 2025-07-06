@@ -68,11 +68,7 @@ class ProfileSerializer(serializers.ModelSerializer):
         return UserFollow.objects.filter(follower=obj).count()
 
 class FeedPostSerializer(serializers.ModelSerializer):
-    profile_id = serializers.PrimaryKeyRelatedField(
-        queryset=Profile.objects.all(),
-        source='profile',
-        required=True
-    )
+    profile_id = serializers.IntegerField(source='profile.id', read_only=True)
     username = serializers.CharField(source='user.username', read_only=True)
     profiles = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
@@ -96,7 +92,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             'project_title', 'project_type', 'location', 'created_at', 'updated_at',
             'likes_count', 'comments_count', 'user_has_liked', 'profiles'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'username']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'profile_id', 'username']
 
     def get_profiles(self, obj):
         try:
@@ -158,7 +154,9 @@ class FeedPostSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context['request']
-        validated_data['user'] = request.user  # Always set user to the authenticated user
+        # Set the profile automatically from the authenticated user
+        validated_data['profile'] = request.user.profile
+        validated_data['user'] = request.user
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
