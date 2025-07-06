@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, serializers
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
@@ -21,10 +21,10 @@ class FeedPostListView(generics.ListCreateAPIView):
         try:
             queryset = FeedPost.objects.all().order_by('-created_at')
             
-            # Filter by user_id
-            user_id = self.request.query_params.get('user_id')
-            if user_id:
-                queryset = queryset.filter(user_id=user_id)
+            # Filter by profile_id
+            profile_id = self.request.query_params.get('profile_id')
+            if profile_id:
+                queryset = queryset.filter(profile=profile_id)
             
             # Filter by project_type
             project_type = self.request.query_params.get('project_type')
@@ -91,10 +91,15 @@ class FeedPostListView(generics.ListCreateAPIView):
         }, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
-        feed_post = serializer.save(user=self.request.user)
-        # Trigger notification for new feed post
-        notify_new_feed_posted(feed_post)
-        return feed_post
+        # Get the user's profile
+        try:
+            user_profile = self.request.user.profile
+            feed_post = serializer.save(profile=user_profile)
+            # Trigger notification for new feed post
+            notify_new_feed_posted(feed_post)
+            return feed_post
+        except Exception as e:
+            raise serializers.ValidationError(f"User profile not found: {str(e)}")
 
 class FeedPostDetailView(generics.RetrieveDestroyAPIView):
     queryset = FeedPost.objects.all()
@@ -192,23 +197,22 @@ class FollowUserView(APIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
-        operation_summary='Follow a user',
-        operation_description='Follow another user by providing their user ID',
+        operation_summary='Follow a profile',
+        operation_description='Follow another profile by providing their profile ID',
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['following_id'],
             properties={
                 'following_id': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_UUID,
-                    description='ID of the user to follow',
-                    example='123e4567-e89b-12d3-a456-426614174000'
+                    type=openapi.TYPE_INTEGER,
+                    description='ID of the profile to follow',
+                    example=1
                 )
             }
         ),
         responses={
             201: openapi.Response(
-                description="User followed successfully",
+                description="Profile followed successfully",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -237,36 +241,62 @@ class FollowUserView(APIView):
     )
     def post(self, request, *args, **kwargs):
         following_id = request.data.get('following_id')
+        
         if not following_id:
-            return Response({'error': 'following_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-        if str(request.user.id) == str(following_id):
-            return Response({'error': 'You cannot follow yourself.'}, status=status.HTTP_400_BAD_REQUEST)
-        follow, created = UserFollow.objects.get_or_create(follower=request.user, following_id=following_id)
-        if not created:
-            return Response({'error': 'Already following.'}, status=status.HTTP_400_BAD_REQUEST)
-        return Response({'message': 'Followed successfully.'}, status=status.HTTP_201_CREATED)
+            return Response({
+                'error': 'following_id is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Get the user's profile
+            user_profile = request.user.profile
+            
+            # Get the profile to follow
+            from userprofile.models import Profile
+            following_profile = Profile.objects.get(id=following_id)
+            
+            # Check if already following
+            if UserFollow.objects.filter(follower=user_profile, following=following_profile).exists():
+                return Response({
+                    'error': 'Already following this profile'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Create follow relationship
+            UserFollow.objects.create(follower=user_profile, following=following_profile)
+            
+            return Response({
+                'message': 'Followed successfully.'
+            }, status=status.HTTP_201_CREATED)
+            
+        except Profile.DoesNotExist:
+            return Response({
+                'error': 'Profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Error following profile: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UnfollowUserView(APIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
-        operation_summary='Unfollow a user',
-        operation_description='Unfollow another user by providing their user ID',
+        operation_summary='Unfollow a profile',
+        operation_description='Unfollow another profile by providing their profile ID',
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             required=['following_id'],
             properties={
                 'following_id': openapi.Schema(
-                    type=openapi.TYPE_STRING,
-                    format=openapi.FORMAT_UUID,
-                    description='ID of the user to unfollow',
-                    example='123e4567-e89b-12d3-a456-426614174000'
+                    type=openapi.TYPE_INTEGER,
+                    description='ID of the profile to unfollow',
+                    example=1
                 )
             }
         ),
         responses={
             200: openapi.Response(
-                description="User unfollowed successfully",
+                description="Profile unfollowed successfully",
                 schema=openapi.Schema(
                     type=openapi.TYPE_OBJECT,
                     properties={
@@ -295,28 +325,61 @@ class UnfollowUserView(APIView):
     )
     def delete(self, request, *args, **kwargs):
         following_id = request.data.get('following_id')
+        
         if not following_id:
-            return Response({'error': 'following_id is required'}, status=status.HTTP_400_BAD_REQUEST)
-        deleted, _ = UserFollow.objects.filter(follower=request.user, following_id=following_id).delete()
-        if deleted:
-            return Response({'message': 'Unfollowed successfully.'}, status=status.HTTP_200_OK)
-        return Response({'error': 'Not following.'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({
+                'error': 'following_id is required'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # Get the user's profile
+            user_profile = request.user.profile
+            
+            # Get the profile to unfollow
+            from userprofile.models import Profile
+            following_profile = Profile.objects.get(id=following_id)
+            
+            # Check if following
+            follow_relationship = UserFollow.objects.filter(
+                follower=user_profile, 
+                following=following_profile
+            ).first()
+            
+            if not follow_relationship:
+                return Response({
+                    'error': 'Not following this profile'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Delete follow relationship
+            follow_relationship.delete()
+            
+            return Response({
+                'message': 'Unfollowed successfully.'
+            }, status=status.HTTP_200_OK)
+            
+        except Profile.DoesNotExist:
+            return Response({
+                'error': 'Profile not found'
+            }, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({
+                'error': f'Error unfollowing profile: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FollowersListView(APIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
-        operation_summary='Get user followers',
-        operation_description='Get list of users who are following the specified user (or current user if no user_id provided)',
+        operation_summary='Get profile followers',
+        operation_description='Get list of profiles who are following the specified profile (or current profile if no profile_id provided)',
         manual_parameters=[
             openapi.Parameter(
-                'user_id',
+                'profile_id',
                 openapi.IN_QUERY,
-                description='ID of the user whose followers to get (optional, defaults to current user)',
-                type=openapi.TYPE_STRING,
-                format=openapi.FORMAT_UUID,
+                description='ID of the profile whose followers to get (optional, defaults to current profile)',
+                type=openapi.TYPE_INTEGER,
                 required=False,
-                example='123e4567-e89b-12d3-a456-426614174000'
+                example=1
             )
         ],
         responses={
@@ -326,26 +389,40 @@ class FollowersListView(APIView):
         tags=['follow']
     )
     def get(self, request, *args, **kwargs):
-        user_id = request.query_params.get('user_id', request.user.id)
-        followers = UserFollow.objects.filter(following_id=user_id)
-        serializer = UserFollowSerializer(followers, many=True)
-        return Response(serializer.data)
+        try:
+            # Get the target profile (current user's profile by default)
+            profile_id = request.query_params.get('profile_id')
+            if profile_id:
+                from userprofile.models import Profile
+                target_profile = Profile.objects.get(id=profile_id)
+            else:
+                target_profile = request.user.profile
+            
+            # Get followers
+            followers = UserFollow.objects.filter(following=target_profile).select_related('follower')
+            
+            serializer = UserFollowSerializer(followers, many=True)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Error getting followers: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class FollowingListView(APIView):
     permission_classes = [IsAuthenticated]
     
     @swagger_auto_schema(
-        operation_summary='Get users being followed',
-        operation_description='Get list of users that the specified user is following (or current user if no user_id provided)',
+        operation_summary='Get profiles being followed',
+        operation_description='Get list of profiles that the specified profile is following (or current profile if no profile_id provided)',
         manual_parameters=[
             openapi.Parameter(
-                'user_id',
+                'profile_id',
                 openapi.IN_QUERY,
-                description='ID of the user whose following list to get (optional, defaults to current user)',
-                type=openapi.TYPE_STRING,
-                format=openapi.FORMAT_UUID,
+                description='ID of the profile whose following list to get (optional, defaults to current profile)',
+                type=openapi.TYPE_INTEGER,
                 required=False,
-                example='123e4567-e89b-12d3-a456-426614174000'
+                example=1
             )
         ],
         responses={
@@ -355,8 +432,23 @@ class FollowingListView(APIView):
         tags=['follow']
     )
     def get(self, request, *args, **kwargs):
-        user_id = request.query_params.get('user_id', request.user.id)
-        following = UserFollow.objects.filter(follower_id=user_id)
-        serializer = UserFollowSerializer(following, many=True)
-        return Response(serializer.data) 
+        try:
+            # Get the target profile (current user's profile by default)
+            profile_id = request.query_params.get('profile_id')
+            if profile_id:
+                from userprofile.models import Profile
+                target_profile = Profile.objects.get(id=profile_id)
+            else:
+                target_profile = request.user.profile
+            
+            # Get following
+            following = UserFollow.objects.filter(follower=target_profile).select_related('following')
+            
+            serializer = UserFollowSerializer(following, many=True)
+            return Response(serializer.data)
+            
+        except Exception as e:
+            return Response({
+                'error': f'Error getting following: {str(e)}'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR) 
     

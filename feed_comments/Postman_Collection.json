@@ -1,0 +1,441 @@
+{
+	"info": {
+		"_postman_id": "feed-comments-api",
+		"name": "Feed Comments API",
+		"description": "Complete collection for testing Feed Comments API including the new cool reply endpoints",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Get Auth Token",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"username\": \"your_username\",\n    \"password\": \"your_password\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/token/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"token",
+								""
+							]
+						},
+						"description": "Get authentication token for API access"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Comments",
+			"item": [
+				{
+					"name": "Create Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"post\": \"{{post_id}}\",\n    \"content\": \"This is a test comment!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								""
+							]
+						},
+						"description": "Create a new comment on a post"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Comments",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/?post_id={{post_id}}",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								""
+							],
+							"query": [
+								{
+									"key": "post_id",
+									"value": "{{post_id}}"
+								}
+							]
+						},
+						"description": "Get all comments for a specific post"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Single Comment",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								""
+							]
+						},
+						"description": "Get a specific comment by ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Comment",
+					"request": {
+						"method": "PATCH",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content\": \"Updated comment content!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								""
+							]
+						},
+						"description": "Update a comment (only owner can update)"
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Comment",
+					"request": {
+						"method": "DELETE",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								""
+							]
+						},
+						"description": "Delete a comment (only owner can delete)"
+					},
+					"response": []
+				},
+				{
+					"name": "Like Comment",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"is_like\": true\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/like/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								"like",
+								""
+							]
+						},
+						"description": "Like a comment (use is_like: false for dislike)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "🔥 Cool Reply Endpoints",
+			"item": [
+				{
+					"name": "Create Reply",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							},
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n    \"content\": \"This is my awesome reply to the comment!\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/reply/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								"reply",
+								""
+							]
+						},
+						"description": "🚀 Create a reply to a specific comment"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Replies",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/replies/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								"replies",
+								""
+							]
+						},
+						"description": "📝 Get all replies for a specific comment with pagination"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Comment Thread",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/thread/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								"thread",
+								""
+							]
+						},
+						"description": "🧵 Get a complete comment thread with all replies"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Comment Statistics",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/stats/",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								"stats",
+								""
+							]
+						},
+						"description": "📊 Get comprehensive statistics and engagement metrics"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Top Replies",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/feed_comments/comments/{{comment_id}}/top-replies/?limit=5",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"feed_comments",
+								"comments",
+								"{{comment_id}}",
+								"top-replies",
+								""
+							],
+							"query": [
+								{
+									"key": "limit",
+									"value": "5"
+								}
+							]
+						},
+						"description": "🔥 Get the most popular replies sorted by engagement"
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		},
+		{
+			"key": "auth_token",
+			"value": "your_auth_token_here",
+			"type": "string"
+		},
+		{
+			"key": "post_id",
+			"value": "your_post_id_here",
+			"type": "string"
+		},
+		{
+			"key": "comment_id",
+			"value": "your_comment_id_here",
+			"type": "string"
+		}
+	]
+} 
