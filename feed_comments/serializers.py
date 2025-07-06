@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Comment, CommentLike
 from userprofile.serializers import ProfileSerializer
+from userprofile.models import Profile
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -9,6 +10,11 @@ class CommentLikeSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'created_at']
 
 class CommentSerializer(serializers.ModelSerializer):
+    profile_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        source='profile',
+        required=True
+    )
     profile = ProfileSerializer(read_only=True)
     username = serializers.CharField(source='profile.user.username', read_only=True)
     replies = serializers.SerializerMethodField()

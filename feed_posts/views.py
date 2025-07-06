@@ -10,6 +10,7 @@ from drf_yasg import openapi
 import os
 import logging
 from authapp.services import notify_new_feed_posted
+from userprofile.models import Profile
 
 logger = logging.getLogger(__name__)
 
@@ -82,22 +83,20 @@ class FeedPostListView(generics.ListCreateAPIView):
         }
     )
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        self.perform_create(serializer)
-        return Response({
-            "id": serializer.data['id'],
-            "message": "Post created successfully"
-        }, status=status.HTTP_201_CREATED)
-
-    def perform_create(self, serializer):
-        # Get the user's profile
+        profile_id = request.data.get('profile_id')
+        if not profile_id:
+            return Response({'error': 'profile_id is required'}, status=400)
         try:
-            user_profile = self.request.user.profile
-            feed_post = serializer.save(profile=user_profile)
+            user_profile = Profile.objects.get(id=profile_id)
+            feed_post = self.get_serializer(data=request.data).save(profile=user_profile)
             # Trigger notification for new feed post
             notify_new_feed_posted(feed_post)
-            return feed_post
+            return Response({
+                "id": feed_post.id,
+                "message": "Post created successfully"
+            }, status=status.HTTP_201_CREATED)
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=404)
         except Exception as e:
             raise serializers.ValidationError(f"User profile not found: {str(e)}")
 
@@ -203,6 +202,11 @@ class FollowUserView(APIView):
             type=openapi.TYPE_OBJECT,
             required=['following_id'],
             properties={
+                'profile_id': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='ID of the profile to follow',
+                    example=1
+                ),
                 'following_id': openapi.Schema(
                     type=openapi.TYPE_INTEGER,
                     description='ID of the profile to follow',
@@ -230,7 +234,7 @@ class FollowUserView(APIView):
                     properties={
                         'error': openapi.Schema(
                             type=openapi.TYPE_STRING,
-                            example='following_id is required'
+                            example='profile_id and following_id are required'
                         )
                     }
                 )
@@ -240,42 +244,28 @@ class FollowUserView(APIView):
         tags=['follow']
     )
     def post(self, request, *args, **kwargs):
+        profile_id = request.data.get('profile_id')
         following_id = request.data.get('following_id')
+        if not profile_id or not following_id:
+            return Response({'error': 'profile_id and following_id are required'}, status=400)
+        try:
+            follower = Profile.objects.get(id=profile_id)
+            following = Profile.objects.get(id=following_id)
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=404)
         
-        if not following_id:
+        # Check if already following
+        if UserFollow.objects.filter(follower=follower, following=following).exists():
             return Response({
-                'error': 'following_id is required'
+                'error': 'Already following this profile'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            # Get the user's profile
-            user_profile = request.user.profile
-            
-            # Get the profile to follow
-            from userprofile.models import Profile
-            following_profile = Profile.objects.get(id=following_id)
-            
-            # Check if already following
-            if UserFollow.objects.filter(follower=user_profile, following=following_profile).exists():
-                return Response({
-                    'error': 'Already following this profile'
-                }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Create follow relationship
-            UserFollow.objects.create(follower=user_profile, following=following_profile)
-            
-            return Response({
-                'message': 'Followed successfully.'
-            }, status=status.HTTP_201_CREATED)
-            
-        except Profile.DoesNotExist:
-            return Response({
-                'error': 'Profile not found'
-            }, status=status.HTTP_404_NOT_FOUND)
-        except Exception as e:
-            return Response({
-                'error': f'Error following profile: {str(e)}'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Create follow relationship
+        UserFollow.objects.create(follower=follower, following=following)
+        
+        return Response({
+            'message': 'Followed successfully.'
+        }, status=status.HTTP_201_CREATED)
 
 class UnfollowUserView(APIView):
     permission_classes = [IsAuthenticated]
@@ -287,6 +277,11 @@ class UnfollowUserView(APIView):
             type=openapi.TYPE_OBJECT,
             required=['following_id'],
             properties={
+                'profile_id': openapi.Schema(
+                    type=openapi.TYPE_INTEGER,
+                    description='ID of the profile to unfollow',
+                    example=1
+                ),
                 'following_id': openapi.Schema(
                     type=openapi.TYPE_INTEGER,
                     description='ID of the profile to unfollow',
@@ -314,7 +309,7 @@ class UnfollowUserView(APIView):
                     properties={
                         'error': openapi.Schema(
                             type=openapi.TYPE_STRING,
-                            example='following_id is required'
+                            example='profile_id and following_id are required'
                         )
                     }
                 )
@@ -324,39 +319,29 @@ class UnfollowUserView(APIView):
         tags=['follow']
     )
     def delete(self, request, *args, **kwargs):
-        following_id = request.data.get('following_id')
-        
-        if not following_id:
-            return Response({
-                'error': 'following_id is required'
-            }, status=status.HTTP_400_BAD_REQUEST)
-        
         try:
-            # Get the user's profile
-            user_profile = request.user.profile
-            
-            # Get the profile to unfollow
-            from userprofile.models import Profile
+            profile_id = request.data.get('profile_id')
+            following_id = request.data.get('following_id')
+            if not profile_id or not following_id:
+                return Response({'error': 'profile_id and following_id are required'}, status=400)
+            user_profile = Profile.objects.get(id=profile_id)
             following_profile = Profile.objects.get(id=following_id)
-            
-            # Check if following
+
             follow_relationship = UserFollow.objects.filter(
                 follower=user_profile, 
                 following=following_profile
             ).first()
-            
+
             if not follow_relationship:
                 return Response({
                     'error': 'Not following this profile'
                 }, status=status.HTTP_400_BAD_REQUEST)
-            
-            # Delete follow relationship
+
             follow_relationship.delete()
-            
             return Response({
                 'message': 'Unfollowed successfully.'
             }, status=status.HTTP_200_OK)
-            
+
         except Profile.DoesNotExist:
             return Response({
                 'error': 'Profile not found'
@@ -365,6 +350,7 @@ class UnfollowUserView(APIView):
             return Response({
                 'error': f'Error unfollowing profile: {str(e)}'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            
 
 class FollowersListView(APIView):
     permission_classes = [IsAuthenticated]
@@ -393,7 +379,6 @@ class FollowersListView(APIView):
             # Get the target profile (current user's profile by default)
             profile_id = request.query_params.get('profile_id')
             if profile_id:
-                from userprofile.models import Profile
                 target_profile = Profile.objects.get(id=profile_id)
             else:
                 target_profile = request.user.profile
@@ -436,7 +421,6 @@ class FollowingListView(APIView):
             # Get the target profile (current user's profile by default)
             profile_id = request.query_params.get('profile_id')
             if profile_id:
-                from userprofile.models import Profile
                 target_profile = Profile.objects.get(id=profile_id)
             else:
                 target_profile = request.user.profile

@@ -68,12 +68,7 @@ class CommentViewSet(viewsets.ModelViewSet):
         return CommentSerializer
 
     def perform_create(self, serializer):
-        # Get the user's profile
-        try:
-            user_profile = self.request.user.profile
-            serializer.save(profile=user_profile)
-        except Exception as e:
-            raise serializers.ValidationError(f"User profile not found: {str(e)}")
+        serializer.save()  # profile is set from serializer, not from request.user.profile
 
     @swagger_auto_schema(
         manual_parameters=[
