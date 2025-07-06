@@ -336,6 +336,7 @@ class ProfileSerializer(serializers.ModelSerializer):
             'social_media', 'headshot', 'natural_photos', 'experience'
         ]
         read_only_fields = ['id', 'name', 'created_at', 'verified', 'flagged', 'email']
+        ref_name = "UserProfileProfileSerializer"  # unique name
 
     def validate(self, data):
         # Convert string fields to lowercase for case insensitive handling
