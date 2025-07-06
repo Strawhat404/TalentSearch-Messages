@@ -31,3 +31,9 @@ class FeedPostAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     ) 
+
+    def save_model(self, request, obj, form, change):
+        # Set the user to the currently logged-in admin if not already set
+        if not obj.user_id:
+            obj.user = request.user
+        super().save_model(request, obj, form, change) 

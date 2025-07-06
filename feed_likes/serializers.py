@@ -1,11 +1,16 @@
 from rest_framework import serializers
 from .models import FeedLike
 from feed_posts.models import FeedPost
+from userprofile.models import Profile
 
 class FeedLikeSerializer(serializers.ModelSerializer):
     # For reading (in responses)
     post_id = serializers.UUIDField(source='post.id', read_only=True)
-    profile_id = serializers.IntegerField(source='profile.id', read_only=True)
+    profile_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        source='profile',
+        required=True
+    )
     
     # For writing (in requests)
     post = serializers.UUIDField(write_only=True)
