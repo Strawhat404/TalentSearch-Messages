@@ -153,19 +153,10 @@ class FeedPostSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Get the user's profile
-        try:
-            user_profile = self.context['request'].user.profile
-            validated_data['profile'] = user_profile
-        except Exception as e:
-            raise serializers.ValidationError(f"User profile not found: {str(e)}")
-        
-        # Set media_url based on media_type
-        if validated_data.get('media_type') == 'image':
-            validated_data['media_url'] = validated_data.pop('media_url')
-        else:
-            validated_data['media_url'] = validated_data.pop('media_url')
-            
+        request = self.context['request']
+        # Set the profile automatically from the authenticated user
+        validated_data['profile'] = request.user.profile
+        validated_data['user'] = request.user
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
