@@ -2,6 +2,7 @@ from django.contrib import admin
 from .models import Message, MessageThread
 from userprofile.models import Profile
 
+
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = ('sender_name', 'receiver_name', 'message_preview', 'is_read', 'created_at')
