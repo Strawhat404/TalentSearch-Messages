@@ -511,45 +511,19 @@ def notify_new_feed_posted(feed_post):
         )
 
 
-# def notify_new_job_posted(job):
-#     """
-#     Notify relevant users when a new job is posted.
-#     """
-#     # Notify all active users (you can customize this based on job requirements)
-#     active_users = User.objects.filter(is_active=True).exclude(id=job.profile_id.user.id)
-#
-#     # Limit to first 100 users to avoid performance issues
-#     for user in active_users[:100]:
-#         NotificationService.create_notification(
-#             user=user,
-#             title="New Job Posted",
-#             message=f"{job.profile_id.user.username or job.profile_id.user.email} posted a new job: '{job.job_title}'.",
-#             notification_type=NotificationService.NOTIFICATION_TYPES['JOB'],
-#             data={
-#                 'job_id': job.id,
-#                 'job_title': job.job_title,
-#                 'company_name': job.company_name,
-#                 'project_type': job.project_type,
-#                 'talents': job.talents,
-#                 'poster_id': job.profile_id.user.id,
-#                 'poster_username': job.profile_id.user.username,
-#                 'poster_email': job.profile_id.user.email
-#             }
-#         )
-
 def notify_new_job_posted(job):
     """
     Notify relevant users when a new job is posted.
     """
     # Notify all active users (you can customize this based on job requirements)
-    active_users = User.objects.filter(is_active=True).exclude(id=job.user_id.id)
+    active_users = User.objects.filter(is_active=True).exclude(id=job.profile_id.user.id)
 
     # Limit to first 100 users to avoid performance issues
     for user in active_users[:100]:
         NotificationService.create_notification(
             user=user,
             title="New Job Posted",
-            message=f"{job.user_id.username or job.user_id.email} posted a new job: '{job.job_title}'.",
+            message=f"{job.profile_id.user.username or job.profile_id.user.email} posted a new job: '{job.job_title}'.",
             notification_type=NotificationService.NOTIFICATION_TYPES['JOB'],
             data={
                 'job_id': job.id,
@@ -557,11 +531,37 @@ def notify_new_job_posted(job):
                 'company_name': job.company_name,
                 'project_type': job.project_type,
                 'talents': job.talents,
-                'poster_id': job.user_id.id,
-                'poster_username': job.user_id.username,
-                'poster_email': job.user_id.email
+                'poster_id': job.profile_id.user.id,
+                'poster_username': job.profile_id.user.username,
+                'poster_email': job.profile_id.user.email
             }
         )
+
+# def notify_new_job_posted(job):
+#     """
+#     Notify relevant users when a new job is posted.
+#     """
+#     # Notify all active users (you can customize this based on job requirements)
+#     active_users = User.objects.filter(is_active=True).exclude(id=job.user_id.id)
+#
+#     # Limit to first 100 users to avoid performance issues
+#     for user in active_users[:100]:
+#         NotificationService.create_notification(
+#             user=user,
+#             title="New Job Posted",
+#             message=f"{job.user_id.username or job.user_id.email} posted a new job: '{job.job_title}'.",
+#             notification_type=NotificationService.NOTIFICATION_TYPES['JOB'],
+#             data={
+#                 'job_id': job.id,
+#                 'job_title': job.job_title,
+#                 'company_name': job.company_name,
+#                 'project_type': job.project_type,
+#                 'talents': job.talents,
+#                 'poster_id': job.user_id.id,
+#                 'poster_username': job.user_id.username,
+#                 'poster_email': job.user_id.email
+#             }
+#         )
 def notify_new_rental_posted(rental_item):
     """
     Notify relevant users when a new rental item is posted.
