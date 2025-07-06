@@ -68,7 +68,11 @@ class ProfileSerializer(serializers.ModelSerializer):
         return UserFollow.objects.filter(follower=obj).count()
 
 class FeedPostSerializer(serializers.ModelSerializer):
-    profile_id = serializers.IntegerField(source='profile.id', read_only=True)
+    profile_id = serializers.PrimaryKeyRelatedField(
+        queryset=Profile.objects.all(),
+        source='profile',
+        required=True
+    )
     username = serializers.CharField(source='user.username', read_only=True)
     profiles = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
@@ -92,7 +96,7 @@ class FeedPostSerializer(serializers.ModelSerializer):
             'project_title', 'project_type', 'location', 'created_at', 'updated_at',
             'likes_count', 'comments_count', 'user_has_liked', 'profiles'
         ]
-        read_only_fields = ['id', 'created_at', 'updated_at', 'profile_id', 'username']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'username']
 
     def get_profiles(self, obj):
         try:
@@ -153,19 +157,8 @@ class FeedPostSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        # Get the user's profile
-        try:
-            user_profile = self.context['request'].user.profile
-            validated_data['profile'] = user_profile
-        except Exception as e:
-            raise serializers.ValidationError(f"User profile not found: {str(e)}")
-        
-        # Set media_url based on media_type
-        if validated_data.get('media_type') == 'image':
-            validated_data['media_url'] = validated_data.pop('media_url')
-        else:
-            validated_data['media_url'] = validated_data.pop('media_url')
-            
+        request = self.context['request']
+        validated_data['user'] = request.user  # Always set user to the authenticated user
         return super().create(validated_data)
 
     def update(self, instance, validated_data):
