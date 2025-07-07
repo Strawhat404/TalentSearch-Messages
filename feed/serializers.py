@@ -20,8 +20,8 @@ class FeedLikeSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = FeedLike
-        fields = ['id', 'post', 'profile', 'created_at']
-        read_only_fields = ['id', 'profile', 'created_at']
+        fields = ['id', 'profile', 'post', 'created_at']
+        read_only_fields = ['id', 'profile', 'post', 'created_at']
 
 class FollowSerializer(serializers.ModelSerializer):
     follower = ProfileSerializer(read_only=True)
