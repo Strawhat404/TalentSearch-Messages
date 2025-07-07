@@ -300,3 +300,13 @@ class CommentLikeCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         comment_id = self.kwargs['comment_id']
         serializer.save(profile=self.request.user.profile, comment_id=comment_id)
+
+class ProfileFollowCountsView(APIView):
+    def get(self, request, profile_id):
+        profile = Profile.objects.get(id=profile_id)
+        follower_count = profile.followers.count()
+        following_count = profile.following.count()
+        return Response({
+            "follower_count": follower_count,
+            "following_count": following_count
+        })

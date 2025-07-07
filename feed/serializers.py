@@ -3,6 +3,8 @@
 from rest_framework import serializers
 from .models import FeedPost, FeedLike, Follow, Comment, CommentLike
 from userprofile.serializers import ProfileSerializer
+from userprofile.models import Profile
+from feed.models import Follow  # or wherever your Follow model is
 
 class FeedPostSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -23,9 +25,26 @@ class FeedLikeSerializer(serializers.ModelSerializer):
         fields = ['id', 'profile', 'post', 'created_at']
         read_only_fields = ['id', 'profile', 'post', 'created_at']
 
+class FeedProfileSerializer(serializers.ModelSerializer):
+    follower_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Profile
+        fields = [
+            'id', 'name', 'email',  # add any other fields you want
+            'follower_count', 'following_count'
+        ]
+
+    def get_follower_count(self, obj):
+        return obj.followers.count()
+
+    def get_following_count(self, obj):
+        return obj.following.count()
+
 class FollowSerializer(serializers.ModelSerializer):
-    follower = ProfileSerializer(read_only=True)
-    following = ProfileSerializer(read_only=True)
+    follower = FeedProfileSerializer(read_only=True)
+    following = FeedProfileSerializer(read_only=True)
 
     class Meta:
         model = Follow
@@ -33,11 +52,18 @@ class FollowSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'follower', 'following', 'created_at']
 
 class CommentSerializer(serializers.ModelSerializer):
-    parent_id = serializers.IntegerField(source='parent.id', read_only=True)
+    profile = ProfileSerializer(read_only=True)  # or your custom serializer
     class Meta:
         model = Comment
-        fields = ['id', 'content', 'parent', 'parent_id']  # add other fields as needed
-        read_only_fields = ['id', 'parent_id']
+        fields = [
+            'id',
+            'content',
+            'created_at',
+            'profile',    # this is the user who created the comment
+            'parent',
+            # ... any other fields you want ...
+        ]
+        read_only_fields = ['id', 'created_at', 'profile']
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
