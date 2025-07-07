@@ -4,23 +4,17 @@ from rest_framework import serializers
 from .models import FeedPost, FeedLike, Follow, Comment, CommentLike
 from userprofile.serializers import ProfileSerializer
 from userprofile.models import Profile
-from feed.models import Follow  # or wherever your Follow model is
-from rest_framework import serializers
-from .models import Comment
 
+class FeedPostSerializer(serializers.ModelSerializer):
+    profile = ProfileSerializer(read_only=True)
 
-# class FeedPostSerializer(serializers.ModelSerializer):
-#     profile = ProfileSerializer(read_only=True)
-
-#     class Meta:
-#         model = FeedPost
-#         fields = [
-#             'id', 'profile', 'content', 'media_type', 'media',
-#             'project_title', 'project_type', 'location', 'created_at', 'updated_at'
-#         ]
-#         read_only_fields = ['id', 'profile', 'created_at', 'updated_at']
-
-
+    class Meta:
+        model = FeedPost
+        fields = [
+            'id', 'profile', 'content', 'media_type', 'media',
+            'project_title', 'project_type', 'location', 'created_at'
+        ]
+        read_only_fields = ['id', 'profile', 'created_at']
 
 class FeedProfileSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -30,7 +24,7 @@ class FeedProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = [
-            'id', 'profile',    # Change 'user' to 'profile'
+            'id', 'profile',
             'follower_count', 'following_count'
         ]
 
@@ -39,7 +33,6 @@ class FeedProfileSerializer(serializers.ModelSerializer):
 
     def get_following_count(self, obj):
         return obj.following.count()
-
 
 class FeedLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -48,24 +41,6 @@ class FeedLikeSerializer(serializers.ModelSerializer):
         model = FeedLike
         fields = ['id', 'profile', 'post', 'created_at']
         read_only_fields = ['id', 'profile', 'post', 'created_at']
-
-class FeedProfileSerializer(serializers.ModelSerializer):
-    follower_count = serializers.SerializerMethodField()
-    following_count = serializers.SerializerMethodField()
-    email = serializers.CharField(source='user.email', read_only=True)  # Get email from related User
-
-    class Meta:
-        model = Profile
-        fields = [
-            'id', 'name', 'email',  # email comes from user.email
-            'follower_count', 'following_count'
-        ]
-
-    def get_follower_count(self, obj):
-        return obj.followers.count()
-
-    def get_following_count(self, obj):
-        return obj.following.count()
 
 class FollowSerializer(serializers.ModelSerializer):
     follower = ProfileSerializer(read_only=True)
@@ -76,22 +51,15 @@ class FollowSerializer(serializers.ModelSerializer):
         fields = ['id', 'follower', 'following', 'created_at']
         read_only_fields = ['id', 'follower', 'following', 'created_at']
 
-
 class CommentSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(read_only=True)  # shows the user who wrote the comment
+    profile = ProfileSerializer(read_only=True)
 
     class Meta:
         model = Comment
         fields = [
-            'id',
-            'content',
-            'created_at',
-            'profile',
-            'parent',
-            'post',
+            'id', 'content', 'created_at', 'profile', 'parent', 'post'
         ]
         read_only_fields = ['id', 'created_at', 'profile']
-
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -101,12 +69,10 @@ class CommentLikeSerializer(serializers.ModelSerializer):
         fields = ['id', 'comment', 'profile', 'is_like', 'created_at']
         read_only_fields = ['id', 'profile', 'created_at']
 
-
-
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['content', 'parent']  # Do NOT include 'post'
+        fields = ['content', 'parent']
         extra_kwargs = {
             'parent': {'required': False}
         }
