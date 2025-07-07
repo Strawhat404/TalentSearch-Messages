@@ -7,7 +7,6 @@ from userprofile.models import Profile
 from feed.models import Follow  # or wherever your Follow model is
 from rest_framework import serializers
 from .models import Comment
-from userprofile.serializers import UserSerializer
 
 
 # class FeedPostSerializer(serializers.ModelSerializer):
@@ -24,14 +23,14 @@ from userprofile.serializers import UserSerializer
 
 
 class FeedProfileSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    profile = ProfileSerializer(read_only=True)
     follower_count = serializers.SerializerMethodField()
     following_count = serializers.SerializerMethodField()
 
     class Meta:
         model = Profile
         fields = [
-            'id', 'user',    # 👈 include the nested user
+            'id', 'profile',    # Change 'user' to 'profile'
             'follower_count', 'following_count'
         ]
 
@@ -69,8 +68,8 @@ class FeedProfileSerializer(serializers.ModelSerializer):
         return obj.following.count()
 
 class FollowSerializer(serializers.ModelSerializer):
-    follower = FeedProfileSerializer(read_only=True)
-    following = FeedProfileSerializer(read_only=True)
+    follower = ProfileSerializer(read_only=True)
+    following = ProfileSerializer(read_only=True)
 
     class Meta:
         model = Follow
