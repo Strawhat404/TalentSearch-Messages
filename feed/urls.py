@@ -16,9 +16,6 @@ urlpatterns = [
     path('unfollow/', UnfollowUserView.as_view(), name='unfollow-user'),
     path('followers/', FollowersListView.as_view(), name='followers-list'),
     path('following/', FollowingListView.as_view(), name='following-list'),
-]
-
-urlpatterns += [
     path('posts/<int:post_id>/like/', FeedLikeCreateView.as_view(), name='feed-like'),
     path('likes/<int:id>/unlike/', FeedLikeDeleteView.as_view(), name='feed-unlike'),
     path('posts/<int:post_id>/comments/', CommentListCreateView.as_view(), name='comment-list-create'),
