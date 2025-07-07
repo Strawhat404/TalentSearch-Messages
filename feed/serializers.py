@@ -33,9 +33,11 @@ class FollowSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'follower', 'following', 'created_at']
 
 class CommentSerializer(serializers.ModelSerializer):
+    parent_id = serializers.IntegerField(source='parent.id', read_only=True)
     class Meta:
         model = Comment
-        fields = '__all__'
+        fields = ['id', 'content', 'parent', 'parent_id']  # add other fields as needed
+        read_only_fields = ['id', 'parent_id']
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
