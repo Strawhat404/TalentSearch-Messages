@@ -262,19 +262,9 @@ class FeedLikeCreateView(generics.CreateAPIView):
     serializer_class = FeedLikeSerializer
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(
-        operation_summary="Like a feed post",
-        operation_description="Like a feed post by its ID.",
-        responses={
-            201: openapi.Response(
-                description="Like created",
-                schema=FeedLikeSerializer()
-            ),
-            400: "Bad request"
-        }
-    )
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+    def perform_create(self, serializer):
+        post_id = self.kwargs['post_id']
+        serializer.save(profile=self.request.user.profile, post_id=post_id)
 
 class FeedLikeDeleteView(generics.DestroyAPIView):
     queryset = FeedLike.objects.all()
