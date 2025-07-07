@@ -260,7 +260,7 @@ class FollowingListView(APIView):
 
 class FeedLikeCreateView(generics.CreateAPIView):
     serializer_class = FeedLikeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
         operation_summary="Like a feed post",
@@ -284,28 +284,15 @@ class FeedLikeDeleteView(generics.DestroyAPIView):
 
 class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentCreateSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    @swagger_auto_schema(
-        operation_summary="Create a comment",
-        operation_description="Create a comment on a feed post.",
-        responses={
-            201: openapi.Response(
-                description="Comment created",
-                schema=CommentSerializer()
-            ),
-            400: "Bad request"
-        }
-    )
-    def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
+    permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        post_id = self.request.query_params.get('post_id')
+        post_id = self.kwargs['post_id']
         return Comment.objects.filter(post_id=post_id, parent=None).order_by('-created_at')
 
     def perform_create(self, serializer):
-        serializer.save(profile=self.request.user.profile)
+        post_id = self.kwargs['post_id']
+        serializer.save(profile=self.request.user.profile, post_id=post_id)
 
 class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = ReplyCreateSerializer
@@ -318,7 +305,8 @@ class CommentReplyCreateView(generics.CreateAPIView):
 
 class CommentLikeCreateView(generics.CreateAPIView):
     serializer_class = CommentLikeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(profile=self.request.user.profile)
+        comment_id = self.kwargs['comment_id']
+        serializer.save(profile=self.request.user.profile, comment_id=comment_id)
