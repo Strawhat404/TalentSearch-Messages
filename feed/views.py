@@ -21,8 +21,19 @@ class FeedPostViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
 class FeedPostListView(generics.ListCreateAPIView):
-    queryset = FeedPost.objects.all()
     serializer_class = FeedPostSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        queryset = FeedPost.objects.all().order_by('-created_at')
+        profile_id = self.request.query_params.get('profile_id')
+        if profile_id:
+            queryset = queryset.filter(profile_id=profile_id)
+        return queryset
+
+    def perform_create(self, serializer):
+        # This sets the profile automatically from the logged-in user
+        serializer.save(profile=self.request.user.profile)
 
 class FeedPostDetailView(generics.RetrieveDestroyAPIView):
     queryset = FeedPost.objects.all()
