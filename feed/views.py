@@ -12,6 +12,12 @@ from .models import Follow
 from .serializers import FollowSerializer
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
+from .models import FeedLike
+from .serializers import FeedLikeSerializer
+from .models import Comment
+from .serializers import CommentSerializer, CommentCreateSerializer
+from .models import CommentLike
+from .serializers import CommentLikeSerializer, ReplyCreateSerializer
 
 # Create your views here.
 
@@ -251,3 +257,68 @@ class FollowingListView(APIView):
         following = Follow.objects.filter(follower=target_profile).select_related('following')
         serializer = FollowSerializer(following, many=True)
         return Response(serializer.data)
+
+class FeedLikeCreateView(generics.CreateAPIView):
+    serializer_class = FeedLikeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Like a feed post",
+        operation_description="Like a feed post by its ID.",
+        responses={
+            201: openapi.Response(
+                description="Like created",
+                schema=FeedLikeSerializer()
+            ),
+            400: "Bad request"
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+class FeedLikeDeleteView(generics.DestroyAPIView):
+    queryset = FeedLike.objects.all()
+    serializer_class = FeedLikeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+
+class CommentListCreateView(generics.ListCreateAPIView):
+    serializer_class = CommentCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary="Create a comment",
+        operation_description="Create a comment on a feed post.",
+        responses={
+            201: openapi.Response(
+                description="Comment created",
+                schema=CommentSerializer()
+            ),
+            400: "Bad request"
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
+    def get_queryset(self):
+        post_id = self.request.query_params.get('post_id')
+        return Comment.objects.filter(post_id=post_id, parent=None).order_by('-created_at')
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user.profile)
+
+class CommentReplyCreateView(generics.CreateAPIView):
+    serializer_class = ReplyCreateSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        parent_id = self.kwargs.get('parent_id')
+        parent = Comment.objects.get(id=parent_id)
+        serializer.save(profile=self.request.user.profile, parent=parent, post=parent.post)
+
+class CommentLikeCreateView(generics.CreateAPIView):
+    serializer_class = CommentLikeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(profile=self.request.user.profile)

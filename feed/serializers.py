@@ -44,3 +44,37 @@ class CommentLikeSerializer(serializers.ModelSerializer):
         model = CommentLike
         fields = ['id', 'comment', 'profile', 'is_like', 'created_at']
         read_only_fields = ['id', 'profile', 'created_at']
+
+from rest_framework import serializers
+from .models import Comment
+
+class CommentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['post', 'content', 'parent']
+        extra_kwargs = {
+            'parent': {'required': False}
+        }
+
+    def validate_parent(self, value):
+        if value and value.parent is not None:
+            raise serializers.ValidationError("Cannot reply to a reply")
+        return value
+
+class ReplyCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment
+        fields = ['content']
+        extra_kwargs = {
+            'content': {
+                'help_text': 'The content of your reply',
+                'style': {'placeholder': 'Write your reply here...'}
+            }
+        }
+
+    def validate_content(self, value):
+        if len(value.strip()) < 1:
+            raise serializers.ValidationError("Reply content cannot be empty")
+        if len(value) > 1000:
+            raise serializers.ValidationError("Reply content cannot exceed 1000 characters")
+        return value

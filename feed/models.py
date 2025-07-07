@@ -40,7 +40,9 @@ class Comment(models.Model):
 class CommentLike(models.Model):
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE, related_name='likes')
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE, related_name='comment_likes')
+    is_like = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         unique_together = ('comment', 'profile')
+        ordering = ['-created_at']
