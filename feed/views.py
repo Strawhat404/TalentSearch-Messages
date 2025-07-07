@@ -167,96 +167,86 @@ class UnfollowUserView(APIView):
 class FollowersListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(
-        operation_summary='Get profile followers',
-        operation_description='Get list of profiles who are following the specified profile',
-        responses={
-            200: openapi.Response(
-                description="List of followers",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(
-                        type=openapi.TYPE_OBJECT,
-                        properties={
-                            'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
-                            'follower': openapi.Schema(type=openapi.TYPE_INTEGER, example=2),
-                            'following': openapi.Schema(type=openapi.TYPE_INTEGER, example=3),
-                            'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', example='2024-07-07T12:34:56Z')
-                        }
-                    )
-                )
-            ),
-            404: openapi.Response(
-                description="Not Found",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Profile not found')
-                    }
-                )
-            )
-        }
-    )
     def get(self, request, *args, **kwargs):
-        profile_id = request.query_params.get('profile_id')
-        if profile_id:
-            try:
-                target_profile = Profile.objects.get(id=profile_id)
-            except Profile.DoesNotExist:
-                return Response({'error': 'Profile not found'}, status=404)
-        else:
-            target_profile = request.user.profile
-
-        followers = Follow.objects.filter(following=target_profile).select_related('follower')
-        serializer = FollowSerializer(followers, many=True)
-        return Response(serializer.data)
+        try:
+            # Get profile_id from query params and clean it
+            profile_id = request.query_params.get('profile_id')
+            
+            if profile_id:
+                # Clean the profile_id (remove trailing slash, etc.)
+                profile_id = str(profile_id).strip().rstrip('/')
+                
+                # Validate it's a valid integer
+                if not profile_id.isdigit():
+                    return Response(
+                        {"error": "Invalid profile_id. Must be a number."}, 
+                        status=400
+                    )
+                
+                # Get the target profile
+                target_profile = Profile.objects.get(id=int(profile_id))
+            else:
+                # If no profile_id provided, use current user's profile
+                target_profile = request.user.profile
+            
+            # Get followers
+            followers = Follow.objects.filter(following=target_profile)
+            serializer = FollowSerializer(followers, many=True)
+            
+            return Response(serializer.data)
+            
+        except Profile.DoesNotExist:
+            return Response(
+                {"error": "Profile not found"}, 
+                status=404
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=500
+            )
 
 class FollowingListView(APIView):
     permission_classes = [IsAuthenticated]
 
-    @swagger_auto_schema(
-        operation_summary='Get profile following',
-        operation_description='Get list of profiles that the specified profile is following',
-        responses={
-            200: openapi.Response(
-                description="List of profiles being followed",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_ARRAY,
-                    items=openapi.Items(
-                        type=openapi.TYPE_OBJECT,
-                        properties={
-                            'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
-                            'follower': openapi.Schema(type=openapi.TYPE_INTEGER, example=2),
-                            'following': openapi.Schema(type=openapi.TYPE_INTEGER, example=3),
-                            'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', example='2024-07-07T12:34:56Z')
-                        }
-                    )
-                )
-            ),
-            404: openapi.Response(
-                description="Not Found",
-                schema=openapi.Schema(
-                    type=openapi.TYPE_OBJECT,
-                    properties={
-                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Profile not found')
-                    }
-                )
-            )
-        }
-    )
     def get(self, request, *args, **kwargs):
-        profile_id = request.query_params.get('profile_id')
-        if profile_id:
-            try:
-                target_profile = Profile.objects.get(id=profile_id)
-            except Profile.DoesNotExist:
-                return Response({'error': 'Profile not found'}, status=404)
-        else:
-            target_profile = request.user.profile
-
-        following = Follow.objects.filter(follower=target_profile).select_related('following')
-        serializer = FollowSerializer(following, many=True)
-        return Response(serializer.data)
+        try:
+            # Get profile_id from query params and clean it
+            profile_id = request.query_params.get('profile_id')
+            
+            if profile_id:
+                # Clean the profile_id (remove trailing slash, etc.)
+                profile_id = str(profile_id).strip().rstrip('/')
+                
+                # Validate it's a valid integer
+                if not profile_id.isdigit():
+                    return Response(
+                        {"error": "Invalid profile_id. Must be a number."}, 
+                        status=400
+                    )
+                
+                # Get the target profile
+                target_profile = Profile.objects.get(id=int(profile_id))
+            else:
+                # If no profile_id provided, use current user's profile
+                target_profile = request.user.profile
+            
+            # Get following
+            following = Follow.objects.filter(follower=target_profile)
+            serializer = FollowSerializer(following, many=True)
+            
+            return Response(serializer.data)
+            
+        except Profile.DoesNotExist:
+            return Response(
+                {"error": "Profile not found"}, 
+                status=404
+            )
+        except Exception as e:
+            return Response(
+                {"error": f"An error occurred: {str(e)}"}, 
+                status=500
+            )
 
 class FeedLikeCreateView(generics.CreateAPIView):
     serializer_class = FeedLikeSerializer
@@ -272,13 +262,29 @@ class FeedLikeDeleteView(generics.DestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = 'id'
 
+# class CommentListCreateView(generics.ListCreateAPIView):
+#     serializer_class = CommentCreateSerializer
+#     permission_classes = [IsAuthenticated]
+
+#     def get_queryset(self):
+#         post_id = self.kwargs['post_id']
+#         return Comment.objects.filter(post_id=post_id, parent=None).order_by('-created_at')
+
+#     def perform_create(self, serializer):
+#         post_id = self.kwargs['post_id']
+#         serializer.save(profile=self.request.user.profile, post_id=post_id)
+
 class CommentListCreateView(generics.ListCreateAPIView):
-    serializer_class = CommentCreateSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         post_id = self.kwargs['post_id']
         return Comment.objects.filter(post_id=post_id, parent=None).order_by('-created_at')
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return CommentCreateSerializer
+        return CommentSerializer
 
     def perform_create(self, serializer):
         post_id = self.kwargs['post_id']

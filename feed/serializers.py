@@ -5,17 +5,42 @@ from .models import FeedPost, FeedLike, Follow, Comment, CommentLike
 from userprofile.serializers import ProfileSerializer
 from userprofile.models import Profile
 from feed.models import Follow  # or wherever your Follow model is
+from rest_framework import serializers
+from .models import Comment
+from userprofile.serializers import UserSerializer
 
-class FeedPostSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(read_only=True)
+
+# class FeedPostSerializer(serializers.ModelSerializer):
+#     profile = ProfileSerializer(read_only=True)
+
+#     class Meta:
+#         model = FeedPost
+#         fields = [
+#             'id', 'profile', 'content', 'media_type', 'media',
+#             'project_title', 'project_type', 'location', 'created_at', 'updated_at'
+#         ]
+#         read_only_fields = ['id', 'profile', 'created_at', 'updated_at']
+
+
+
+class FeedProfileSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+    follower_count = serializers.SerializerMethodField()
+    following_count = serializers.SerializerMethodField()
 
     class Meta:
-        model = FeedPost
+        model = Profile
         fields = [
-            'id', 'profile', 'content', 'media_type', 'media',
-            'project_title', 'project_type', 'location', 'created_at', 'updated_at'
+            'id', 'user',    # 👈 include the nested user
+            'follower_count', 'following_count'
         ]
-        read_only_fields = ['id', 'profile', 'created_at', 'updated_at']
+
+    def get_follower_count(self, obj):
+        return obj.followers.count()
+
+    def get_following_count(self, obj):
+        return obj.following.count()
+
 
 class FeedLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -28,11 +53,12 @@ class FeedLikeSerializer(serializers.ModelSerializer):
 class FeedProfileSerializer(serializers.ModelSerializer):
     follower_count = serializers.SerializerMethodField()
     following_count = serializers.SerializerMethodField()
+    email = serializers.CharField(source='user.email', read_only=True)  # Get email from related User
 
     class Meta:
         model = Profile
         fields = [
-            'id', 'name', 'email',  # add any other fields you want
+            'id', 'name', 'email',  # email comes from user.email
             'follower_count', 'following_count'
         ]
 
@@ -51,19 +77,22 @@ class FollowSerializer(serializers.ModelSerializer):
         fields = ['id', 'follower', 'following', 'created_at']
         read_only_fields = ['id', 'follower', 'following', 'created_at']
 
+
 class CommentSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(read_only=True)  # or your custom serializer
+    profile = ProfileSerializer(read_only=True)  # shows the user who wrote the comment
+
     class Meta:
         model = Comment
         fields = [
             'id',
             'content',
             'created_at',
-            'profile',    # this is the user who created the comment
+            'profile',
             'parent',
-            # ... any other fields you want ...
+            'post',
         ]
         read_only_fields = ['id', 'created_at', 'profile']
+
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -73,8 +102,7 @@ class CommentLikeSerializer(serializers.ModelSerializer):
         fields = ['id', 'comment', 'profile', 'is_like', 'created_at']
         read_only_fields = ['id', 'profile', 'created_at']
 
-from rest_framework import serializers
-from .models import Comment
+
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
