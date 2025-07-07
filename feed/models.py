@@ -12,6 +12,7 @@ class FeedPost(models.Model):
     project_type = models.CharField(max_length=100)
     location = models.CharField(max_length=200)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True, help_text="Date and time when the post was last updated")
 
 class FeedLike(models.Model):
     post = models.ForeignKey(FeedPost, on_delete=models.CASCADE, related_name='likes')
