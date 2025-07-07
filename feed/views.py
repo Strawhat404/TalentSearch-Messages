@@ -1,0 +1,242 @@
+from django.shortcuts import render
+from rest_framework import viewsets, permissions, generics
+from .models import FeedPost
+from .serializers import FeedPostSerializer
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from rest_framework import status
+import os
+from userprofile.models import Profile
+from .models import Follow
+from .serializers import FollowSerializer
+from drf_yasg import openapi
+from drf_yasg.utils import swagger_auto_schema
+
+# Create your views here.
+
+class FeedPostViewSet(viewsets.ModelViewSet):
+    queryset = FeedPost.objects.all().order_by('-created_at')
+    serializer_class = FeedPostSerializer
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+
+class FeedPostListView(generics.ListCreateAPIView):
+    queryset = FeedPost.objects.all()
+    serializer_class = FeedPostSerializer
+
+class FeedPostDetailView(generics.RetrieveDestroyAPIView):
+    queryset = FeedPost.objects.all()
+    serializer_class = FeedPostSerializer
+    lookup_field = 'id'
+
+class FeedPostMediaView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        post_id = kwargs.get('id')
+        try:
+            post = FeedPost.objects.get(id=post_id)
+        except FeedPost.DoesNotExist:
+            return Response({"error": "Post not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        if post.media_url:
+            try:
+                if os.path.isfile(post.media_url.path):
+                    os.remove(post.media_url.path)
+                post.media_url = None
+                post.save()
+                return Response({"message": "Media deleted successfully"}, status=status.HTTP_200_OK)
+            except Exception as e:
+                return Response({"error": f"Error deleting media: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"message": "No media to delete"}, status=status.HTTP_200_OK)
+
+class FollowUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary='Follow a profile',
+        operation_description='Follow another profile by providing their profile ID',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['profile_id', 'following_id'],
+            properties={
+                'profile_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the follower'),
+                'following_id': openapi.Schema(type=openapi.TYPE_INTEGER, description='ID of the profile to follow'),
+            }
+        ),
+        responses={
+            201: openapi.Response(
+                description="Profile followed successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Followed successfully.')
+                    }
+                )
+            ),
+            400: openapi.Response(
+                description="Bad Request",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Already following this profile')
+                    }
+                )
+            ),
+            404: openapi.Response(
+                description="Not Found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Profile not found')
+                    }
+                )
+            ),
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        profile_id = request.data.get('profile_id')
+        following_id = request.data.get('following_id')
+        if not profile_id or not following_id:
+            return Response({'error': 'profile_id and following_id are required'}, status=400)
+        try:
+            follower = Profile.objects.get(id=profile_id)
+            following = Profile.objects.get(id=following_id)
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=404)
+        
+        # Check if already following
+        if Follow.objects.filter(follower=follower, following=following).exists():
+            return Response({
+                'error': 'Already following this profile'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Create follow relationship
+        Follow.objects.create(follower=follower, following=following)
+        
+        return Response({
+            'message': 'Followed successfully.'
+        }, status=status.HTTP_201_CREATED)
+
+class UnfollowUserView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, *args, **kwargs):
+        profile_id = request.data.get('profile_id')
+        following_id = request.data.get('following_id')
+        if not profile_id or not following_id:
+            return Response({'error': 'profile_id and following_id are required'}, status=400)
+        try:
+            user_profile = Profile.objects.get(id=profile_id)
+            following_profile = Profile.objects.get(id=following_id)
+        except Profile.DoesNotExist:
+            return Response({'error': 'Profile not found'}, status=404)
+
+        follow_relationship = Follow.objects.filter(
+            follower=user_profile, 
+            following=following_profile
+        ).first()
+
+        if not follow_relationship:
+            return Response({
+                'error': 'Not following this profile'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        follow_relationship.delete()
+        return Response({
+            'message': 'Unfollowed successfully.'
+        }, status=status.HTTP_200_OK)
+
+class FollowersListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary='Get profile followers',
+        operation_description='Get list of profiles who are following the specified profile',
+        responses={
+            200: openapi.Response(
+                description="List of followers",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                            'follower': openapi.Schema(type=openapi.TYPE_INTEGER, example=2),
+                            'following': openapi.Schema(type=openapi.TYPE_INTEGER, example=3),
+                            'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', example='2024-07-07T12:34:56Z')
+                        }
+                    )
+                )
+            ),
+            404: openapi.Response(
+                description="Not Found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Profile not found')
+                    }
+                )
+            )
+        }
+    )
+    def get(self, request, *args, **kwargs):
+        profile_id = request.query_params.get('profile_id')
+        if profile_id:
+            try:
+                target_profile = Profile.objects.get(id=profile_id)
+            except Profile.DoesNotExist:
+                return Response({'error': 'Profile not found'}, status=404)
+        else:
+            target_profile = request.user.profile
+
+        followers = Follow.objects.filter(following=target_profile).select_related('follower')
+        serializer = FollowSerializer(followers, many=True)
+        return Response(serializer.data)
+
+class FollowingListView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary='Get profile following',
+        operation_description='Get list of profiles that the specified profile is following',
+        responses={
+            200: openapi.Response(
+                description="List of profiles being followed",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_ARRAY,
+                    items=openapi.Items(
+                        type=openapi.TYPE_OBJECT,
+                        properties={
+                            'id': openapi.Schema(type=openapi.TYPE_INTEGER, example=1),
+                            'follower': openapi.Schema(type=openapi.TYPE_INTEGER, example=2),
+                            'following': openapi.Schema(type=openapi.TYPE_INTEGER, example=3),
+                            'created_at': openapi.Schema(type=openapi.TYPE_STRING, format='date-time', example='2024-07-07T12:34:56Z')
+                        }
+                    )
+                )
+            ),
+            404: openapi.Response(
+                description="Not Found",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'error': openapi.Schema(type=openapi.TYPE_STRING, example='Profile not found')
+                    }
+                )
+            )
+        }
+    )
+    def get(self, request, *args, **kwargs):
+        profile_id = request.query_params.get('profile_id')
+        if profile_id:
+            try:
+                target_profile = Profile.objects.get(id=profile_id)
+            except Profile.DoesNotExist:
+                return Response({'error': 'Profile not found'}, status=404)
+        else:
+            target_profile = request.user.profile
+
+        following = Follow.objects.filter(follower=target_profile).select_related('following')
+        serializer = FollowSerializer(following, many=True)
+        return Response(serializer.data)
