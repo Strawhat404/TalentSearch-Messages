@@ -5,7 +5,8 @@ from .views import (
     NotificationStatsView, SystemNotificationView, NotificationCleanupView,
     ChangePasswordView, LogoutView, LogoutAllDevicesView, AccountRecoveryView, UserProfileView,
     PasswordResetRequestView, PasswordResetConfirmView, CustomTokenObtainPairView, AdminUserListView,
-    NotificationMarkAllAsReadView, NotificationMarkReadView, UserReportView
+    NotificationMarkAllAsReadView, NotificationMarkReadView, UserReportView,
+    EnhancedTokenRefreshView, TokenStatusView  # Add new views
 )
 from rest_framework_simplejwt.views import (
     TokenRefreshView,
@@ -16,8 +17,10 @@ urlpatterns = [
     # Core Authentication
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='login'),
-    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/refresh/', EnhancedTokenRefreshView.as_view(), name='token_refresh'),  # Use enhanced view
+    path('token/refresh/legacy/', TokenRefreshView.as_view(), name='token_refresh_legacy'),  # Keep legacy for compatibility
     path('token/verify/', TokenVerifyView.as_view(), name='token_verify'),
+    path('token/status/', TokenStatusView.as_view(), name='token_status'),  # New endpoint
     path('admin/login/', AdminLoginView.as_view(), name='admin-login'),
     path('logout/', LogoutView.as_view(), name='logout'),
     path('logout-all-devices/', LogoutAllDevicesView.as_view(), name='logout-all-devices'),

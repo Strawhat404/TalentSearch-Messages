@@ -11,6 +11,9 @@ from django.conf import settings
 from datetime import timedelta
 from django.core.files.storage import default_storage
 
+# Set up logger early
+logger = logging.getLogger("django")
+
 print(">>> DJANGO_SETTINGS_MODULE:", os.environ.get("DJANGO_SETTINGS_MODULE"))
 
 # Print ALLOWED_HOSTS for debugging
@@ -29,14 +32,100 @@ ALLOWED_HOSTS = [
     '.onrender.com',  # This allows all subdomains of onrender.com
 ]
 
-# Cloudinary settings
+# Cloudinary settings for production
 DEFAULT_FILE_STORAGE = 'cloudinary_storage.storage.MediaCloudinaryStorage'
+
+# Production Cloudinary configuration
 CLOUDINARY_STORAGE = {
     'CLOUD_NAME': os.environ.get('CLOUD_NAME'),
     'API_KEY': os.environ.get('API_KEY'),
     'API_SECRET': os.environ.get('API_SECRET'),
+    # Production-specific settings
+    'FOLDER': 'talentsearch/prod',
+    'SECURE': True,  # Enable secure URLs for production
+    'RESPONSIVE': True,
+    'FORMAT': 'auto',
+    'QUALITY': 'auto',
+    # Production-optimized transformations
+    'STATIC_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 300,
+            'height': 300,
+            'crop': 'fill',
+            'quality': 'auto',
+            'fetch_format': 'auto'
+        },
+        'medium': {
+            'width': 800,
+            'height': 600,
+            'crop': 'limit',
+            'quality': 'auto',
+            'fetch_format': 'auto'
+        },
+        'large': {
+            'width': 1200,
+            'height': 800,
+            'crop': 'limit',
+            'quality': 'auto',
+            'fetch_format': 'auto'
+        },
+        'profile': {
+            'width': 400,
+            'height': 400,
+            'crop': 'fill',
+            'gravity': 'face',
+            'quality': 'auto',
+            'fetch_format': 'auto'
+        }
+    },
+    # Video transformations for production
+    'VIDEO_TRANSFORMATIONS': {
+        'thumbnail': {
+            'width': 300,
+            'height': 300,
+            'crop': 'fill',
+            'video_codec': 'auto',
+            'quality': 'auto'
+        },
+        'medium': {
+            'width': 800,
+            'height': 600,
+            'crop': 'limit',
+            'video_codec': 'auto',
+            'quality': 'auto'
+        },
+        'preview': {
+            'width': 400,
+            'height': 300,
+            'crop': 'limit',
+            'video_codec': 'auto',
+            'quality': 'auto',
+            'duration': 10  # 10-second preview
+        }
+    },
+    # Additional production optimizations
+    'INVALIDATE': True,  # Invalidate CDN cache on updates
+    'OVERWRITE': True,   # Overwrite existing files
+    'RESOURCE_TYPE': 'auto',  # Auto-detect resource type
+    'TYPE': 'upload',    # Upload type
 }
 
+# Validate Cloudinary configuration
+cloud_name = CLOUDINARY_STORAGE.get('CLOUD_NAME')
+api_key = CLOUDINARY_STORAGE.get('API_KEY')
+api_secret = CLOUDINARY_STORAGE.get('API_SECRET')
+
+if not all([cloud_name, api_key, api_secret]):
+    print("❌ Cloudinary credentials not properly configured for production")
+    print("   Please set CLOUD_NAME, API_KEY, and API_SECRET environment variables")
+    # Fallback to local storage (not recommended for production)
+    DEFAULT_FILE_STORAGE = 'django.core.files.storage.FileSystemStorage'
+    MEDIA_URL = '/media/'
+    MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+    print("⚠️  Falling back to local file storage (not recommended for production)")
+else:
+    print("✅ Cloudinary configured for production")
+    MEDIA_URL = ''
 
 # Get SECRET_KEY from environment or generate a new one
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-development-key-please-change-in-production')
@@ -152,13 +241,65 @@ LOGGING = {
     },
 }
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=config('DATABASE_URL'),
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+# Database configuration with fallback
+DATABASE_URL = config('DATABASE_URL', default=None)
+
+if DATABASE_URL:
+    try:
+        # Parse the database URL manually to check for issues
+        if DATABASE_URL.startswith('postgres://'):
+            # Convert postgres:// to postgresql:// for newer versions
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+            logger.info("Converted postgres:// to postgresql:// in DATABASE_URL")
+        
+        DATABASES = {
+            'default': dj_database_url.config(
+                default=DATABASE_URL,
+                conn_max_age=600,
+                conn_health_checks=True,
+                ssl_require=True,  # Enable SSL for production
+            )
+        }
+        
+        # Log database configuration (without sensitive info)
+        db_config = DATABASES['default']
+        logger.info(f"Database configured: {db_config.get('ENGINE')} on {db_config.get('HOST')}:{db_config.get('PORT')}")
+        
+    except Exception as e:
+        logger.error(f"Failed to configure database: {e}")
+        # Fallback to your specific PostgreSQL config
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': 'talent_search',
+                'USER': 'talent_user',
+                'PASSWORD': 'Talent@12345',
+                'HOST': 'localhost',
+                'PORT': '5432',
+                'OPTIONS': {
+                    'sslmode': 'require',
+                },
+                'CONN_MAX_AGE': 600,
+                'CONN_HEALTH_CHECKS': True,
+            }
+        }
+else:
+    # Use your specific PostgreSQL config when no DATABASE_URL is provided
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'talent_search',
+            'USER': 'talent_user',
+            'PASSWORD': 'Talent@12345',
+            'HOST': 'localhost',
+            'PORT': '5432',
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+            'CONN_MAX_AGE': 600,
+            'CONN_HEALTH_CHECKS': True,
+        }
+    }
 
 # Email config for production
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
@@ -215,6 +356,4 @@ CORS_ALLOWED_HEADERS = [
     'x-requested-with',
 ]
 
-logger = logging.getLogger("django")
 logger.warning(f"DJANGO STORAGE BACKEND: {default_storage.__class__}")
-

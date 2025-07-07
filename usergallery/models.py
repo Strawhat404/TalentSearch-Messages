@@ -20,7 +20,7 @@ class GalleryItem(models.Model):
     """
     profile_id = models.ForeignKey('userprofile.Profile', on_delete=models.CASCADE, related_name='gallery_items')
     item_url = models.FileField(
-        upload_to='gallery/',
+        upload_to='media/usergallery/',
         null=True,
         blank=True,
         validators=[

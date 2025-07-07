@@ -32,17 +32,6 @@ def handle_new_user_registration(sender, instance, created, **kwargs):
         notify_new_user_registration(instance)
 
 
-# Feed Posts notifications
-@receiver(post_save, sender='feed_posts.FeedPost')
-def handle_new_feed_post(sender, instance, created, **kwargs):
-    """
-    Signal handler for new feed posts.
-    Only triggers for newly created posts, not updates.
-    """
-    if created:
-        notify_new_feed_posted(instance)
-
-
 # Jobs notifications
 @receiver(post_save, sender='jobs.Job')
 def handle_new_job_post(sender, instance, created, **kwargs):

@@ -63,7 +63,10 @@ def test_storage_backend():
     print(f"Storage module: {storage_module}")
     
     # Check if it's Cloudinary storage
-    if 'cloudinary' in storage_module.lower() or 'cloudinary' in str(default_storage).lower():
+    if ('cloudinary' in storage_module.lower() or 
+        'cloudinary' in str(default_storage).lower() or
+        'MediaCloudinaryStorage' in str(default_storage) or
+        'cloudinary_storage' in storage_module.lower()):
         print("✅ Using Cloudinary storage backend")
         return True
     elif 'filesystem' in storage_module.lower():
@@ -71,7 +74,22 @@ def test_storage_backend():
         return False
     else:
         print(f"⚠️  Using unknown storage backend: {storage_class}")
-        return False
+        # Check if the storage is actually working with Cloudinary
+        try:
+            test_content = b"test"
+            test_filename = "storage_test.txt"
+            cloudinary_path = default_storage.save(test_filename, ContentFile(test_content))
+            if 'cloudinary.com' in cloudinary_path or 'res.cloudinary.com' in cloudinary_path:
+                print("✅ Storage is working with Cloudinary URLs")
+                default_storage.delete(cloudinary_path)
+                return True
+            else:
+                print("⚠️  Storage is not using Cloudinary URLs")
+                default_storage.delete(cloudinary_path)
+                return False
+        except Exception as e:
+            print(f"❌ Error testing storage: {e}")
+            return False
 
 def test_file_upload():
     """Test uploading a file to Cloudinary."""

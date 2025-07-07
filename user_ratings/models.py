@@ -8,16 +8,7 @@ User = get_user_model()
 
 class UserRating(models.Model):
     id = models.AutoField(primary_key=True)
-    rating_user_id = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='ratings_given'
-    )
-    rated_user_id = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='ratings_received'
-    )
+    # Removed rating_user_id and rated_user_id
     rating = models.IntegerField(
         validators=[
             MinValueValidator(1, message="Rating must be at least 1."),
@@ -41,37 +32,24 @@ class UserRating(models.Model):
     class Meta:
         constraints = [
             models.UniqueConstraint(
-                fields=['rating_user_id', 'rated_user_id'],
+                fields=['rater_profile_id', 'rated_profile_id'],  # Updated to use profile_id
                 name='unique_user_rating'
             )
         ]
 
     def clean(self):
         """
-        Validate that rating_user_id matches rater_profile_id's user and
-        rated_user_id matches rated_profile_id's user.
+        Validate that rater_profile_id and rated_profile_id are consistent with their users.
         """
-        if self.rating_user_id != self.rater_profile_id.user:
+        if self.rater_profile_id.user == self.rated_profile_id.user:
             raise ValidationError({
-                'rating_user_id': 'rating_user_id must match the user of rater_profile_id.'
-            })
-        if self.rated_user_id != self.rated_profile_id.user:
-            raise ValidationError({
-                'rated_user_id': 'rated_user_id must match the user of rated_profile_id.'
-            })
-        if self.rating_user_id == self.rated_user_id:
-            raise ValidationError({
-                'rating_user_id': 'Users cannot rate themselves.'
+                'rater_profile_id': 'Profiles cannot rate themselves.'
             })
 
     def save(self, *args, **kwargs):
         """
         Ensure required fields are not blank and validate before saving.
         """
-        if not self.rating_user_id:
-            raise ValueError("rating_user_id cannot be blank.")
-        if not self.rated_user_id:
-            raise ValueError("rated_user_id cannot be blank.")
         if not self.rater_profile_id:
             raise ValueError("rater_profile_id cannot be blank.")
         if not self.rated_profile_id:

@@ -10,6 +10,10 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from django.db import connection
+from django.db.utils import OperationalError
+import os
+from rest_framework.routers import DefaultRouter
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -24,7 +28,30 @@ schema_view = get_schema_view(
 
 @csrf_exempt
 def health_check(request):
-    return JsonResponse({"status": "healthy"})
+    """Enhanced health check that tests database connectivity"""
+    health_status = {
+        "status": "healthy",
+        "database": "unknown",
+        "environment": {
+            "debug": settings.DEBUG,
+            "allowed_hosts": settings.ALLOWED_HOSTS,
+            "database_url_set": bool(os.environ.get('DATABASE_URL')),
+        }
+    }
+    
+    # Test database connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            health_status["database"] = "connected"
+    except OperationalError as e:
+        health_status["database"] = f"error: {str(e)}"
+        health_status["status"] = "unhealthy"
+    except Exception as e:
+        health_status["database"] = f"unknown error: {str(e)}"
+        health_status["status"] = "unhealthy"
+    
+    return JsonResponse(health_status)
 
 # Exempt all API views from CSRF
 @method_decorator(csrf_exempt, name='dispatch')
@@ -49,11 +76,7 @@ urlpatterns = [
     path('api/adverts/', include('adverts.urls')),
     path('api/profile/', include('userprofile.urls')),
     path('api/user_gallery/', include('usergallery.urls')),
-    path('api/feed_posts/', include('feed_posts.urls', namespace='feed_posts')),
     path('api/jobs/', include('jobs.urls')),
-    path('api/feed_likes/', include('feed_likes.urls', namespace='feed_likes')),
-    path('api/feed_comments/', include('feed_comments.urls')),
-    path('api/comment_likes/', include('comment_likes.urls')),
     path('api/rental/', include('rental_items.urls')),
     path('api/ratings/', include('rental_ratings.urls')),
     path('api/user_ratings/', include('user_ratings.urls')),
@@ -63,6 +86,7 @@ urlpatterns = [
     path('api/health/', health_check, name='health_check'),
     path('api/token/', CSRFExemptTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', CSRFExemptTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/feed/', include('feed.urls')),
     # API Documentation
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
