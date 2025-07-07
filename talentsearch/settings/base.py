@@ -52,22 +52,19 @@ INSTALLED_APPS = [
 
     # Custom apps
     'authapp',
-    'feed_posts',
     'messaging',
     'news',
     'adverts',
     'userprofile',
     'usergallery',
     'jobs',
-    'feed_likes',
-    'feed_comments',
-    'comment_likes',
     'rental_items',
     'rental_ratings',
     'user_ratings',
     'contact_us',
     'platform_stat',
     'payment',
+    'feed',
 ]
 
 MIDDLEWARE = [
