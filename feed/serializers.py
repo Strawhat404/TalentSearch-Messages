@@ -51,7 +51,7 @@ from .models import Comment
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['post', 'content', 'parent']
+        fields = ['content', 'parent']  # Do NOT include 'post'
         extra_kwargs = {
             'parent': {'required': False}
         }
