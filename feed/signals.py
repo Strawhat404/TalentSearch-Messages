@@ -2,7 +2,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import FeedPost, FeedLike, Comment
 import logging
-from authapp.services import notify_new_feed_posted, notify_new_like, notify_new_comment
+from authapp.services import notify_new_feed_posted, notify_new_like, notify_new_comment,notify_new_follower
 logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=FeedPost)
@@ -29,3 +29,17 @@ def trigger_comment_notification(sender, instance, created, **kwargs):
         if instance.profile.user != post_author:
             author_name = instance.profile.name or instance.profile.user.email
             notify_new_comment(user=post_author, content_type="feed post", author_name=author_name)
+
+# Follow notification
+@receiver(post_save, sender='feed.Follow')
+def handle_new_follower(sender, instance, created, **kwargs):
+    """
+    Signal handler for new follow relationship.
+    Triggers a notification for the followed user.
+    """
+    if created:
+        logger.debug(f"New follow relationship detected: {instance.follower.id} followed {instance.following.id}")
+        followed_user = instance.following.user
+        follower_name = instance.follower.user.username or instance.follower.user.email  # Adjusted to use user.username
+        notify_new_follower(followed_user=followed_user, follower_name=follower_name)
+        logger.debug(f"Notification sent to {followed_user.email} for new follower {follower_name}")

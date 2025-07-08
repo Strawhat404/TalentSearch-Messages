@@ -17,7 +17,6 @@ from .models import Notification
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
-
 class NotificationService:
     """
     Service class for handling system notifications.
@@ -54,7 +53,7 @@ class NotificationService:
         data: Optional[Dict[str, Any]] = None
     ) -> Notification:
         """
-        Create a new notification for a user, preventing duplicates.
+        Create a new notification for a user, preventing duplicates within a time window.
 
         Args:
             user: The user to send the notification to
@@ -69,14 +68,15 @@ class NotificationService:
         """
         try:
             with transaction.atomic():
-                # Check for existing unread notification with the same title, message, and user
+                # Check for existing notification with the same title and message within the last minute
+                time_window = timezone.now() - timedelta(minutes=1)
                 if Notification.objects.filter(
                     user=user,
                     title=title,
                     message=message,
-                    read=False
+                    created_at__gte=time_window
                 ).exists():
-                    logger.info(f"Duplicate notification prevented for user {user.email}: {title}")
+                    logger.info(f"Duplicate notification prevented for user {user.email}: {title} (within 1 minute)")
                     return None
 
                 notification = Notification.objects.create(
@@ -762,4 +762,13 @@ def notify_user_of_profile_verification(user: User, verification_type: str, is_a
             'review_reason': reason,
             'review_date': timezone.now().isoformat()
         }
+    )
+
+def notify_new_follower(followed_user: User, follower_name: str):
+    """Notify a user when someone follows them."""
+    NotificationService.create_notification(
+        user=followed_user,
+        title="New Follower",
+        message=f"{follower_name} has started following you.",
+        notification_type='follow'  # Use 'follow' directly to avoid KeyError
     )
