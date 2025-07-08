@@ -435,16 +435,14 @@ def notify_new_comment(user: User, content_type: str, author_name: str):
         notification_type=NotificationService.NOTIFICATION_TYPES['COMMENT']
     )
 
-
-def notify_new_like(user: User, content_type: str, liker_name: str):
+def notify_new_like(user: User, content_type: str, author_name: str):
     """Notify user of new like."""
     NotificationService.create_notification(
         user=user,
         title="New Like",
-        message=f"{liker_name} liked your {content_type}",
+        message=f"{author_name} liked your {content_type}",
         notification_type=NotificationService.NOTIFICATION_TYPES['LIKE']
     )
-
 
 def notify_new_user_registration(user: User):
     """
