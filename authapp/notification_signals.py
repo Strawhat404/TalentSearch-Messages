@@ -7,6 +7,7 @@ when certain events occur in the system.
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.contrib.auth import get_user_model
+from django.contrib.auth.signals import user_logged_in
 from .services import (
     notify_new_user_registration,
     notify_new_feed_posted,
@@ -15,7 +16,8 @@ from .services import (
     notify_user_verified_by_admin,
     notify_user_rejected_by_admin,
     notify_rental_verification_status,
-    notify_user_of_profile_verification
+    notify_user_of_profile_verification,
+    notify_user_login
 )
 
 User = get_user_model()
@@ -70,6 +72,3 @@ def handle_profile_verification(sender, instance, created, **kwargs):
             admin_user=instance.verified_by if hasattr(instance, 'verified_by') else None
         )
 
-
-# Note: For rental item approval/rejection, you'll need to add a field to track approval status
-# and create a custom signal or use the existing approval field in the RentalItem model 
