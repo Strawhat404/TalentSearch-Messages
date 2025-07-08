@@ -499,25 +499,36 @@ def notify_new_feed_posted(feed_post):
     """
     Notify admins when a new feed post is created.
     """
+    logger.info(f"Attempting to notify admins for feed post ID: {feed_post.id}")
     # Get all admin users
     admin_users = User.objects.filter(is_staff=True, is_active=True)
 
+    # Get user details from the profile
+    author_user = feed_post.profile.user
+    if not author_user:
+        logger.error(f"No user found for profile in feed post ID: {feed_post.id}")
+        return
+    author_username = author_user.username if author_user.username else author_user.email
+    author_email = author_user.email
+
+    logger.info(f"Found author: {author_username}, notifying {admin_users.count()} admins")
     # Create notification for each admin
     for admin in admin_users:
+        logger.debug(f"Creating notification for admin: {admin.email}")
         NotificationService.create_system_notification(
             title="New Feed Posted",
-            message=f"{feed_post.user.username or feed_post.user.email} posted a new feed: '{feed_post.project_title}'.",
+            message=f"{author_username} posted a new feed: '{feed_post.project_title}'.",
             users=[admin],
             data={
                 'feed_post_id': str(feed_post.id),
                 'feed_post_title': feed_post.project_title,
                 'feed_post_type': feed_post.project_type,
-                'author_id': feed_post.user.id,
-                'author_username': feed_post.user.username,
-                'author_email': feed_post.user.email
+                'author_id': author_user.id,
+                'author_username': author_username,
+                'author_email': author_email
             }
         )
-
+    logger.info(f"Completed notification process for feed post ID: {feed_post.id}")
 
 def notify_new_job_posted(job):
     """
