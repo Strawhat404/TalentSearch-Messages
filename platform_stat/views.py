@@ -38,7 +38,7 @@ class CreatorsView(APIView):
         # Use lazy import to avoid circular imports
         from jobs.models import Job
         # Total number of unique users who posted jobs
-        creators_looking_for_talent = Job.objects.values('user_id').distinct().count()
+        creators_looking_for_talent = Job.objects.values('profile_id').distinct().count()
         data = {'creators_looking_for_talent': creators_looking_for_talent}
         return Response(data, status=status.HTTP_200_OK)
 

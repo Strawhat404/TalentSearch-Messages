@@ -49,7 +49,7 @@ class RentalItemSerializer(serializers.ModelSerializer):
                  'daily_rate', 'image', 'specs', 'available', 'featured_item',
                  'approved', 'created_at', 'updated_at', 'average_rating', 'total_ratings',
                  'user_profile', 'ratings', 'images']
-        read_only_fields = ['user', 'approved', 'created_at', 'updated_at', 'user_profile', 'ratings', 'images']
+        read_only_fields = ['user', 'approved', 'created_at', 'updated_at', 'user_profile', 'ratings', 'images', 'description', 'created_at']
 
     def get_average_rating(self, obj):
         ratings = obj.ratings.all()
