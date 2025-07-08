@@ -7,14 +7,29 @@ from userprofile.models import Profile
 
 class FeedPostSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = FeedPost
         fields = [
             'id', 'profile', 'content', 'media_type', 'media',
-            'project_title', 'project_type', 'location', 'created_at'
+            'project_title', 'project_type', 'location', 'created_at',
+            'likes_count', 'user_has_liked'
         ]
-        read_only_fields = ['id', 'profile', 'created_at']
+        read_only_fields = ['id', 'profile', 'created_at', 'likes_count', 'user_has_liked']
+
+    def get_likes_count(self, obj):
+        return obj.likes.count()
+
+    def get_user_has_liked(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            try:
+                return obj.likes.filter(profile=request.user.profile).exists()
+            except:
+                return False
+        return False
 
 class FeedProfileSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
