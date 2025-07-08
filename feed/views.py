@@ -18,6 +18,7 @@ from .models import Comment
 from .serializers import CommentSerializer, CommentCreateSerializer
 from .models import CommentLike
 from .serializers import CommentLikeSerializer, ReplyCreateSerializer
+from django.shortcuts import get_object_or_404
 
 # Create your views here.
 
@@ -248,19 +249,51 @@ class FollowingListView(APIView):
                 status=500
             )
 
-class FeedLikeCreateView(generics.CreateAPIView):
-    serializer_class = FeedLikeSerializer
+class FeedLikeToggleView(APIView):
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        post_id = self.kwargs['post_id']
-        serializer.save(profile=self.request.user.profile, post_id=post_id)
+    def get(self, request, post_id):
+        """Check if current user has liked this post"""
+        try:
+            post = FeedPost.objects.get(id=post_id)
+            user_profile = request.user.profile
+            has_liked = FeedLike.objects.filter(post=post, profile=user_profile).exists()
+            
+            return Response({
+                'has_liked': has_liked,
+                'likes_count': post.likes.count()
+            })
+        except FeedPost.DoesNotExist:
+            return Response({'error': 'Post not found'}, status=404)
 
-class FeedLikeDeleteView(generics.DestroyAPIView):
-    queryset = FeedLike.objects.all()
-    serializer_class = FeedLikeSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    lookup_field = 'id'
+    def post(self, request, post_id):
+        """Toggle like/unlike for a post"""
+        try:
+            post = FeedPost.objects.get(id=post_id)
+            user_profile = request.user.profile
+            
+            # Check if user already liked this post
+            existing_like = FeedLike.objects.filter(post=post, profile=user_profile).first()
+            
+            if existing_like:
+                # Unlike: delete the existing like
+                existing_like.delete()
+                action = 'unliked'
+            else:
+                # Like: create a new like
+                FeedLike.objects.create(post=post, profile=user_profile)
+                action = 'liked'
+            
+            return Response({
+                'action': action,
+                'has_liked': not existing_like,  # True if we just liked, False if we just unliked
+                'likes_count': post.likes.count()
+            })
+            
+        except FeedPost.DoesNotExist:
+            return Response({'error': 'Post not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=500)
 
 # class CommentListCreateView(generics.ListCreateAPIView):
 #     serializer_class = CommentCreateSerializer
@@ -283,8 +316,8 @@ class CommentListCreateView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
-            return CommentCreateSerializer
-        return CommentSerializer
+            return CommentCreateSerializer  # For creating comments
+        return CommentSerializer  # For listing comments (includes created_at and profile)
 
     def perform_create(self, serializer):
         post_id = self.kwargs['post_id']
@@ -306,6 +339,56 @@ class CommentLikeCreateView(generics.CreateAPIView):
     def perform_create(self, serializer):
         comment_id = self.kwargs['comment_id']
         serializer.save(profile=self.request.user.profile, comment_id=comment_id)
+
+class CommentDeleteView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+    queryset = Comment.objects.all()
+    lookup_field = 'id'
+
+    @swagger_auto_schema(
+        operation_summary='Delete a comment',
+        operation_description='Delete a comment (only the comment author can delete their own comments)',
+        responses={
+            204: openapi.Response(
+                description="Comment deleted successfully",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'message': openapi.Schema(type=openapi.TYPE_STRING, example='Comment deleted successfully')
+                    }
+                )
+            ),
+            404: openapi.Response(
+                description="Comment not found or not authorized",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        'detail': openapi.Schema(type=openapi.TYPE_STRING, example='Not found.')
+                    }
+                )
+            ),
+        }
+    )
+    def delete(self, request, *args, **kwargs):
+        return super().delete(request, *args, **kwargs)
+
+    def get_object(self):
+        comment_id = self.kwargs['id']
+        user_profile = self.request.user.profile
+        
+        # Only allow user to delete their own comments
+        return get_object_or_404(
+            Comment, 
+            id=comment_id, 
+            profile=user_profile
+        )
+
+    def destroy(self, request, *args, **kwargs):
+        comment = self.get_object()
+        comment.delete()
+        return Response({
+            'message': 'Comment deleted successfully'
+        }, status=204)
 
 class ProfileFollowCountsView(APIView):
     def get(self, request, profile_id):
