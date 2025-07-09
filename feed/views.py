@@ -325,11 +325,10 @@ class CommentListCreateView(generics.ListCreateAPIView):
         serializer.save(profile=self.request.user.profile, post_id=post_id)
 
     def create(self, request, *args, **kwargs):
-        # Use the create logic, but return the full CommentSerializer for the response
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
-        # Now serialize the created comment with the full serializer
+        # Use CommentSerializer for output
         full_serializer = CommentSerializer(serializer.instance, context={'request': request})
         headers = self.get_success_headers(serializer.data)
         return Response(full_serializer.data, status=201, headers=headers)
@@ -342,6 +341,15 @@ class CommentReplyCreateView(generics.CreateAPIView):
         parent_id = self.kwargs.get('parent_id')
         parent = Comment.objects.get(id=parent_id)
         serializer.save(profile=self.request.user.profile, parent=parent, post=parent.post)
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        # Use CommentSerializer for output
+        full_serializer = CommentSerializer(serializer.instance, context={'request': request})
+        headers = self.get_success_headers(serializer.data)
+        return Response(full_serializer.data, status=201, headers=headers)
 
 class CommentLikeCreateView(generics.CreateAPIView):
     serializer_class = CommentLikeSerializer
