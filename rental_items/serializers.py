@@ -84,7 +84,7 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'type', 'category', 'daily_rate', 'image',
             'available', 'featured_item', 'approved', 'user_profile',
-            'average_rating','description'
+            'average_rating','description', 'created_at'
         ]
 
     def get_average_rating(self, obj):

@@ -25,7 +25,8 @@ class AdvertView(APIView):
         """
         Return appropriate queryset based on authentication status
         - Public users see only published adverts
-        - Authenticated users see all adverts
+        - Authenticated admins see all adverts
+        - Other authenticated users see only published adverts
         """
         if self.request.user.is_authenticated and self.request.user.is_staff:
             return Advert.objects.all()
