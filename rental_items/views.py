@@ -20,6 +20,7 @@ from authapp.services import notify_new_rental_posted, notify_rental_verificatio
 from rest_framework.generics import ListCreateAPIView
 from rest_framework.viewsets import ModelViewSet
 
+
 class RentalItemViewSet(ModelViewSet):
     queryset = RentalItem.objects.all()
     serializer_class = RentalItemSerializer
@@ -38,16 +39,16 @@ class RentalItemViewSet(ModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        
+
         # Filter by price range
         min_rate = self.request.query_params.get('min_rate')
         max_rate = self.request.query_params.get('max_rate')
-        
+
         if min_rate:
             queryset = queryset.filter(daily_rate__gte=min_rate)
         if max_rate:
             queryset = queryset.filter(daily_rate__lte=max_rate)
-            
+
         return queryset
 
     def perform_create(self, serializer):
@@ -61,10 +62,10 @@ class RentalItemViewSet(ModelViewSet):
         rental_item = self.get_object()
         rental_item.approved = True
         rental_item.save()
-        
+
         # Trigger notification for rental approval
         notify_rental_verification_status(rental_item, request.user, True)
-        
+
         return Response({
             'id': str(rental_item.id),
             'message': 'Rental item approved successfully.',
@@ -76,12 +77,12 @@ class RentalItemViewSet(ModelViewSet):
         rental_item = self.get_object()
         rental_item.approved = False
         rental_item.save()
-        
+
         reason = request.data.get('reason', '')
-        
+
         # Trigger notification for rental rejection
         notify_rental_verification_status(rental_item, request.user, False, reason)
-        
+
         return Response({
             'id': str(rental_item.id),
             'message': 'Rental item rejected successfully.',
@@ -102,18 +103,18 @@ class RentalItemViewSet(ModelViewSet):
         },
         help_text='Update an existing rental item',
         example={
-                    'id': 'uuid',
-                    'name': 'Updated Item Name',
-                    'type': 'equipment',
-                    'category': 'tools',
-                    'daily_rate': 50.00,
-                    'available': True,
-                    'featured_item': False,
-                    'approved': True,
-                    'user_profile': {
-                        'name': 'Owner Name',
-                        'photo': 'photo_url'
-                    }
+            'id': 'uuid',
+            'name': 'Updated Item Name',
+            'type': 'equipment',
+            'category': 'tools',
+            'daily_rate': 50.00,
+            'available': True,
+            'featured_item': False,
+            'approved': True,
+            'user_profile': {
+                'name': 'Owner Name',
+                'photo': 'photo_url'
+            }
         }
     )
     def update(self, request, *args, **kwargs):
@@ -138,6 +139,7 @@ class RentalItemViewSet(ModelViewSet):
             'message': 'Rental item deleted successfully.'
         })
 
+
 class RatingViewSet(viewsets.ModelViewSet):
     serializer_class = RentalItemRatingSerializer
     permission_classes = [IsAuthenticated, IsOwnerOrReadOnly]
@@ -145,22 +147,22 @@ class RatingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = RentalItemRating.objects.all()
-        
+
         # Filter by item_id
         item_id = self.request.query_params.get('item_id')
         if item_id:
             queryset = queryset.filter(rental_item_id=item_id)
-            
+
         # Filter by user_id
         user_id = self.request.query_params.get('user_id')
         if user_id:
             queryset = queryset.filter(user_id=user_id)
-            
+
         # Filter by minimum rating
         min_rating = self.request.query_params.get('min_rating')
         if min_rating:
             queryset = queryset.filter(rating__gte=min_rating)
-            
+
         # Sort by
         sort = self.request.query_params.get('sort')
         if sort == 'newest':
@@ -171,7 +173,7 @@ class RatingViewSet(viewsets.ModelViewSet):
             queryset = queryset.order_by('rating', '-created_at')
         else:
             queryset = queryset.order_by('-created_at')
-            
+
         return queryset
 
     def perform_create(self, serializer):
@@ -201,9 +203,11 @@ class RatingViewSet(viewsets.ModelViewSet):
             'message': 'Rating deleted successfully.'
         })
 
+
 class RentalItemListCreateView(ListCreateAPIView):
     queryset = RentalItem.objects.all()
     serializer_class = RentalItemSerializer
+
 
 class WishlistViewSet(viewsets.ModelViewSet):
     serializer_class = WishlistSerializer
@@ -254,7 +258,8 @@ class WishlistViewSet(viewsets.ModelViewSet):
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
-                'rental_item_id': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID, description='UUID of the rental item to add to wishlist')
+                'rental_item_id': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID,
+                                                 description='UUID of the rental item to add to wishlist')
             },
             required=['rental_item_id']
         ),
@@ -302,9 +307,12 @@ class WishlistViewSet(viewsets.ModelViewSet):
             200: openapi.Schema(
                 type=openapi.TYPE_OBJECT,
                 properties={
-                    'is_in_wishlist': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Whether the item is in wishlist'),
-                    'wishlist_item_id': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID, description='Wishlist item ID if found'),
-                    'added_at': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME, description='When item was added to wishlist')
+                    'is_in_wishlist': openapi.Schema(type=openapi.TYPE_BOOLEAN,
+                                                     description='Whether the item is in wishlist'),
+                    'wishlist_item_id': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_UUID,
+                                                       description='Wishlist item ID if found'),
+                    'added_at': openapi.Schema(type=openapi.TYPE_STRING, format=openapi.FORMAT_DATETIME,
+                                               description='When item was added to wishlist')
                 }
             ),
             401: openapi.Response(description='Authentication required'),
