@@ -106,7 +106,8 @@ class Migration(migrations.Migration):
                         validators=[
                             django.core.validators.FileExtensionValidator(
                                 allowed_extensions=["jpg", "jpeg", "png", "gif"]
-                            )
+
+)
                         ],
                     ),
                 ),
