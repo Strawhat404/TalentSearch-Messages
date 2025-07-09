@@ -27,7 +27,7 @@ class AdvertView(APIView):
         - Public users see only published adverts
         - Authenticated users see all adverts
         """
-        if self.request.user.is_authenticated:
+        if self.request.user.is_authenticated and self.request.user.is_staff:
             return Advert.objects.all()
         else:
             # For public access, show only published adverts that are currently running
