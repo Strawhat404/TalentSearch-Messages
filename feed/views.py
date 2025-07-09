@@ -19,6 +19,7 @@ from .serializers import CommentSerializer, CommentCreateSerializer
 from .models import CommentLike
 from .serializers import CommentLikeSerializer, ReplyCreateSerializer
 from django.shortcuts import get_object_or_404
+from rest_framework.generics import RetrieveUpdateDestroyAPIView
 
 # Create your views here.
 
@@ -42,7 +43,7 @@ class FeedPostListView(generics.ListCreateAPIView):
         # This sets the profile automatically from the logged-in user
         serializer.save(profile=self.request.user.profile)
 
-class FeedPostDetailView(generics.RetrieveDestroyAPIView):
+class FeedPostDetailView(RetrieveUpdateDestroyAPIView):
     queryset = FeedPost.objects.all()
     serializer_class = FeedPostSerializer
     lookup_field = 'id'
@@ -316,12 +317,22 @@ class CommentListCreateView(generics.ListCreateAPIView):
 
     def get_serializer_class(self):
         if self.request.method == 'POST':
-            return CommentCreateSerializer  # For creating comments
-        return CommentSerializer  # For listing comments (includes created_at and profile)
+            return CommentCreateSerializer  # For input/validation
+        return CommentSerializer  # For GET/list
 
     def perform_create(self, serializer):
         post_id = self.kwargs['post_id']
         serializer.save(profile=self.request.user.profile, post_id=post_id)
+
+    def create(self, request, *args, **kwargs):
+        # Use the create logic, but return the full CommentSerializer for the response
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        # Now serialize the created comment with the full serializer
+        full_serializer = CommentSerializer(serializer.instance, context={'request': request})
+        headers = self.get_success_headers(serializer.data)
+        return Response(full_serializer.data, status=201, headers=headers)
 
 class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = ReplyCreateSerializer
