@@ -337,6 +337,15 @@ class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = ReplyCreateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Reply to a comment',
+        operation_description='Create a reply to a specific comment by parent_id',
+        request_body=ReplyCreateSerializer,
+        responses={201: CommentSerializer()}
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         parent_id = self.kwargs.get('parent_id')
         parent = Comment.objects.get(id=parent_id)
@@ -354,6 +363,27 @@ class CommentReplyCreateView(generics.CreateAPIView):
 class CommentLikeCreateView(generics.CreateAPIView):
     serializer_class = CommentLikeSerializer
     permission_classes = [IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_summary='Like a comment',
+        operation_description='Like a specific comment by comment_id. If you want to unlike, send is_like=false.',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'is_like': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Like (true) or unlike (false)', default=True)
+            }
+        ),
+        responses={
+            201: openapi.Response(
+                description="Comment liked/unliked successfully.",
+                schema=CommentLikeSerializer()
+            ),
+            400: openapi.Response(description="Validation Error"),
+            401: openapi.Response(description="Authentication Required")
+        }
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
 
     def perform_create(self, serializer):
         comment_id = self.kwargs['comment_id']
@@ -418,3 +448,36 @@ class ProfileFollowCountsView(APIView):
             "follower_count": follower_count,
             "following_count": following_count
         })
+
+class CommentRepliesListView(generics.ListAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.AllowAny]  # or IsAuthenticated if needed
+
+    @swagger_auto_schema(
+        operation_summary='List replies to a comment',
+        operation_description='Get all replies for a specific comment by parent_id',
+        responses={200: CommentSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
+        """List replies to a comment"""
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        parent_id = self.kwargs['parent_id']
+        return Comment.objects.filter(parent_id=parent_id).order_by('created_at')
+
+class CommentLikeListView(generics.ListAPIView):
+    serializer_class = CommentLikeSerializer
+    permission_classes = [permissions.AllowAny]  # or IsAuthenticated if you want
+
+    @swagger_auto_schema(
+        operation_summary='List likes for a comment',
+        operation_description='Get all likes for a specific comment by comment_id',
+        responses={200: CommentLikeSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        comment_id = self.kwargs['comment_id']
+        return CommentLike.objects.filter(comment_id=comment_id)
