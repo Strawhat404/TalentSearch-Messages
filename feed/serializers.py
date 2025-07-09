@@ -87,7 +87,8 @@ class CommentLikeSerializer(serializers.ModelSerializer):
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
-        fields = ['content', 'parent']
+        fields = ['id', 'content', 'created_at', 'profile', 'parent', 'post']
+        read_only_fields = ['id', 'created_at', 'profile']
         extra_kwargs = {
             'parent': {'required': False}
         }
