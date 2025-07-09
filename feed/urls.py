@@ -11,7 +11,7 @@ from .views import (
 
 urlpatterns = [
     path('posts/', FeedPostListView.as_view(), name='feedpost-list'),
-    path('posts/<int:pk>/', FeedPostDetailView.as_view(), name='feedpost-detail'),
+    path('posts/<int:id>/', FeedPostDetailView.as_view(), name='feedpost-detail'),
     path('posts/<uuid:id>/media/', FeedPostMediaView.as_view(), name='feedpost-media'),
     path('follow/', FollowUserView.as_view(), name='follow-user'),
     path('unfollow/', UnfollowUserView.as_view(), name='unfollow-user'),
