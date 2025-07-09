@@ -42,14 +42,14 @@ class RentalItemSerializer(serializers.ModelSerializer):
     user_profile = ProfileSerializer(source='user.profile', read_only=True)
     ratings = RentalItemRatingSerializer(many=True, read_only=True)
     images = RentalItemImageSerializer(many=True, read_only=True)
-
+    description = serializers.CharField()
     class Meta:
         model = RentalItem
         fields = ['id', 'user', 'name', 'type', 'category', 'description', 
                  'daily_rate', 'image', 'specs', 'available', 'featured_item',
                  'approved', 'created_at', 'updated_at', 'average_rating', 'total_ratings',
                  'user_profile', 'ratings', 'images']
-        read_only_fields = ['user', 'approved', 'created_at', 'updated_at', 'user_profile', 'ratings', 'images']
+        read_only_fields = ['user', 'approved', 'created_at', 'updated_at', 'user_profile', 'ratings', 'images', 'created_at']
 
     def get_average_rating(self, obj):
         ratings = obj.ratings.all()
@@ -84,7 +84,7 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'name', 'type', 'category', 'daily_rate', 'image',
             'available', 'featured_item', 'approved', 'user_profile',
-            'average_rating'
+            'average_rating','description', 'created_at'
         ]
 
     def get_average_rating(self, obj):

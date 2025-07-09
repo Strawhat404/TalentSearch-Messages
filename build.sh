@@ -72,8 +72,14 @@ if ! python manage.py migrate authapp --noinput; then
     exit 1
 fi
 
+# Explicitly migrate jobs app to ensure schema changes are applied
+echo "Running jobs migrations..."
+if ! python manage.py migrate jobs --noinput; then
+    echo "Error: Jobs migrations failed"
+    exit 1
+fi
 
-
+# Run all other migrations
 python manage.py migrate news 0002_initial --fake || python manage.py migrate news 0001_initial --fake
 python manage.py migrate --fake-initial
 

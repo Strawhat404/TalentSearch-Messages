@@ -13,6 +13,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from django.db import connection
 from django.db.utils import OperationalError
 import os
+from rest_framework.routers import DefaultRouter
 
 schema_view = get_schema_view(
     openapi.Info(
@@ -75,11 +76,7 @@ urlpatterns = [
     path('api/adverts/', include('adverts.urls')),
     path('api/profile/', include('userprofile.urls')),
     path('api/user_gallery/', include('usergallery.urls')),
-    path('api/feed_posts/', include('feed_posts.urls', namespace='feed_posts')),
     path('api/jobs/', include('jobs.urls')),
-    path('api/feed_likes/', include('feed_likes.urls', namespace='feed_likes')),
-    path('api/feed_comments/', include('feed_comments.urls')),
-    path('api/comment_likes/', include('comment_likes.urls')),
     path('api/rental/', include('rental_items.urls')),
     path('api/ratings/', include('rental_ratings.urls')),
     path('api/user_ratings/', include('user_ratings.urls')),
@@ -89,6 +86,7 @@ urlpatterns = [
     path('api/health/', health_check, name='health_check'),
     path('api/token/', CSRFExemptTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', CSRFExemptTokenRefreshView.as_view(), name='token_refresh'),
+    path('api/feed/', include('feed.urls')),
     # API Documentation
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),

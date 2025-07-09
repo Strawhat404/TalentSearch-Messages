@@ -15,6 +15,7 @@ class ProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = Profile
         fields = ['id', 'display_name', 'user_email', 'name']
+        ref_name = "MessagingProfileSerializer"  # another unique name
     
     def get_display_name(self, obj):
         """Get display name with fallback to email"""

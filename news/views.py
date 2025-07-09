@@ -27,13 +27,19 @@ class NewsView(APIView):
         return [IsAuthenticated(), IsAdminUser()]  # Admin access for creating news
 
     @swagger_auto_schema(
-        operation_summary='List news (Public)',
-        operation_description='Get all published news articles - no authentication required',
+        operation_summary='List news (Public/Admin)',
+        operation_description='Get news articles - Public users see only published news, Admin users see all news (draft/published/archived)',
         responses={200: NewsSerializer(many=True)}
     )
     def get(self, request):
-        # Only return published news for public access
-        news = News.objects.filter(status='published').order_by('-created_at')
+        # Check if user is admin
+        if request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
+            # Admin can see all news (draft, published, archived)
+            news = News.objects.all().order_by('-created_at')
+        else:
+            # Public users only see published news
+            news = News.objects.filter(status='published').order_by('-created_at')
+        
         serializer = NewsSerializer(news, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -106,21 +112,31 @@ class NewsDetailView(APIView):
         return [IsAuthenticated(), IsAdminUser()]  # Admin access for updating/deleting news
 
     @swagger_auto_schema(
-        operation_summary='Get news detail (Public)',
-        operation_description='Get a specific news article by ID - no authentication required',
+        operation_summary='Get news detail (Public/Admin)',
+        operation_description='Get a specific news article by ID - Public users can only access published news, Admin users can access all news',
         responses={
             200: NewsSerializer,
             404: openapi.Response(description="Not Found")
         }
     )
     def get(self, request, id):
-        # Only return published news for public access
-        try:
-            news = News.objects.get(id=id, status='published')
-            serializer = NewsSerializer(news)
-            return Response(serializer.data, status=status.HTTP_200_OK)
-        except News.DoesNotExist:
-            return Response({"message": "News not found or not published."}, status=status.HTTP_404_NOT_FOUND)
+        # Check if user is admin
+        if request.user.is_authenticated and (request.user.is_staff or request.user.is_superuser):
+            # Admin can access any news regardless of status
+            try:
+                news = News.objects.get(id=id)
+                serializer = NewsSerializer(news)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except News.DoesNotExist:
+                return Response({"message": "News not found."}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            # Public users can only access published news
+            try:
+                news = News.objects.get(id=id, status='published')
+                serializer = NewsSerializer(news)
+                return Response(serializer.data, status=status.HTTP_200_OK)
+            except News.DoesNotExist:
+                return Response({"message": "News not found or not published."}, status=status.HTTP_404_NOT_FOUND)
 
     @swagger_auto_schema(
         operation_summary='Update news with images (Admin only)',

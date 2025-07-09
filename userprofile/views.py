@@ -299,6 +299,10 @@ class VerificationView(APIView):
                 verification.verification_notes = request.data.get('verification_notes', '')
                 verification.save()
 
+            # Update the main profile verification status
+            profile.verified = is_approved
+            profile.save()
+
             # Create audit log
             VerificationAuditLog.objects.create(
                 profile=profile,
