@@ -25,4 +25,5 @@ urlpatterns = [
     path('comments/<int:id>/', CommentDeleteView.as_view(), name='comment-delete'),
     path('comments/<int:parent_id>/replies/', CommentRepliesListView.as_view(), name='comment-replies'),
     path('comments/<int:comment_id>/likes/', CommentLikeListView.as_view(), name='comment-likes'),
+    path('comments/<int:id>/delete/', CommentDeleteView.as_view(), name='comment-delete'),
 ]
