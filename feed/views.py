@@ -365,8 +365,8 @@ class CommentLikeCreateView(generics.CreateAPIView):
     permission_classes = [IsAuthenticated]
 
     @swagger_auto_schema(
-        operation_summary='Like a comment',
-        operation_description='Like a specific comment by comment_id. If you want to unlike, send is_like=false.',
+        operation_summary='Like or unlike a comment',
+        operation_description='Toggle like/unlike for a comment by comment_id. If already liked, it will unlike; if not liked, it will like.',
         request_body=openapi.Schema(
             type=openapi.TYPE_OBJECT,
             properties={
@@ -374,8 +374,12 @@ class CommentLikeCreateView(generics.CreateAPIView):
             }
         ),
         responses={
+            200: openapi.Response(
+                description="Comment like toggled successfully.",
+                schema=CommentLikeSerializer()
+            ),
             201: openapi.Response(
-                description="Comment liked/unliked successfully.",
+                description="Comment liked successfully.",
                 schema=CommentLikeSerializer()
             ),
             400: openapi.Response(description="Validation Error"),
@@ -383,11 +387,29 @@ class CommentLikeCreateView(generics.CreateAPIView):
         }
     )
     def post(self, request, *args, **kwargs):
-        return super().post(request, *args, **kwargs)
-
-    def perform_create(self, serializer):
         comment_id = self.kwargs['comment_id']
-        serializer.save(profile=self.request.user.profile, comment_id=comment_id)
+        profile = self.request.user.profile
+        is_like = request.data.get('is_like', True)
+
+        # Try to find an existing like
+        existing_like = CommentLike.objects.filter(comment_id=comment_id, profile=profile).first()
+
+        if existing_like:
+            # If is_like is False or user wants to unlike, delete the like
+            if not is_like:
+                existing_like.delete()
+                return Response({'message': 'Comment unliked successfully.'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'message': 'Comment already liked.'}, status=status.HTTP_200_OK)
+        else:
+            # If is_like is True or not provided, create a like
+            if is_like:
+                serializer = self.get_serializer(data={'comment': comment_id, 'is_like': True})
+                serializer.is_valid(raise_exception=True)
+                serializer.save(profile=profile)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response({'message': 'Comment is not liked yet.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class CommentDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -395,8 +417,8 @@ class CommentDeleteView(generics.DestroyAPIView):
     lookup_field = 'id'
 
     @swagger_auto_schema(
-        operation_summary='Delete a comment',
-        operation_description='Delete a comment (only the comment author can delete their own comments)',
+        operation_summary='Delete a comment or reply',
+        operation_description='Delete a comment or reply by its ID (only the author can delete).',
         responses={
             204: openapi.Response(
                 description="Comment deleted successfully",
