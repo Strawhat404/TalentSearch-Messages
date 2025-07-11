@@ -383,7 +383,8 @@ from .serializers import (
     RentalItemListSerializer,
     RentalItemUpdateSerializer,
     RentalItemRatingSerializer,
-    WishlistSerializer
+    WishlistSerializer,
+    FeaturedItemAuditLogSerializer
 )
 from .permissions import IsOwnerOrReadOnly, IsAdminOrReadOnly
 from drf_yasg.utils import swagger_auto_schema
