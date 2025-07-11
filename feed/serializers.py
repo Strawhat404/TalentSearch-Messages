@@ -66,12 +66,31 @@ class FollowSerializer(serializers.ModelSerializer):
         fields = ['id', 'follower', 'following', 'created_at']
         read_only_fields = ['id', 'follower', 'following', 'created_at']
 
+class ProfileMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile  # or your profile model
+        fields = ['id', 'name', 'headshot']  # Add only what you need
+
+class ProfileIdSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Profile  # or your profile model
+        fields = ['id']
+
+class CommentReplySerializer(serializers.ModelSerializer):
+    profile = ProfileIdSerializer(read_only=True)
+    class Meta:
+        model = Comment
+        fields = [
+            'id', 'content', 'created_at', 'profile', 'parent', 'post',
+            'likes_count', 'user_has_liked'
+        ]
+
 class CommentSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(read_only=True)
+    profile = ProfileIdSerializer(read_only=True)
+    replies = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
     replies_count = serializers.SerializerMethodField()
-    replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
@@ -92,9 +111,8 @@ class CommentSerializer(serializers.ModelSerializer):
         return obj.replies.count()
 
     def get_replies(self, obj):
-        # Optionally limit to first 2 replies for preview
-        replies_qs = obj.replies.all()[:2]
-        return CommentSerializer(replies_qs, many=True, context=self.context).data
+        replies_qs = obj.replies.all()[:2]  # or whatever limit you want
+        return CommentReplyMiniSerializer(replies_qs, many=True).data
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
@@ -135,3 +153,8 @@ class ReplyCreateSerializer(serializers.ModelSerializer):
         if len(value) > 1000:
             raise serializers.ValidationError("Reply content cannot exceed 1000 characters")
         return value
+
+class CommentReplyMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Comment  # or your comment model
+        fields = ['id', 'content']
