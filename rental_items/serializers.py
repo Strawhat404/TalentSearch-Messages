@@ -1,9 +1,10 @@
 from rest_framework import serializers
-from .models import RentalItem, RentalItemRating, RentalItemImage, Wishlist
+from .models import RentalItem, RentalItemRating, RentalItemImage, Wishlist,FeaturedItemAuditLog
 from userprofile.serializers import ProfileSerializer
 from django.core.files.storage import default_storage
 from django.shortcuts import get_object_or_404
 import os
+
 
 class RentalItemImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -98,6 +99,18 @@ class RentalItemListSerializer(serializers.ModelSerializer):
         if obj.image:
             return obj.image.url
         return None
+
+class FeaturedItemAuditLogSerializer(serializers.ModelSerializer):
+    changed_by_email = serializers.EmailField(source='changed_by.email', read_only=True)
+    rental_item_name = serializers.CharField(source='rental_item.name', read_only=True)
+
+    class Meta:
+        model = FeaturedItemAuditLog
+        fields = [
+            'id', 'rental_item', 'rental_item_name', 'previous_status', 'new_status',
+            'changed_by', 'changed_by_email', 'changed_at', 'notes', 'ip_address', 'user_agent'
+        ]
+        read_only_fields = ['changed_at', 'changed_by', 'ip_address', 'user_agent']
 
 class RentalItemUpdateSerializer(serializers.ModelSerializer):
     image = serializers.ImageField(required=False)
