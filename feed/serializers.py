@@ -68,13 +68,33 @@ class FollowSerializer(serializers.ModelSerializer):
 
 class CommentSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
+    replies_count = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
 
     class Meta:
         model = Comment
         fields = [
-            'id', 'content', 'created_at', 'profile', 'parent', 'post'
+            'id', 'content', 'created_at', 'profile', 'parent', 'post',
+            'likes_count', 'user_has_liked', 'replies_count', 'replies'
         ]
         read_only_fields = ['id', 'created_at', 'profile']
+
+    def get_likes_count(self, obj):
+        return obj.likes.count()
+
+    def get_user_has_liked(self, obj):
+        user = self.context['request'].user
+        return obj.likes.filter(profile=user.profile).exists()
+
+    def get_replies_count(self, obj):
+        return obj.replies.count()
+
+    def get_replies(self, obj):
+        # Optionally limit to first 2 replies for preview
+        replies_qs = obj.replies.all()[:2]
+        return CommentSerializer(replies_qs, many=True, context=self.context).data
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)

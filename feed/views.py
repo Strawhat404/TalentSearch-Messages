@@ -20,6 +20,7 @@ from .models import CommentLike
 from .serializers import CommentLikeSerializer, ReplyCreateSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListAPIView
 
 # Create your views here.
 
