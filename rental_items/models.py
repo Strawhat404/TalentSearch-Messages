@@ -170,3 +170,22 @@ class Wishlist(models.Model):
 
     def __str__(self):
         return f"{self.user.email}'s wishlist item: {self.rental_item.name}"
+
+
+class FeaturedItemAuditLog(models.Model):
+    rental_item = models.ForeignKey(RentalItem, on_delete=models.CASCADE, related_name='featured_logs')
+    previous_status = models.BooleanField()
+    new_status = models.BooleanField()
+    changed_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
+    notes = models.TextField(blank=True)
+    ip_address = models.GenericIPAddressField(null=True)
+    user_agent = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-changed_at']
+        verbose_name = 'Featured Item Audit Log'
+        verbose_name_plural = 'Featured Item Audit Logs'
+
+    def __str__(self):
+        return f"Featured log for {self.rental_item.name} at {self.changed_at}"

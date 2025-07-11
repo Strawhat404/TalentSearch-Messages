@@ -20,6 +20,7 @@ from .models import CommentLike
 from .serializers import CommentLikeSerializer, ReplyCreateSerializer
 from django.shortcuts import get_object_or_404
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from rest_framework.generics import ListAPIView
 
 # Create your views here.
 
@@ -337,6 +338,15 @@ class CommentReplyCreateView(generics.CreateAPIView):
     serializer_class = ReplyCreateSerializer
     permission_classes = [permissions.IsAuthenticated]
 
+    @swagger_auto_schema(
+        operation_summary='Reply to a comment',
+        operation_description='Create a reply to a specific comment by parent_id',
+        request_body=ReplyCreateSerializer,
+        responses={201: CommentSerializer()}
+    )
+    def post(self, request, *args, **kwargs):
+        return super().post(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         parent_id = self.kwargs.get('parent_id')
         parent = Comment.objects.get(id=parent_id)
@@ -355,9 +365,52 @@ class CommentLikeCreateView(generics.CreateAPIView):
     serializer_class = CommentLikeSerializer
     permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
+    @swagger_auto_schema(
+        operation_summary='Like or unlike a comment',
+        operation_description='Toggle like/unlike for a comment by comment_id. If already liked, it will unlike; if not liked, it will like.',
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                'is_like': openapi.Schema(type=openapi.TYPE_BOOLEAN, description='Like (true) or unlike (false)', default=True)
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Comment like toggled successfully.",
+                schema=CommentLikeSerializer()
+            ),
+            201: openapi.Response(
+                description="Comment liked successfully.",
+                schema=CommentLikeSerializer()
+            ),
+            400: openapi.Response(description="Validation Error"),
+            401: openapi.Response(description="Authentication Required")
+        }
+    )
+    def post(self, request, *args, **kwargs):
         comment_id = self.kwargs['comment_id']
-        serializer.save(profile=self.request.user.profile, comment_id=comment_id)
+        profile = self.request.user.profile
+        is_like = request.data.get('is_like', True)
+
+        # Try to find an existing like
+        existing_like = CommentLike.objects.filter(comment_id=comment_id, profile=profile).first()
+
+        if existing_like:
+            # If is_like is False or user wants to unlike, delete the like
+            if not is_like:
+                existing_like.delete()
+                return Response({'message': 'Comment unliked successfully.'}, status=status.HTTP_200_OK)
+            else:
+                return Response({'message': 'Comment already liked.'}, status=status.HTTP_200_OK)
+        else:
+            # If is_like is True or not provided, create a like
+            if is_like:
+                serializer = self.get_serializer(data={'comment': comment_id, 'is_like': True})
+                serializer.is_valid(raise_exception=True)
+                serializer.save(profile=profile)
+                return Response(serializer.data, status=status.HTTP_201_CREATED)
+            else:
+                return Response({'message': 'Comment is not liked yet.'}, status=status.HTTP_400_BAD_REQUEST)
 
 class CommentDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -365,8 +418,8 @@ class CommentDeleteView(generics.DestroyAPIView):
     lookup_field = 'id'
 
     @swagger_auto_schema(
-        operation_summary='Delete a comment',
-        operation_description='Delete a comment (only the comment author can delete their own comments)',
+        operation_summary='Delete a comment or reply',
+        operation_description='Delete a comment or reply by its ID (only the author can delete).',
         responses={
             204: openapi.Response(
                 description="Comment deleted successfully",
@@ -418,3 +471,36 @@ class ProfileFollowCountsView(APIView):
             "follower_count": follower_count,
             "following_count": following_count
         })
+
+class CommentRepliesListView(generics.ListAPIView):
+    serializer_class = CommentSerializer
+    permission_classes = [permissions.AllowAny]  # or IsAuthenticated if needed
+
+    @swagger_auto_schema(
+        operation_summary='List replies to a comment',
+        operation_description='Get all replies for a specific comment by parent_id',
+        responses={200: CommentSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
+        """List replies to a comment"""
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        parent_id = self.kwargs['parent_id']
+        return Comment.objects.filter(parent_id=parent_id).order_by('created_at')
+
+class CommentLikeListView(generics.ListAPIView):
+    serializer_class = CommentLikeSerializer
+    permission_classes = [permissions.AllowAny]  # or IsAuthenticated if you want
+
+    @swagger_auto_schema(
+        operation_summary='List likes for a comment',
+        operation_description='Get all likes for a specific comment by comment_id',
+        responses={200: CommentLikeSerializer(many=True)}
+    )
+    def get(self, request, *args, **kwargs):
+        return super().get(request, *args, **kwargs)
+
+    def get_queryset(self):
+        comment_id = self.kwargs['comment_id']
+        return CommentLike.objects.filter(comment_id=comment_id)
