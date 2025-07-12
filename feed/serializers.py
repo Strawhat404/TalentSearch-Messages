@@ -115,7 +115,7 @@ class CommentSerializer(serializers.ModelSerializer):
         return CommentReplyMiniSerializer(replies_qs, many=True).data
 
 class CommentLikeSerializer(serializers.ModelSerializer):
-    profile = ProfileSerializer(read_only=True)
+    profile = ProfileIdSerializer(read_only=True)
 
     class Meta:
         model = CommentLike
