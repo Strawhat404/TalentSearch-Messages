@@ -86,7 +86,8 @@ class CommentReplySerializer(serializers.ModelSerializer):
         ]
 
 class CommentSerializer(serializers.ModelSerializer):
-    profile = ProfileIdSerializer(read_only=True)
+    profile = ProfileSerializer(read_only=True)
+    profile_name = serializers.CharField(source='profile.name', read_only=True)
     replies = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
@@ -95,10 +96,10 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            'id', 'content', 'created_at', 'profile', 'parent', 'post',
+            'id', 'content', 'created_at', 'profile', 'profile_name', 'parent', 'post',
             'likes_count', 'user_has_liked', 'replies_count', 'replies'
         ]
-        read_only_fields = ['id', 'created_at', 'profile']
+        read_only_fields = ['id', 'created_at', 'profile', 'profile_name']
 
     def get_likes_count(self, obj):
         return obj.likes.count()
@@ -112,15 +113,16 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_replies(self, obj):
         replies_qs = obj.replies.all()[:2]  # or whatever limit you want
-        return CommentReplyMiniSerializer(replies_qs, many=True).data
+        return CommentReplySerializer(replies_qs, many=True).data
 
 class CommentLikeSerializer(serializers.ModelSerializer):
-    profile = ProfileIdSerializer(read_only=True)
+    profile = ProfileSerializer(read_only=True)
+    profile_name = serializers.CharField(source='profile.name', read_only=True)
 
     class Meta:
         model = CommentLike
-        fields = ['id', 'comment', 'profile', 'is_like', 'created_at']
-        read_only_fields = ['id', 'profile', 'created_at']
+        fields = ['id', 'comment', 'profile', 'profile_name', 'is_like', 'created_at']
+        read_only_fields = ['id', 'profile', 'profile_name', 'created_at']
 
 class CommentCreateSerializer(serializers.ModelSerializer):
     class Meta:
