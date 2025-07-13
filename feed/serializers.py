@@ -77,16 +77,30 @@ class ProfileIdSerializer(serializers.ModelSerializer):
         fields = ['id']
 
 class CommentReplySerializer(serializers.ModelSerializer):
-    profile = ProfileIdSerializer(read_only=True)
+    profile_id = serializers.IntegerField(source='profile.id', read_only=True)
+    profile_name = serializers.CharField(source='profile.name', read_only=True)
+    likes_count = serializers.SerializerMethodField()
+    user_has_liked = serializers.SerializerMethodField()
+
     class Meta:
         model = Comment
         fields = [
-            'id', 'content', 'created_at', 'profile', 'parent', 'post',
-            'likes_count', 'user_has_liked'
+            'id', 'content', 'created_at', 'profile_id', 'profile_name',
+            'parent', 'post', 'likes_count', 'user_has_liked'
         ]
 
+    def get_likes_count(self, obj):
+        return obj.likes.count()
+
+    def get_user_has_liked(self, obj):
+        user = self.context['request'].user
+        if user.is_authenticated:
+            return obj.likes.filter(profile=user.profile).exists()
+        return False
+
 class CommentSerializer(serializers.ModelSerializer):
-    profile = ProfileIdSerializer(read_only=True)
+    profile_id = serializers.IntegerField(source='profile.id', read_only=True)
+    profile_name = serializers.CharField(source='profile.name', read_only=True)
     replies = serializers.SerializerMethodField()
     likes_count = serializers.SerializerMethodField()
     user_has_liked = serializers.SerializerMethodField()
@@ -95,10 +109,13 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = [
-            'id', 'content', 'created_at', 'profile', 'parent', 'post',
+            'id', 'content', 'created_at', 'profile_id', 'profile_name',
+            'parent', 'post', 'likes_count', 'user_has_liked', 'replies_count', 'replies'
+        ]
+        read_only_fields = [
+            'id', 'created_at', 'profile_id', 'profile_name',
             'likes_count', 'user_has_liked', 'replies_count', 'replies'
         ]
-        read_only_fields = ['id', 'created_at', 'profile']
 
     def get_likes_count(self, obj):
         return obj.likes.count()
@@ -112,7 +129,7 @@ class CommentSerializer(serializers.ModelSerializer):
 
     def get_replies(self, obj):
         replies_qs = obj.replies.all()[:2]  # or whatever limit you want
-        return CommentReplyMiniSerializer(replies_qs, many=True).data
+        return CommentReplySerializer(replies_qs, many=True, context=self.context).data
 
 class CommentLikeSerializer(serializers.ModelSerializer):
     profile = ProfileSerializer(read_only=True)
