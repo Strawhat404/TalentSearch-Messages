@@ -3,8 +3,30 @@ from django.contrib.auth import get_user_model
 from .models import UserRating
 from userprofile.models import Profile, ProfessionsAndSkills
 from django.core.files.storage import default_storage
+import re
+from django.utils.html import strip_tags
+import bleach
 
 User = get_user_model()
+
+def sanitize_text(value):
+    """
+    Sanitize text using bleach to remove HTML tags, JS, and XSS, with additional character cleaning.
+    """
+    if not value or not isinstance(value, str):
+        return ""
+    # Use bleach to aggressively sanitize, removing all tags, attributes, and scripts
+    value = bleach.clean(value, tags=[], attributes={}, strip=True, protocols=['http', 'https'])
+    # Additional regex to catch any remaining XSS patterns
+    value = re.sub(r'alert\s*\(.*?\)', '', value, flags=re.IGNORECASE)
+    value = re.sub(r'<script.*?>.*?</script>', '', value, flags=re.IGNORECASE | re.DOTALL)
+    value = re.sub(r'on\w+\s*=\s*["\'].*?["\']', '', value, flags=re.IGNORECASE)
+    value = re.sub(r'javascript\s*:', '', value, flags=re.IGNORECASE)
+    value = re.sub(r'eval\s*\(.*?\)', '', value, flags=re.IGNORECASE)
+    value = re.sub(r'expression\s*\(.*?\)', '', value, flags=re.IGNORECASE)
+    # Remove remaining special characters
+    value = re.sub(r'[<>%&*{}[\]|\\^`~]', '', value)
+    return value.strip()
 
 class RaterProfileSerializer(serializers.ModelSerializer):
     photo_url = serializers.SerializerMethodField()
@@ -82,6 +104,14 @@ class UserRatingSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Rating must be an integer between 1 and 5.")
         return value
 
+    def validate_feedback(self, value):
+        """
+        Ensure feedback is sanitized if provided.
+        """
+        if value is not None:
+            return sanitize_text(value)
+        return value
+
     def validate(self, data):
         """
         Ensure rater_profile_id and rated_profile_id are consistent with their users.
@@ -120,4 +150,12 @@ class UserRatingUpdateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("rating cannot be blank.")
         if not isinstance(value, int) or value < 1 or value > 5:
             raise serializers.ValidationError("Rating must be an integer between 1 and 5.")
+        return value
+
+    def validate_feedback(self, value):
+        """
+        Ensure feedback is sanitized if provided.
+        """
+        if value is not None:
+            return sanitize_text(value)
         return value

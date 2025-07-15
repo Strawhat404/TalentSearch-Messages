@@ -11,6 +11,7 @@ def trigger_feed_post_notification(sender, instance, created, **kwargs):
         logger = logging.getLogger(__name__)
         logger.info(f"Triggering notification for new feed post ID: {instance.id}")
         notify_new_feed_posted(instance)
+
 @receiver(post_save, sender=FeedLike)
 def trigger_like_notification(sender, instance, created, **kwargs):
     if created:
@@ -18,7 +19,8 @@ def trigger_like_notification(sender, instance, created, **kwargs):
         # Notify the post author
         post_author = instance.post.profile.user
         author_name = instance.profile.name or instance.profile.user.email
-        notify_new_like(user=post_author, content_type="feed post", author_name=author_name)
+        if post_author != instance.profile.user:
+            notify_new_like(user=post_author, content_type="feed post", author_name=author_name)
 
 @receiver(post_save, sender=Comment)
 def trigger_comment_notification(sender, instance, created, **kwargs):
