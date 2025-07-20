@@ -12,6 +12,7 @@ from rest_framework.throttling import UserRateThrottle
 from django.core.exceptions import ValidationError
 from userprofile.models import Profile
 from authapp.services import notify_new_message  # Import the notification function
+from talentsearch.throttles import PerThreadMessageThrottle, PerThreadViewThrottle, PerMessageViewThrottle  # Use the central throttles
 
 
 class MessageThreadThrottle(UserRateThrottle):
@@ -93,7 +94,7 @@ class MessageThreadView(APIView):
 
 class MessageThreadDetailView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [MessageThreadThrottle]
+    throttle_classes = [PerThreadViewThrottle]
 
     def get_object(self, thread_id):
         try:
@@ -201,7 +202,11 @@ class MessageThreadDetailView(APIView):
 
 class MessageView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [MessageThreadThrottle]
+    # Use per-thread throttle for POST (message creation), thread throttle for others
+    def get_throttles(self):
+        if self.request.method == 'POST':
+            return [PerThreadMessageThrottle()]
+        return [MessageThreadThrottle()]
 
     def find_or_create_thread(self, sender_profile, receiver_profile):
         """
@@ -358,7 +363,7 @@ class MessageView(APIView):
 
 class MessageDetailView(APIView):
     permission_classes = [IsAuthenticated]
-    throttle_classes = [MessageThreadThrottle]
+    throttle_classes = [PerMessageViewThrottle]
 
     def get_object(self, message_id):
         """Get message object, ensuring user's profile has permission to access it"""
