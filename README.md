@@ -1,6 +1,6 @@
 # TalentSearch Platform - Backend
 
-A robust Django-based backend for a talent management and recruitment platform, designed to handle complex user profiles, authentication, and data management.
+A robust Django-based backend for a premier talent management and recruitment platform specifically designed for the movie industry. This platform facilitates seamless collaboration between production houses, casting directors, and various well-known artists, streamlining the process of discovering and managing top-tier talent. It is engineered to handle complex user profiles, secure authentication, and extensive data management for high-profile industry professionals.
 
 ## 🌟 Core Features
 
